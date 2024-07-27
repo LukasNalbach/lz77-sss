@@ -1,0 +1,12 @@
+[submodule "external/lz77"]
+    path = external/lz77
+    url = git@github.com:pdinklag/lz77.git
+[submodule "external/abseil-cpp"]
+	path = external/abseil-cpp
+	url = git@github.com:abseil/abseil-cpp.git
+[submodule "external/alx"]
+	path = external/alx
+	url = git@github.com:herlez/alx.git
+[submodule "external/fp"]
+	path = external/fp
+	url = git@github.com:pdinklag/fp.git
