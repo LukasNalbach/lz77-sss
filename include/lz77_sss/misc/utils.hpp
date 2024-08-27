@@ -11,15 +11,17 @@
 #include <unistd.h>
 
 #include <malloc_count/malloc_count.h>
+#include <rolling_hash/rolling_hash.hpp>
 
 using uint128_t = alx::rolling_hash::uint128_t;
 
-std::string random_repetitive_string(uint32_t max_size) {
+std::string random_repetitive_string(uint32_t min_size, uint32_t max_size) {
     std::random_device rd;
     std::mt19937 mt(rd());
     std::uniform_real_distribution<double> prob_distrib(0.0, 1.0);
     std::uniform_int_distribution<char> char_distrib(-128, 127);
-    uint32_t target_input_size = std::max<uint32_t>(max_size, 10000);
+    std::uniform_int_distribution<uint32_t> input_size_distrib(min_size, max_size);
+    uint32_t target_input_size = input_size_distrib(mt);
     enum string_construction_operation {new_character = 0, repetition = 1, run = 2};
     double repetition_repetitiveness = prob_distrib(mt);
     double run_repetitiveness = prob_distrib(mt);
@@ -98,12 +100,8 @@ std::string format_size(uint64_t B) {
     return size_str;
 }
 
-std::string format_threads(uint16_t p) {
-    if (p == 1) {
-        return "1 thread";
-    } else {
-        return std::to_string(p) + " threads";
-    }
+std::string format_throughput(uint64_t bytes, uint64_t ns) {
+    return std::to_string(1'000.0 * (bytes / (double) ns)) + " MB/s";
 }
 
 uint64_t time_diff_min(std::chrono::steady_clock::time_point t1, std::chrono::steady_clock::time_point t2) {
@@ -216,17 +214,20 @@ void no_init_resize(std::vector<std::tuple<T,T,T>>& vec, size_t size) {
 template <int64_t start, int64_t end, int64_t inc, class T>
 constexpr void for_constexpr(T&& f) {
     static_assert(inc != 0);
+    if constexpr (inc > 0 ? start < end : start > end) {
+        f(std::integral_constant<int64_t, start>());
+        for_constexpr<start + inc, end, inc>(f);
+    }
+}
 
-    if constexpr (inc > 0) {
-        if constexpr (start < end) {
-            f(std::integral_constant<int64_t, start>());
-            for_constexpr<start + inc, end, inc>(f);
-        }
-    } else {
-        if constexpr (start > end) {
-            f(std::integral_constant<int64_t, start>());
-            for_constexpr<start + inc, end, inc>(f);
-        }
+template <uint64_t start, uint64_t end, class T>
+constexpr void for_constexpr_pow(T&& f) {
+    static_assert(std::has_single_bit(start));
+    static_assert(std::has_single_bit(end));
+    static_assert(start <= end);
+    f(std::integral_constant<uint64_t, start>());
+    if constexpr (start < end) {
+        for_constexpr_pow<2 * start, end>(f);
     }
 }
 
@@ -245,7 +246,58 @@ constexpr decltype(auto) ith_val(Ts&&... vals) noexcept {
     return std::get<i>(std::forward_as_tuple(vals...));
 }
 
-template <typename pos_t, typename val_t>
+template <typename val_t, typename pos_t>
+pos_t bin_search_min_geq(val_t value, pos_t left, pos_t right, std::function<val_t(pos_t)> value_at) {
+    pos_t middle;
+
+    while (left != right) {
+        middle = left+(right-left)/2;
+
+        if (value <= value_at(middle)) {
+            right = middle;
+        } else {
+            left = middle+1;
+        }
+    }
+
+    return left;
+}
+
+template <typename val_t, typename pos_t>
+pos_t bin_search_max_lt(val_t value, pos_t left, pos_t right, std::function<val_t(pos_t)> value_at) {
+    pos_t middle;
+
+    while (left != right) {
+        middle = left+(right-left)/2+1;
+
+        if (value_at(middle) < value) {
+            left = middle;
+        } else {
+            right = middle-1;
+        }
+    }
+
+    return left;
+}
+
+template <typename val_t, typename pos_t>
+pos_t bin_search_max_geq(val_t value, pos_t left, pos_t right, std::function<val_t(pos_t)> value_at) {
+    pos_t middle;
+
+    while (left != right) {
+        middle = left+(right-left)/2+1;
+
+        if (value_at(middle) >= value) {
+            left = middle;
+        } else {
+            right = middle-1;
+        }
+    }
+
+    return left;
+}
+
+template <typename val_t, typename pos_t>
 pos_t bin_search_max_leq(val_t value, pos_t left, pos_t right, std::function<val_t(pos_t)> value_at) {
     pos_t middle;
 
@@ -260,4 +312,171 @@ pos_t bin_search_max_leq(val_t value, pos_t left, pos_t right, std::function<val
     }
 
     return left;
+}
+
+template<typename int_t, typename... Ts>
+constexpr int_t constexpr_sum(Ts&&... vals) {
+    int_t sum = 0;
+
+    for_constexpr<0, sizeof...(vals), 1>([&](auto i) {
+        sum += ith_val<i>(vals...);
+    });
+
+    return sum;
+}
+
+std::string random_alphanumeric_string(uint64_t length) {
+    static std::string possible_chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+
+    std::string str_rand;
+    str_rand.reserve(length);
+    
+    for (uint64_t i=0; i<length; i++) {
+        str_rand.push_back(possible_chars[std::rand()%possible_chars.size()]);
+    }
+
+    return str_rand;
+}
+
+enum direction {LEFT, RIGHT};
+
+template <typename val_t, typename pos_t, direction search_dir>
+pos_t exp_search_max_geq(val_t value, pos_t left, pos_t right, pos_t initial_step_size, std::function<val_t(pos_t)> value_at) {
+    if (right == left) {
+        return left;
+    }
+
+    pos_t cur_step_size = std::min<pos_t>(initial_step_size, right - left);
+
+    if constexpr (search_dir == LEFT) {
+        right -= cur_step_size;
+
+        while (value_at(right) < value) {
+            cur_step_size *= 2;
+
+            if (right < left + cur_step_size) {
+                cur_step_size = right - left;
+                right = left;
+                break;
+            }
+
+            right -= cur_step_size;
+        }
+
+        return bin_search_max_geq<val_t, pos_t>(value, right, right + cur_step_size - 1, value_at);
+    } else {
+        left += cur_step_size;
+
+        while (value_at(left) >= value) {
+            cur_step_size *= 2;
+
+            if (right < cur_step_size || right - cur_step_size < left) {
+                cur_step_size = right - left + 1;
+                left = right + 1;
+                break;
+            }
+
+            left += cur_step_size;
+        }
+
+        return bin_search_max_geq<val_t, pos_t>(value, left - cur_step_size, left - 1, value_at);
+    }
+}
+
+std::string format_query_throughput(uint64_t num_queries, uint64_t ns) {
+    std::string str;
+    double queries_per_ns = num_queries/(double)ns;
+
+    if (queries_per_ns < 0.000001) {
+        str = std::to_string(queries_per_ns*1000000000) + " queries/s";
+    } else if (queries_per_ns < 0.001) {
+        str = std::to_string(queries_per_ns*1000000) + " queries/ms";
+    } else if (queries_per_ns < 1) {
+        str = std::to_string(queries_per_ns*1000) + " queries/us";
+    } else {
+        str = std::to_string(queries_per_ns) + " queries/ns";
+    }
+
+    return str;
+}
+
+template<bool B, typename T>
+struct constexpr_case {
+    static constexpr bool value = B;
+    using type = T;
+};
+
+template <bool B, typename TrueF, typename FalseF>
+struct eval_if {
+    using type = typename TrueF::type;
+};
+
+template <typename TrueF, typename FalseF>
+struct eval_if<false, TrueF, FalseF> {
+    using type = typename FalseF::type;
+};    
+
+template <bool B, typename T, typename F>
+using eval_if_t = typename eval_if<B, T, F>::type;
+
+template<typename Head, typename... Tail>
+struct constexpr_switch {
+    using type = eval_if_t<Head::value, Head, constexpr_switch<Tail...>>;
+};
+
+template <typename T>
+struct constexpr_switch<T> {
+    using type = T;
+};
+
+template <bool B, typename T>
+struct constexpr_switch<constexpr_case<B, T>> {
+    static_assert(B, "!");
+    using type = T;
+};
+
+template<typename Head, typename... Tail>
+using constexpr_switch_t = typename constexpr_switch<Head, Tail...>::type;
+
+template<const auto &T, class = std::make_index_sequence<std::tuple_size<std::decay_t<decltype(T)>>::value>>
+struct make_integer_sequence;
+
+template<const auto &T, std::size_t ...Ts>
+struct make_integer_sequence<T, std::index_sequence<Ts...>> {
+    using type = std::integer_sequence<typename std::decay_t<decltype(T)>::value_type, T[Ts]...>;
+};
+
+template <typename int_t, int_t... seq>
+constexpr int_t int_seq_at(std::integer_sequence<int_t, seq...>, std::size_t i) {
+    return std::array<int_t, sizeof...(seq)>{seq...}[i];
+}
+
+template <typename uint_t>
+inline static uint_t log2_clz(const uint_t val) {
+    static_assert(std::is_same_v<uint_t, uint32_t> || std::is_same_v<uint_t, uint64_t>);
+    
+    if constexpr (std::is_same_v<uint_t, uint32_t>) {
+        return 32 - __builtin_clz(val);
+    } else {
+        return 64 - __builtin_clzl(val);
+    }
+}
+
+template <typename uint_t>
+inline static uint_t log2_clz_up(const uint_t val) {
+    static_assert(std::is_same_v<uint_t, uint32_t> || std::is_same_v<uint_t, uint64_t>);
+    uint_t lz;
+
+    if constexpr (std::is_same_v<uint_t, uint32_t>) {
+        lz = __builtin_clz(val);
+    } else {
+        lz = __builtin_clzl(val);
+    }
+
+    return (sizeof(uint_t) * 8 - lz) + ((val << lz) != 0);
+}
+
+template <typename uint_t>
+inline static uint_t div_ceil(const uint_t x, const uint_t y) {
+    return x == 0 ? 0 : (1 + (x - 1) / y);
 }

@@ -1,12 +1,11 @@
 #pragma once
 
-#include <lz77_sss_approx/lz77_sss_approx.hpp>
+#include <lz77_sss/lz77_sss.hpp>
 
 template <typename pos_t>
-template <factozize_mode fact_mode, phrase_mode phr_mode, uint64_t tau, typename out_it_t>
+template <uint64_t tau, typename out_it_t>
 template <pos_t... patt_lens>
-lz77_sss_approx<pos_t>::factor
-lz77_sss_approx<pos_t>::factorizer<fact_mode, phr_mode, tau, out_it_t>::longest_prev_occ(
+lz77_sss<pos_t>::factor lz77_sss<pos_t>::factorizer<tau, out_it_t>::longest_prev_occ(
     rolling_hash_index_107<pos_t, patt_lens...>& idx, pos_t pos, pos_t len_max
 ) {
     assert(idx.pos() == pos);
@@ -47,11 +46,11 @@ lz77_sss_approx<pos_t>::factorizer<fact_mode, phr_mode, tau, out_it_t>::longest_
 }
 
 template <typename pos_t>
-template <factozize_mode fact_mode, phrase_mode phr_mode, uint64_t tau, typename out_it_t>
-template <pos_t... patt_lens>
-void lz77_sss_approx<pos_t>::factorizer<fact_mode, phr_mode, tau, out_it_t>::factorize_greedy() {
+template <uint64_t tau, typename out_it_t>
+template <bool skip_phrases, pos_t... patt_lens>
+void lz77_sss<pos_t>::factorizer<tau, out_it_t>::factorize_greedy(out_it_t& out_it) {
     if (log) {
-        std::cout << "initializing compact index" << std::flush;
+        std::cout << "initializing rolling hash index" << std::flush;
     }
 
     rolling_hash_index_107<pos_t, patt_lens...> idx(T, target_index_size);
@@ -63,28 +62,40 @@ void lz77_sss_approx<pos_t>::factorizer<fact_mode, phr_mode, tau, out_it_t>::fac
     }
     
     pos_t cur_lpf = 0;
-    pos_t gap_start = 1;
-
-    if (num_lpf != 0 && LPF[0].beg == 0) {
-        cur_lpf = 1;
-    }
-
-    *out_it++ = factor{char_to_uchar(T[0]),0};
-    num_phr++;
-    idx.advance();
+    pos_t gap_start = 0;
     
     while (true) {
         pos_t gap_end = cur_lpf == num_lpf ? n : LPF[cur_lpf].beg;
 
-        while (gap_start < gap_end) {
-            factor f = longest_prev_occ(idx, gap_start, gap_end - gap_start);
-            *out_it++ = f;
-            num_phr++;
-            gap_start += std::max<pos_t>(1, f.len);
-
-            while (idx.pos() < gap_start) {
-                idx.advance();
+        if (gap_start < gap_end) {
+            if (idx.pos() < gap_start) {
+                if constexpr (skip_phrases) {
+                    if ((gap_start - idx.pos()) * (2 * sizeof...(patt_lens)) <
+                        constexpr_sum<pos_t>(patt_lens...)
+                    ) {
+                        while (idx.pos() < gap_start) {
+                            idx.roll();
+                        }
+                    } else {
+                        idx.reinit(gap_start);
+                    }
+                } else {
+                    while (idx.pos() < gap_start) {
+                        idx.advance();
+                    }
+                }
             }
+
+            do {
+                factor f = longest_prev_occ(idx, gap_start, gap_end - gap_start);
+                *out_it++ = f;
+                num_phr++;
+                gap_start += std::max<pos_t>(1, f.len);
+
+                while (idx.pos() < gap_start) {
+                    idx.advance();
+                }
+            } while (gap_start < gap_end);
         }
 
         if (gap_end == n) {
@@ -95,6 +106,15 @@ void lz77_sss_approx<pos_t>::factorizer<fact_mode, phr_mode, tau, out_it_t>::fac
             .src = LPF[cur_lpf].src,
             .len = LPF[cur_lpf].end - LPF[cur_lpf].beg
         };
+        
+        if (idx.pos() == gap_end) {
+            pos_t beg_nxt_lpf = cur_lpf + 1 == num_lpf ? n : LPF[cur_lpf + 1].beg;
+            factor f = longest_prev_occ(idx, gap_end, beg_nxt_lpf - gap_end);
+
+            if (f.len > lpf.len) {
+                lpf = f;
+            }
+        }
 
         #ifndef NDEBUG
         assert(lpf.src < gap_end);
@@ -104,33 +124,16 @@ void lz77_sss_approx<pos_t>::factorizer<fact_mode, phr_mode, tau, out_it_t>::fac
         }
         #endif
 
-        {
-            pos_t beg_nxt_lpf = cur_lpf + 1 == num_lpf ? n : LPF[cur_lpf + 1].beg;
-            factor f = longest_prev_occ(idx, gap_end, beg_nxt_lpf - gap_end);
-
-            if (f.len > lpf.len) {
-                lpf = f;
-            }
-        }
-
         *out_it++ = lpf;
         num_phr++;
         gap_start += std::max<pos_t>(1, lpf.len);
-
-        idx.reinit(gap_start);
-        /*
-        while (idx.pos() < gap_start) {
-            idx.advance();
-        }
-        */
-
         cur_lpf++;
     }
 
     if (log) {
         time = log_runtime(time);
         #ifndef NDEBUG
-        std::cout << "rate of initialized values in the compact index: " << idx.rate_init() << std::endl;
+        std::cout << "rate of initialized values in the rolling hash index: " << idx.rate_init() << std::endl;
         #endif
     }
 }
