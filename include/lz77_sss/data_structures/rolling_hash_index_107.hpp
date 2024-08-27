@@ -1,7 +1,6 @@
 #pragma once
 
-#include <rolling_hash/rolling_hash.hpp>
-#include <lz77_sss_approx/misc/utils.hpp>
+#include <lz77_sss/misc/utils.hpp>
 
 template <typename pos_t, pos_t... patt_lens>
 class rolling_hash_index_107 {
@@ -57,16 +56,30 @@ class rolling_hash_index_107 {
     }
 
     template <pos_t patt_len_idx>
+    inline void roll() {
+        constexpr pos_t patt_len = ith_val<patt_len_idx>(patt_lens...);
+
+        rolling_hash[patt_len_idx]->roll(
+            char_to_uchar(input[cur_pos]),
+            char_to_uchar(input[cur_pos + patt_len])
+        );
+    }
+
+    inline void roll() {
+        for_constexpr<0, num_patt_lens, 1>([&](auto patt_len_idx) {
+            roll<patt_len_idx>();
+        });
+
+        cur_pos++;
+    }
+
+    template <pos_t patt_len_idx>
     inline void advance() {
         constexpr pos_t patt_len = ith_val<patt_len_idx>(patt_lens...);
 
         if (cur_pos + patt_len < input.size()) {
             H[rolling_hash[patt_len_idx]->get_fp() & h_mod_mask] = cur_pos;
-
-            rolling_hash[patt_len_idx]->roll(
-                char_to_uchar(input[cur_pos]),
-                char_to_uchar(input[cur_pos + patt_len])
-            );
+            roll<patt_len_idx>();
         }
     }
 
@@ -87,10 +100,7 @@ class rolling_hash_index_107 {
         H[h_pos] = cur_pos;
 
         if (cur_pos + patt_len < input.size()) {
-            rolling_hash[patt_len_idx]->roll(
-                char_to_uchar(input[cur_pos]),
-                char_to_uchar(input[cur_pos + patt_len])
-            );
+            roll<patt_len_idx>();
         }
 
         return occ;

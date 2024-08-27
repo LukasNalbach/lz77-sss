@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION "3.10.2")
 set (CMAKE_CXX_STANDARD 20)
-project (lz77_sss_approx LANGUAGES C CXX)
+project (lz77_sss LANGUAGES C CXX)
 
 if(NOT CMAKE_BUILD_TYPE)
   message(STATUS "Setting build type to 'Release' as none was specified.")
@@ -9,21 +9,17 @@ endif()
 
 message("Building in ${CMAKE_BUILD_TYPE} mode")
 
-set(lz77_sss_approx_debug_flags "-Wall -Wextra -Wpedantic -ggdb")
-set(lz77_sss_approx_release_flags "-w -march=native -DNDEBUG")
+set(lz77_sss_debug_flags "-Wall -Wextra -Wpedantic -ggdb")
+set(lz77_sss_release_flags "-w -march=native -DNDEBUG")
 
-set(CMAKE_CXX_FLAGS_DEBUG           "${lz77_sss_approx_debug_flags} -O0")
-set(CMAKE_CXX_FLAGS_RELEASE         "${lz77_sss_approx_release_flags} -Ofast")
-set(CMAKE_CXX_FLAGS_MINSIZEREL      "${lz77_sss_approx_release_flags} -Os")
-set(CMAKE_CXX_FLAGS_RELWITHDEBINFO  "${lz77_sss_approx_debug_flags} -Ofast")
+set(CMAKE_CXX_FLAGS_DEBUG           "${lz77_sss_debug_flags} -O0")
+set(CMAKE_CXX_FLAGS_RELEASE         "${lz77_sss_release_flags} -Ofast")
+set(CMAKE_CXX_FLAGS_MINSIZEREL      "${lz77_sss_release_flags} -Os")
+set(CMAKE_CXX_FLAGS_RELWITHDEBINFO  "${lz77_sss_debug_flags} -Ofast")
 
-option(LZ77_SSS_APRX_BUILD_BENCH_CLI "Build the benchmark cli program" ON)
-option(LZ77_SSS_APRX_BUILD_EXAMPLES "Build the example programs" ON)
-option(LZ77_SSS_APRX_BUILD_TESTS "Build tests" ON)
-
-# abseil
-set(ABSL_PROPAGATE_CXX_STD ON CACHE BOOL "" FORCE)
-add_subdirectory("${CMAKE_SOURCE_DIR}/external/abseil-cpp/")
+option(LZ77_SSS_BUILD_BENCH_CLI "Build the benchmark cli program" ON)
+option(LZ77_SSS_BUILD_EXAMPLES "Build the example programs" ON)
+option(LZ77_SSS_BUILD_TESTS "Build tests" ON)
 
 # lz77
 add_subdirectory("${CMAKE_SOURCE_DIR}/external/lz77/")
@@ -34,6 +30,21 @@ add_subdirectory("${CMAKE_SOURCE_DIR}/external/alx/")
 # fp
 add_subdirectory("${CMAKE_SOURCE_DIR}/external/fp/")
 
+# sparse-map
+add_subdirectory("${CMAKE_SOURCE_DIR}/external/sparse-map/")
+
+# gtl
+add_subdirectory("${CMAKE_SOURCE_DIR}/external/gtl/")
+
+# sdsl
+set(CMAKE_WARN_DEPRECATED OFF CACHE BOOL "" FORCE)
+add_subdirectory("${CMAKE_SOURCE_DIR}/external/sdsl-lite/")
+set_target_properties(
+  uninstall-sdsl uninstall divsufsort divsufsort64
+  PROPERTIES EXCLUDE_FROM_ALL 1 EXCLUDE_FROM_DEFAULT_BUILD 1
+)
+target_include_directories(sdsl PUBLIC "${CMAKE_BINARY_DIR}/external/sdsl-lite/external/libdivsufsort/include/")
+
 set_target_properties(
   ips4o_example benchmark_lce benchmark_pred benchmark_ss
   gen_sss genqueries test_lce test_pred test_rmq
@@ -41,28 +52,43 @@ set_target_properties(
   PROPERTIES EXCLUDE_FROM_ALL 1 EXCLUDE_FROM_DEFAULT_BUILD 1
 )
 
-# lz77_sss_approx
-add_library(lz77_sss_approx INTERFACE)
-target_include_directories(lz77_sss_approx INTERFACE "${CMAKE_SOURCE_DIR}/include/")
-target_link_libraries(lz77_sss_approx INTERFACE ips4o malloc_count absl::btree alx_rolling_hash alx_lce lz77 fp)
-# semidynamic-compact-index OnlineRlbwt gtl
+# lz77_sss
+add_library(lz77_sss INTERFACE)
+target_include_directories(lz77_sss INTERFACE "${CMAKE_SOURCE_DIR}/include/")
+target_link_libraries(lz77_sss INTERFACE ips4o malloc_count alx_rolling_hash alx_lce lz77 fp sparse_map sdsl gtl)
 
-if(LZ77_SSS_APRX_BUILD_BENCH_CLI)
-  add_executable(lz77_sss_approx_bench "${CMAKE_SOURCE_DIR}/cli/bench.cpp")
-  target_link_libraries(lz77_sss_approx_bench PRIVATE lz77_sss_approx)
+if(LZ77_SSS_BUILD_BENCH_CLI)
+  add_executable(lz77_sss_bench "${CMAKE_SOURCE_DIR}/cli/lz77_sss_bench.cpp")
+  target_link_libraries(lz77_sss_bench PRIVATE lz77_sss)
 endif()
 
-if(LZ77_SSS_APRX_BUILD_EXAMPLES)
-  add_executable(lz77_sss_approx_example "${CMAKE_SOURCE_DIR}/examples/example.cpp")
-  target_link_libraries(lz77_sss_approx_example PRIVATE lz77_sss_approx)
+if(LZ77_SSS_BUILD_EXAMPLES)
+  add_executable(lz77_sss_example "${CMAKE_SOURCE_DIR}/examples/example.cpp")
+  target_link_libraries(lz77_sss_example PRIVATE lz77_sss)
 endif()
 
-if(LZ77_SSS_APRX_BUILD_TESTS)
+if(LZ77_SSS_BUILD_TESTS)
   enable_testing()
   include(GoogleTest)
   include(Dart)
 
-  add_executable(test-lz77_sss_aprx "${CMAKE_SOURCE_DIR}/tests/test.cpp")
-  target_link_libraries(test-lz77_sss_aprx PRIVATE gtest_main lz77_sss_approx)
-  gtest_discover_tests(test-lz77_sss_aprx)
+  add_executable(test-lz77_sss "${CMAKE_SOURCE_DIR}/tests/test_lz77_sss.cpp")
+  target_link_libraries(test-lz77_sss PRIVATE gtest_main lz77_sss)
+  gtest_discover_tests(test-lz77_sss)
+
+  add_executable(test-sample_index "${CMAKE_SOURCE_DIR}/tests/test_sample_index.cpp")
+  target_link_libraries(test-sample_index PRIVATE gtest_main lz77_sss)
+  gtest_discover_tests(test-sample_index)
+
+  # add_executable(test-test_dynamic_range_queries "${CMAKE_SOURCE_DIR}/tests/test_dynamic_range_queries.cpp")
+  # target_link_libraries(test-test_dynamic_range_queries PRIVATE gtest_main lz77_sss)
+  # gtest_discover_tests(test-test_dynamic_range_queries)
+
+  add_executable(test-static_weighted_range_queries "${CMAKE_SOURCE_DIR}/tests/test_static_weighted_range_queries.cpp")
+  target_link_libraries(test-static_weighted_range_queries PRIVATE gtest_main lz77_sss)
+  gtest_discover_tests(test-static_weighted_range_queries)
+
+  add_executable(test-rk61_substring "${CMAKE_SOURCE_DIR}/tests/test_rk61_substring.cpp")
+  target_link_libraries(test-rk61_substring PRIVATE gtest_main lz77_sss)
+  gtest_discover_tests(test-rk61_substring)
 endif()

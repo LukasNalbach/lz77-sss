@@ -1,13 +1,13 @@
 #pragma once
 
-#include <lz77_sss_approx/lz77_sss_approx.hpp>
+#include <lz77_sss/lz77_sss.hpp>
 
 template <typename pos_t>
-template <factozize_mode fact_mode, phrase_mode phr_mode, uint64_t tau, typename out_it_t>
+template <uint64_t tau, typename out_it_t>
 template <pos_t... patt_lens>
-void lz77_sss_approx<pos_t>::factorizer<fact_mode, phr_mode, tau, out_it_t>::factorize_blockwise_optimal() {
+void lz77_sss<pos_t>::factorizer<tau, out_it_t>::factorize_blockwise_optimal(out_it_t& out_it) {
     if (log) {
-        std::cout << "initializing compact index" << std::flush;
+        std::cout << "initializing rolling hash index" << std::flush;
     }
 
     rolling_hash_index_107<pos_t, patt_lens...> idx(T, target_index_size);
@@ -114,7 +114,7 @@ void lz77_sss_approx<pos_t>::factorizer<fact_mode, phr_mode, tau, out_it_t>::fac
     if (log) {
         time = log_runtime(time);
         #ifndef NDEBUG
-        std::cout << "rate of initialized values in the compact index: " << idx.rate_init() << std::endl;
+        std::cout << "rate of initialized values in the rolling hash index: " << idx.rate_init() << std::endl;
         #endif
     }
 }
