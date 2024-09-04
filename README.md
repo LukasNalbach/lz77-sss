@@ -1,5 +1,5 @@
-# LZ77-SSS-Approximations
-This repository contains implementations of Lempel-Ziv 77 (LZ77) approximation algorithms based on string synchronizing sets [1].
+# LZ77-SSS Algorithms
+This repository contains implementations of Lempel-Ziv 77 (LZ77) algorithms based on string synchronizing sets [1].
 
 ## Usage in C++
 ### Cmake
@@ -20,18 +20,16 @@ int main() {
     std::string input = random_repetitive_string(10000, 10000000);
     std::cout << "input size: " << input.size() << std::endl;
 
-    // compute the factorization
-    auto factorization = lz77_sss<>::factorize(input);
+    // compute an approximate LZ77 factorization
+    auto factorization = lz77_sss<>::factorize_approximate<>(input);
     std::cout << "number of factors: " << factorization.size() << std::endl;
     std::cout << "compression ratio: " << input.size() / (double) factorization.size() << std::endl;
 
     // decode the factorization
-    auto input_decoded = lz77_sss<>::decode(factorization, input.size());
+    auto input_decodeed = lz77_sss<>::decode(factorization, input.size());
 
     // compute the exact LZ77 factorization to get the approximation ratio
-    std::vector<lz77::Factor> exact_factorization;
-    lz77::LPFFactorizer().factorize(input.begin(), input.end(),
-        std::back_insert_iterator(exact_factorization));
+    auto exact_factorization = lz77_sss<>::factorize_exact<>(input);
     std::cout << "approximation ratio: "
         << factorization.size() / (double) exact_factorization.size() << std::endl;
 }

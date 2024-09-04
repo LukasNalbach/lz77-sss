@@ -2,27 +2,32 @@
 
 #include <lz77_sss/misc/utils.hpp>
 
-template <typename pos_t, pos_t... patt_lens>
+template <typename pos_t, uint8_t num_patt_lens>
 class rolling_hash_index_107 {
     protected:
 
     using rolling_hash_t = alx::rolling_hash::rk_prime<107>;
     using fingerprint_t = uint128_t;
-    static constexpr uint8_t num_patt_lens = sizeof...(patt_lens);
-    std::string dummy_input;
-    const std::string& input;
+    const char* input = nullptr;
+    pos_t input_size = 0;
+    const std::array<pos_t, num_patt_lens> patt_lens;
     rolling_hash_t* rolling_hash[num_patt_lens] = {nullptr};
     std::vector<pos_t> H;
     fingerprint_t h_mod_mask = 0;
     pos_t cur_pos = 0;
 
     public:
-    rolling_hash_index_107() : input(dummy_input) {}
+    rolling_hash_index_107() = default;
 
-    rolling_hash_index_107(const std::string& input, uint64_t target_size_in_bytes) : input(input) {
+    rolling_hash_index_107(
+        const char* input, pos_t size,
+        const std::array<pos_t, num_patt_lens> patt_lens,
+        uint64_t target_size_in_bytes
+    ) : input(input), input_size(size), patt_lens(patt_lens) {
         uint64_t target_size_h = std::max<int64_t>(
-            int64_t{(input.size() / sizeof(pos_t)) / 5},
-            (int64_t{target_size_in_bytes} - int64_t{sizeof(rolling_hash_t) * num_patt_lens}) / int64_t{sizeof(pos_t)});
+            int64_t{(input_size / sizeof(pos_t)) / 5},
+            (int64_t{target_size_in_bytes} - int64_t{sizeof(rolling_hash_t) *
+                num_patt_lens}) / int64_t{sizeof(pos_t)});
         uint8_t log2_size_h = std::round(std::log2(target_size_h));
         pos_t size_h = 1 << log2_size_h;
         h_mod_mask = size_h - 1;
@@ -30,8 +35,8 @@ class rolling_hash_index_107 {
         std::fill(H.begin(), H.end(), std::numeric_limits<pos_t>::max());
 
         for_constexpr<0, num_patt_lens, 1>([&](auto patt_len_idx) {
-            constexpr pos_t patt_len = ith_val<patt_len_idx>(patt_lens...);
-            rolling_hash[patt_len_idx] = new rolling_hash_t(fingerprint_t{patt_len});
+            rolling_hash[patt_len_idx] = new rolling_hash_t(
+                fingerprint_t{patt_lens[patt_len_idx]});
         });
 
         reinit(0);
@@ -40,28 +45,25 @@ class rolling_hash_index_107 {
     inline void reinit(pos_t pos) {
         cur_pos = pos;
 
-        for_constexpr<0, num_patt_lens, 1>([&](auto patt_len_idx) {
-            rolling_hash[patt_len_idx]->reset();
-            init<patt_len_idx>();
+        for_constexpr<0, num_patt_lens, 1>([&](auto i) {
+            rolling_hash[i]->reset();
+            init<i>();
         });
     }
     
     template <pos_t patt_len_idx>
     inline void init() {
-        constexpr pos_t patt_len = ith_val<patt_len_idx>(patt_lens...);
-
-        for_constexpr<0, patt_len, 1>([&](auto i){
-            rolling_hash[patt_len_idx]->roll_in(char_to_uchar(input[cur_pos + i]));
-        });
+        for (pos_t i = 0; i < patt_lens[patt_len_idx]; i++) {
+            rolling_hash[patt_len_idx]->roll_in(
+                char_to_uchar(input[cur_pos + i]));
+        }
     }
 
     template <pos_t patt_len_idx>
     inline void roll() {
-        constexpr pos_t patt_len = ith_val<patt_len_idx>(patt_lens...);
-
         rolling_hash[patt_len_idx]->roll(
             char_to_uchar(input[cur_pos]),
-            char_to_uchar(input[cur_pos + patt_len])
+            char_to_uchar(input[cur_pos + patt_lens[patt_len_idx]])
         );
     }
 
@@ -75,9 +77,7 @@ class rolling_hash_index_107 {
 
     template <pos_t patt_len_idx>
     inline void advance() {
-        constexpr pos_t patt_len = ith_val<patt_len_idx>(patt_lens...);
-
-        if (cur_pos + patt_len < input.size()) {
+        if (cur_pos + patt_lens[patt_len_idx] < input_size) {
             H[rolling_hash[patt_len_idx]->get_fp() & h_mod_mask] = cur_pos;
             roll<patt_len_idx>();
         }
@@ -93,13 +93,11 @@ class rolling_hash_index_107 {
 
     template <pos_t patt_len_idx>
     inline pos_t advance_and_get_occ() {
-        constexpr pos_t patt_len = ith_val<patt_len_idx>(patt_lens...);
-
         fingerprint_t h_pos = rolling_hash[patt_len_idx]->get_fp() & h_mod_mask;
         pos_t occ = H[h_pos];
         H[h_pos] = cur_pos;
 
-        if (cur_pos + patt_len < input.size()) {
+        if (cur_pos + patt_lens[patt_len_idx] < input_size) {
             roll<patt_len_idx>();
         }
 
@@ -120,7 +118,7 @@ class rolling_hash_index_107 {
         pos_t num_init = 0;
 
         for (pos_t i = 0; i < H.size(); i++) {
-            if (H[i] < input.size()) {
+            if (H[i] < input_size) {
                 num_init++;
             }
         }

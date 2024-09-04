@@ -1,9 +1,9 @@
 #pragma once
 
 template <typename pos_t>
-template <uint64_t tau, typename out_it_t>
-template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t>
-void lz77_sss<pos_t>::factorizer<tau, out_it_t>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::build_c(std::istream_iterator<factor>& ifile_approx_it) {
+template <uint64_t tau>
+template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t, typename out_it_t>
+void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, range_ds_t, out_it_t>::build_c(std::istream_iterator<factor>& ifile_approx_it) {
     if (log) {
         std::cout << "setting delta = " << delta << std::endl;
         std::cout << "building C" << std::flush;
@@ -37,9 +37,9 @@ void lz77_sss<pos_t>::factorizer<tau, out_it_t>::exact_factorizer<sidx_t, transf
 }
 
 template <typename pos_t>
-template <uint64_t tau, typename out_it_t>
-template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t>
-void lz77_sss<pos_t>::factorizer<tau, out_it_t>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::build_idx_C() {
+template <uint64_t tau>
+template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t, typename out_it_t>
+void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, range_ds_t, out_it_t>::build_idx_C() {
     if (log) {
         std::cout << "building sample-index for C:" << std::endl;
     }
@@ -53,11 +53,11 @@ void lz77_sss<pos_t>::factorizer<tau, out_it_t>::exact_factorizer<sidx_t, transf
 }
 
 template <typename pos_t>
-template <uint64_t tau, typename out_it_t>
-template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t>
-void lz77_sss<pos_t>::factorizer<tau, out_it_t>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::build_p() {
+template <uint64_t tau>
+template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t, typename out_it_t>
+void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, range_ds_t, out_it_t>::build_p() {
     if (log) {
-        std::cout << "computing P" << std::flush;
+        std::cout << "building P" << std::flush;
     }
 
     P.reserve(c);
@@ -82,11 +82,11 @@ void lz77_sss<pos_t>::factorizer<tau, out_it_t>::exact_factorizer<sidx_t, transf
 }
 
 template <typename pos_t>
-template <uint64_t tau, typename out_it_t>
-template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t>
-void lz77_sss<pos_t>::factorizer<tau, out_it_t>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::build_ps_sp() {
+template <uint64_t tau>
+template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t, typename out_it_t>
+void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, range_ds_t, out_it_t>::build_ps_sp() {
     if (log) {
-        std::cout << "computing PS and SP" << std::flush;
+        std::cout << "building PS and SP" << std::flush;
     }
     
     PS.reserve(c);
@@ -108,9 +108,9 @@ void lz77_sss<pos_t>::factorizer<tau, out_it_t>::exact_factorizer<sidx_t, transf
 }
 
 template <typename pos_t>
-template <uint64_t tau, typename out_it_t>
-template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t>
-void lz77_sss<pos_t>::factorizer<tau, out_it_t>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::adjust_sample_index(sidx_t& idx, pos_t pos) {
+template <uint64_t tau>
+template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t, typename out_it_t>
+void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, range_ds_t, out_it_t>::adjust_sample_index(sidx_t& idx, pos_t pos) {
     while (idx < c && C[idx] < pos) {
         idx++;
     }

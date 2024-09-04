@@ -15,7 +15,7 @@ class rk61_substring {
 
     const char* T;
     uint64_t n;
-    uint64_t b;
+    uint128_t b;
     uint64_t s;
     uint64_t w;
     uint128_t pop_prec[256] = {};
@@ -36,6 +36,18 @@ class rk61_substring {
                    uint128_t{bp_leq_s[offs_exp]});
     }
 
+    inline static uint64_t pow(uint64_t b, uint64_t exp) {
+        uint64_t res = 1;
+        while(exp > 0) {
+            if(exp & 1ULL) {
+                res = mod(uint128_t(b) * res);
+            }
+            b = mod(uint128_t(b) * b);
+            exp >>= 1;
+        }
+        return res;
+    }
+
     public:
 
     rk61_substring() = default;
@@ -47,7 +59,7 @@ class rk61_substring {
     ) : T(T.data()), n(T.size()), s(s), w(w) {
         std::random_device rd;
         std::mt19937_64 mt(rd());
-        std::uniform_int_distribution<uint64_t> distrib(257, p61);
+        std::uniform_int_distribution<uint128_t> distrib(257, p61);
         b = distrib(mt);
         const uint64_t n_s = div_ceil<uint64_t>(n, s);
         no_init_resize(bp_leq_s, s + 1);
@@ -56,11 +68,19 @@ class rk61_substring {
         bp_stp_s[0] = 1;
 
         for (uint64_t i = 1; i <= s; i++) {
-            bp_leq_s[i] = mod(uint128_t{bp_leq_s[i - 1]} * uint128_t{b});
+            bp_leq_s[i] = mod(uint128_t{bp_leq_s[i - 1]} * b);
+
+            #ifndef NDEBUG
+            assert(bp_leq_s[i] == pow(b, i));
+            #endif
         }
 
         for (uint64_t i = 1; i < n_s; i++) {
             bp_stp_s[i] = mod(uint128_t{bp_stp_s[i - 1]} * uint128_t{bp_leq_s[s]});
+            
+            #ifndef NDEBUG
+            assert(bp_stp_s[i] == pow(b, s * i));
+            #endif
         }
 
         if (w != 0) {
@@ -84,6 +104,7 @@ class rk61_substring {
         for (uint64_t h = 1; h <= h_max; h++) {
             const uint64_t ch = h - 1;
             const uint64_t w_h = div_ceil<uint64_t>(n_s, 1 << h);
+            const uint64_t l_h = s * (1 << h);
             const uint64_t l_ch = s * (1 << ch);
             no_init_resize(fp_smpl_tree[h], w_h);
             uint64_t p_lc = 0;
@@ -95,6 +116,11 @@ class rk61_substring {
                     fp_smpl_tree[ch][p_rc],
                     l_ch
                 );
+
+                #ifndef NDEBUG
+                assert(fp_smpl_tree[h][i] ==
+                    substring_naive<>(i * l_h, l_h));
+                #endif
 
                 p_lc += 2;
                 p_rc += 2;
@@ -108,6 +134,11 @@ class rk61_substring {
                     fp_smpl_tree[ch][p_rc],
                     n - p_rc * l_ch
                 );
+
+                #ifndef NDEBUG
+                assert(fp_smpl_tree[h][w_h - 1] ==
+                    substring_naive<>((w_h - 1) * l_h, n - p_lc * l_ch));
+                #endif
             }
         }
     }
@@ -133,19 +164,11 @@ class rk61_substring {
     }
 
     inline uint64_t push(const uint64_t fp, const char push) const {
-        return mod(
-            uint128_t(b) * uint128_t(fp) +
-            uint128_t(char_to_uchar(push)) +
-            sq61
-        );
+        return mod(((b * uint128_t{fp}) + sq61) + uint128_t(char_to_uchar(push)));
     }
 
     inline uint64_t roll(const uint64_t fp, const char pop, const char push) const {
-        return mod(
-            uint128_t(b) * uint128_t(fp) +
-            uint128_t(char_to_uchar(push)) +
-            pop_prec[char_to_uchar(pop)]
-        );
+        return mod(((b * uint128_t{fp}) + pop_prec[char_to_uchar(pop)]) + uint128_t(char_to_uchar(push)));
     }
 
     inline uint64_t concat(const uint64_t fp_l, const uint64_t fp_r, const uint64_t len_r) const {
@@ -154,10 +177,7 @@ class rk61_substring {
 
     template <direction dir = RIGHT>
     inline uint64_t substring_naive(uint64_t pos, const uint64_t len) const {
-        if constexpr (dir == LEFT) {
-            pos -= len - 1;
-        }
-
+        if constexpr (dir == LEFT) pos -= len - 1;
         uint64_t fp = 0;
 
         for (uint64_t i = pos; i < pos + len; i++) {
