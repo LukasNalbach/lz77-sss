@@ -1,9 +1,9 @@
 #pragma once
 
 template <typename pos_t>
-template <uint64_t tau, typename out_it_t>
-template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t>
-void lz77_sss<pos_t>::factorizer<tau, out_it_t>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::transform_to_exact_naive(out_it_t& out_it) {
+template <uint64_t tau>
+template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t, typename out_it_t>
+void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, range_ds_t, out_it_t>::transform_to_exact_naive(out_it_t& out_it) {
     if (log) {
         std::cout << "computing the exact factorization" << std::flush;
     }
@@ -117,6 +117,14 @@ void lz77_sss<pos_t>::factorizer<tau, out_it_t>::exact_factorizer<sidx_t, transf
                 time_extend_left += time_diff_ns(t1);
             }
         }
+
+        #ifndef NDEBUG
+        assert((f.len == 0 && (char) f.src == T[i]) || f.src < i);
+
+        for (pos_t j = 0; j < f.len; j++) {
+            assert(T[f.src + j] == T[i + j]);
+        }
+        #endif
 
         *out_it++ = f;
         i += std::max<pos_t>(1, f.len);

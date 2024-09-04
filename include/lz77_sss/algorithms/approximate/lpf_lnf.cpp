@@ -3,9 +3,9 @@
 #include <lz77_sss/lz77_sss.hpp>
 
 template <typename pos_t>
-template <uint64_t tau, typename out_it_t>
+template <uint64_t tau>
 template <lz77_sss<pos_t>::lpf_mode mode>
-void lz77_sss<pos_t>::factorizer<tau, out_it_t>::build_LPF_S() {
+void lz77_sss<pos_t>::factorizer<tau>::build_LPF_S() {
     if (log) {
         std::cout << "building LPF" << std::flush;
     }
@@ -168,9 +168,9 @@ void lz77_sss<pos_t>::factorizer<tau, out_it_t>::build_LPF_S() {
 }
 
 template <typename pos_t>
-template <uint64_t tau, typename out_it_t>
+template <uint64_t tau>
 template <lz77_sss<pos_t>::lpf_mode mode>
-void lz77_sss<pos_t>::factorizer<tau, out_it_t>::build_LNF_S() {
+void lz77_sss<pos_t>::factorizer<tau>::build_LNF_S() {
     if (log) {
         std::cout << "building LNF" << std::flush;
     }
@@ -234,7 +234,7 @@ void lz77_sss<pos_t>::factorizer<tau, out_it_t>::build_LNF_S() {
                 pos_t len_cur = LCE_R(src_cur, S[i]);
 
                 #ifndef NDEBUG
-                assert(src_cur < S[i]);
+                assert(src_cur > S[i]);
 
                 for (pos_t j = 0; j < len_cur; j++) {
                     assert(T[src_cur + j] == T[S[i] + j]);
@@ -252,7 +252,7 @@ void lz77_sss<pos_t>::factorizer<tau, out_it_t>::build_LNF_S() {
                 pos_t len_cur = LCE_R(src_cur, S[i]);
 
                 #ifndef NDEBUG
-                assert(src_cur < S[i]);
+                assert(src_cur > S[i]);
                 
                 for (pos_t j = 0; j < len_cur; j++) {
                     assert(T[src_cur + j] == T[S[i] + j]);
@@ -288,7 +288,7 @@ void lz77_sss<pos_t>::factorizer<tau, out_it_t>::build_LNF_S() {
                 pos_t len = LCE_R(src, S[i]);
 
                 #ifndef NDEBUG
-                assert(src < S[i]);
+                assert(src > S[i]);
 
                 for (pos_t j = 0; j < len; j++) {
                     assert(T[src + j] == T[S[i] + j]);
@@ -309,7 +309,7 @@ void lz77_sss<pos_t>::factorizer<tau, out_it_t>::build_LNF_S() {
                 pos_t len = LCE_R(src, S[i]);
 
                 #ifndef NDEBUG
-                assert(src < S[i]);
+                assert(src > S[i]);
                 
                 for (pos_t j = 0; j < len; j++) {
                     assert(T[src + j] == T[S[i] + j]);

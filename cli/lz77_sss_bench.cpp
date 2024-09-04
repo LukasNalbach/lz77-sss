@@ -101,7 +101,7 @@ int main(int argc, char** argv) {
 
     std::cout << std::endl << "running LZ77 SSS exact algorithm:" << std::endl;
     run_sss_exact<greedy_skip_phrases, lpf_optimal, optimized,
-        static_weighted_striped_square>("fact_sss_exact");
+        semi_dynamic_square_grid>("fact_sss_exact");
 
     std::cout << std::endl << "running LZ77 LPF algorithm" << std::flush;
     uint64_t baseline_memory_alloc = malloc_count_current();

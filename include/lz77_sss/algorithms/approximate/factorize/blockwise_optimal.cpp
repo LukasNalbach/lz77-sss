@@ -3,14 +3,14 @@
 #include <lz77_sss/lz77_sss.hpp>
 
 template <typename pos_t>
-template <uint64_t tau, typename out_it_t>
-template <pos_t... patt_lens>
-void lz77_sss<pos_t>::factorizer<tau, out_it_t>::factorize_blockwise_optimal(out_it_t& out_it) {
+template <uint64_t tau>
+template <uint8_t num_patt_lens, typename out_it_t>
+void lz77_sss<pos_t>::factorizer<tau>::factorize_blockwise_optimal(out_it_t& out_it) {
     if (log) {
         std::cout << "initializing rolling hash index" << std::flush;
     }
 
-    rolling_hash_index_107<pos_t, patt_lens...> idx(T, target_index_size);
+    rolling_hash_index_107<pos_t, num_patt_lens> idx(T.data(), n, patt_lens, target_index_size);
 
     if (log) {
         std::cout << " (size: " << format_size(idx.size_in_bytes()) << ")";
@@ -37,9 +37,7 @@ void lz77_sss<pos_t>::factorizer<tau, out_it_t>::factorize_blockwise_optimal(out
         assert(idx.pos() == block_start);
 
         for (pos_t i = block_start; i < block_end; i++) {
-            for_constexpr<0, sizeof...(patt_lens), 1>([&](auto patt_len_idx) {
-                constexpr pos_t len = ith_val<patt_len_idx>(patt_lens...);
-
+            for_constexpr<0, num_patt_lens, 1>([&](auto patt_len_idx) {
                 pos_t src = idx.template advance_and_get_occ<patt_len_idx>();
 
                 if (src < i) {
@@ -89,8 +87,8 @@ void lz77_sss<pos_t>::factorizer<tau, out_it_t>::factorize_blockwise_optimal(out
             #ifndef NDEBUG
             assert(phr.src < pos);
             
-            for (pos_t j=0; j<phr.end-phr.beg; j++) {
-                assert(T[phr.src+j] == T[phr.beg+j]);
+            for (pos_t j = 0; j < phr.end - phr.beg; j++) {
+                assert(T[phr.src + j] == T[phr.beg + j]);
             }
             #endif
             

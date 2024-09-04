@@ -13,64 +13,24 @@ class semi_dynamic_square_grid : dynamic_range<pos_t> {
 
     protected:
     
-    pos_t n = 0;
-    pos_t w = 0;
-    pos_t g = 0;
+    struct __attribute__((packed)) window {
+        pos_t beg;
+        uint16_t len;
+    };
+
+    pos_t num_points = 0;
+    pos_t win_size = 0;
+    pos_t grid_width = 0;
     pos_t pos_max = 0;
     std::vector<point_t> points;
-    std::vector<pos_t> cur_w_end;
+    std::vector<window> grid;
 
     inline pos_t grid_index(pos_t x_w, pos_t y_w) const {
-        return g * y_w + x_w;
+        return grid_width * y_w + x_w;
     }
 
     inline pos_t window_index(pos_t x, pos_t y) const {
-        return grid_index(x / w, y / w);
-    }
-
-    template <
-        bool check_x1, bool check_x2,
-        bool check_y1, bool check_y2
-    > inline std::tuple<point_t, bool> report_point(
-        pos_t w_idx,
-        pos_t x1, pos_t x2,
-        pos_t y1, pos_t y2
-    ) const {
-        if (w_idx == 0 ? cur_w_end[w_idx] == 0 :
-            (cur_w_end[w_idx - 1] == cur_w_end[w_idx])
-        ) {
-            return {{0, 0}, false};
-        }
-
-        if constexpr (
-            check_x1 || check_x2 ||
-            check_y1 || check_y2
-        ) {
-            int64_t i = cur_w_end[w_idx] - 1;
-            int64_t limit = w_idx == 0 ? 0 : cur_w_end[w_idx - 1];
-
-            while (i >= limit && points[i].x != pos_max) {
-                const point_t& p = points[i];
-
-                if ((!check_x1 || x1 <= p.x) &&
-                    (!check_x2 || x2 >= p.x) &&
-                    (!check_y1 || y1 <= p.y) &&
-                    (!check_y2 || y2 >= p.y)
-                ) {
-                    return {p, true};
-                }
-                
-                i--;
-            }
-        } else {
-            const point_t p = points[cur_w_end[w_idx] - 1];
-
-            if (p.x != pos_max) {
-                return {p, true};
-            }
-        }
-
-        return {{0, 0}, false};
+        return grid_index(x / win_size, y / win_size);
     }
 
     public:
@@ -79,146 +39,79 @@ class semi_dynamic_square_grid : dynamic_range<pos_t> {
 
     semi_dynamic_square_grid(
         const std::vector<point_t>& points,
-        pos_t pos_max, double s
+        pos_t pos_max, double s = 1.0
     ) : pos_max(pos_max) {
-        w = std::ceil(std::sqrt(pos_max) / std::sqrt(s));
-        g = std::ceil(pos_max / (double) w);
-        pos_t num_windows = g * g;
-        tsl::sparse_map<pos_t, pos_t, std::identity> freq;
+        win_size = std::ceil(std::sqrt(pos_max) / std::sqrt(s));
+        grid_width = std::ceil(pos_max / (double) win_size);
+        pos_t num_win = grid_width * grid_width;
+        pos_t p_idx = 0;
+        grid.resize(num_win, {.len = 0});
 
         for (const point_t& p : points) {
-            pos_t w_idx = window_index(p.x, p.y);
-            auto it = freq.find(w_idx);
-
-            if (it == freq.end()) {
-                freq.try_emplace(w_idx, 1);
-            } else {
-                freq[w_idx]++;
-            }
+            grid[window_index(p.x, p.y)].len++;
         }
 
-        std::vector<std::pair<uint64_t, pos_t>> freq_vec(
-            freq.begin(), freq.end());
-        freq.clear();
-
-        ips4o::sort(freq_vec.begin(), freq_vec.end(),
-            [](auto p1, auto p2){return p1.second < p2.second;});
-
-        cur_w_end.reserve(num_windows);
-        pos_t last_w_idx = 0;
-        pos_t cur_w_start = 0;
-
-        for (auto& p : freq_vec) {
-            while (last_w_idx <= p.first) {
-                cur_w_end.emplace_back(cur_w_start);
-                last_w_idx++;
-            }
-            
-            cur_w_start += p.second;
+        for (window& w : grid) {
+            w.beg = p_idx;
+            p_idx += w.len;
+            w.len = 0;
         }
 
-        while (last_w_idx < num_windows) {
-            cur_w_end.emplace_back(points.size());
-            last_w_idx++;
-        }
-        
-        for (point_t& p : points) {
-            this->points.emplace_back(
-                point_t{.x = pos_max, .y = pos_max});
-        }
+        this->points.resize(points.size(), {});
     }
 
     inline pos_t size() const override {
-        return n;
+        return num_points;
     }
     
     inline uint64_t size_in_bytes() const override {
-        return
-            sizeof(this) +
-            cur_w_end.size() * sizeof(pos_t) + 
+        return sizeof(this) +
+            grid.size() * sizeof(window) + 
             points.size() * sizeof(point_t);
     }
 
     inline void insert(point_t p) override {
-        points[cur_w_end[window_index(p.x, p.y)]++] = p;
-        n++;
+        window& w = grid[window_index(p.x, p.y)];
+        points[w.beg + w.len] = p;
+        w.len++;
+        num_points++;
     }
 
     std::tuple<point_t, bool> point_in_range(
         pos_t x1, pos_t x2, pos_t y1, pos_t y2
     ) const override {
-        pos_t xw_1 = x1 / w;
-        pos_t xw_2 = x2 / w;
+        pos_t xw_1 = x1 / win_size;
+        pos_t xw_2 = x2 / win_size;
 
-        pos_t yw_1 = y1 / w;
-        pos_t yw_2 = y2 / w;
+        pos_t yw_1 = y1 / win_size;
+        pos_t yw_2 = y2 / win_size;
 
-        if (yw_1 + 1 < yw_2 && xw_2 + 1 < xw_2) {
-            pos_t w = grid_index(xw_1 + 1, yw_1 + 1);
-            pos_t x_r = xw_2 - xw_1 - 1;
+        pos_t w_idx = grid_index(xw_1, yw_1);
+        pos_t nxt_row_offs = grid_width - (xw_2 - xw_1 + 1);
 
-            for (pos_t y_w = yw_1 + 1; y_w < yw_2; y_w++) {
-                for (pos_t x_w = xw_1 + 1; x_w < xw_2; x_w++) {
-                    auto [p, result] = report_point<
-                        false, false, false, false
-                        >(w, x1, x2, y1, y2);
-                    if (result) return {p, true};
-                    w++;
+        for (pos_t y_w = yw_1; y_w <= yw_2; y_w++) {
+            for (pos_t x_w = xw_1; x_w <= xw_2; x_w++) {
+                const window& w = grid[w_idx];
+
+                if (w.len != 0) {
+                    pos_t b = w.beg;
+                    pos_t e = w.beg + w.len;
+
+                    for (pos_t i = b; i < e; i++) {
+                        const point_t& p = points[i];
+
+                        if (x1 <= p.x && p.x <= x2 &&
+                            y1 <= p.y && p.y <= y2
+                        ) {
+                            return {p, true};
+                        }
+                    }
                 }
 
-                w += g;
-                w -= x_r;
+                w_idx++;
             }
-        }
 
-        if (xw_1 + 1 < xw_2) {
-            if (yw_1 == yw_2) {
-                for (pos_t x = xw_1 + 1; x < xw_2; x++) {
-                    auto [p, result] = report_point<
-                        false, false, true, true
-                        >(grid_index(x, yw_1), x1, x2, y1, y2);
-                    if (result) return {p, true};
-                }
-            } else {
-                for (pos_t x = xw_1 + 1; x < xw_2; x++) {
-                    auto [p, result] = report_point<
-                        false, false, true, false
-                        >(grid_index(x, yw_1), x1, x2, y1, y2);
-                    if (result) return {p, true};
-                }
-
-                for (pos_t x = xw_1 + 1; x < xw_2; x++) {
-                    auto [p, result] = report_point<
-                        false, false, false, true
-                        >(grid_index(x, yw_2), x1, x2, y1, y2);
-                    if (result) return {p, true};
-                }
-            }
-        }
-
-        if (yw_1 + 1 < yw_2) {
-            if (xw_1 == xw_2) {
-                for (pos_t y = yw_1 + 1; y < yw_2; y++) {
-                    auto [p, result] = report_point<
-                        true, true, false, false
-                        >(grid_index(xw_1, y), x1, x2, y1, y2);
-                    if (result) return {p, true};
-                }
-            } else {
-                for (pos_t y = yw_1 + 1; y < yw_2; y++) {
-                    auto [p, result] = report_point<
-                        true, false, false, false
-                        >(grid_index(xw_1, y), x1, x2, y1, y2);
-                    if (result) return {p, true};
-                }
-
-                for (pos_t y = yw_1 + 1; y < yw_2; y++) {
-                    auto [p, result] = report_point<
-                        false, true, false, false
-                        >(grid_index(xw_2, y), x1, x2, y1, y2);
-                    if (result) return {p, true};
-                }
-            }
+            w_idx += nxt_row_offs;
         }
 
         return {{0, 0}, false};

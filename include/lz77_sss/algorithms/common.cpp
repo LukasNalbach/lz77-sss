@@ -27,8 +27,8 @@ std::string lz77_sss<pos_t>::decode(fact_it_t fact_it, pos_t output_size) {
 }
 
 template <typename pos_t>
-template <uint64_t tau, typename out_it_t>
-void lz77_sss<pos_t>::factorizer<tau, out_it_t>::build_lce() {
+template <uint64_t tau>
+void lz77_sss<pos_t>::factorizer<tau>::build_lce() {
     if (log) {
         std::cout << "building LCE data structure" << std::flush;
     }

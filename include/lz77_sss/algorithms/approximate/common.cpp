@@ -3,8 +3,12 @@
 #include <lz77_sss/lz77_sss.hpp>
 
 template <typename pos_t>
-template <uint64_t tau, typename out_it_t>
-void lz77_sss<pos_t>::factorizer<tau, out_it_t>::greedy_phrase_selection(std::vector<lpf>& P) {
+template <uint64_t tau>
+void lz77_sss<pos_t>::factorizer<tau>::greedy_phrase_selection(std::vector<lpf>& P) {
+    if (P.empty()) {
+        return;
+    }
+
     ips4o::sort(P.begin(), P.end(), [](auto phr_i, auto phr_j) {
         return phr_i.beg < phr_j.beg ||
               (phr_i.beg == phr_j.beg && phr_i.end > phr_j.end);
@@ -58,12 +62,16 @@ void lz77_sss<pos_t>::factorizer<tau, out_it_t>::greedy_phrase_selection(std::ve
         assert(P[i - 1].end <= P[i].beg);
         assert(P[i - 1].beg < P[i].beg);
     }
+
+    for (uint32_t i = 0; i < P.size(); i++) {
+        assert(P[i].beg < P[i].end);
+    }
     #endif
 }
 
 template <typename pos_t>
-template <uint64_t tau, typename out_it_t>
-void lz77_sss<pos_t>::factorizer<tau, out_it_t>::get_phrase_info() {
+template <uint64_t tau>
+void lz77_sss<pos_t>::factorizer<tau>::get_phrase_info() {
     num_lpf = LPF.size();
 
     if (num_lpf > 0) {

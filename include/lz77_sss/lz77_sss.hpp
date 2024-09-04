@@ -10,11 +10,10 @@
 
 #include <lz77_sss/algorithms/lce_l.hpp>
 #include <lz77_sss/misc/utils.hpp>
+#include <lz77_sss/data_structures/rolling_hash_index_61.hpp>
 #include <lz77_sss/data_structures/rolling_hash_index_107.hpp>
 #include <lz77_sss/data_structures/sample_index/sample_index.hpp>
 #include <lz77_sss/data_structures/dynamic_range/dynamic_square_grid.hpp>
-#include <lz77_sss/data_structures/dynamic_range/dynamic_square_grid_hash.hpp>
-#include <lz77_sss/data_structures/dynamic_range/dynamic_square_grid_sdvec.hpp>
 #include <lz77_sss/data_structures/dynamic_range/semi_dynamic_square_grid.hpp>
 #include <lz77_sss/data_structures/static_weighted_range/static_weighted_kd_tree.hpp>
 #include <lz77_sss/data_structures/static_weighted_range/static_weighted_striped_square.hpp>
@@ -41,11 +40,14 @@ class lz77_sss {
     public:
     static_assert(std::is_same_v<pos_t, uint32_t> || std::is_same_v<pos_t, uint64_t>);
 
-    static constexpr uint64_t           default_tau         = 512;
-    static constexpr phrase_mode        default_phr_mode    = lpf_optimal;
-    static constexpr factorize_mode     default_fact_mode   = greedy_skip_phrases;
-    static constexpr transform_mode     default_transf_mode = optimized;
-    template <typename sidx_t> using    default_range_ds_t  = static_weighted_kd_tree<sidx_t>;
+    static constexpr uint64_t           default_tau             = 512;
+    static constexpr phrase_mode        default_phr_mode        = lpf_optimal;
+    static constexpr factorize_mode     default_fact_mode       = greedy_skip_phrases;
+    static constexpr transform_mode     default_transf_mode     = optimized;
+    template <typename sidx_t> using    default_range_ds_t      = static_weighted_kd_tree<sidx_t>;
+
+    static constexpr pos_t              delta_max               = 256;
+    static constexpr pos_t              range_scan_threshold    = 4096;
 
     struct factor {
         pos_t src;
@@ -71,7 +73,7 @@ class lz77_sss {
         std::output_iterator<factor>    out_it_t
     >
     static void factorize_approximate(std::string& input, out_it_t out_it, bool log = false) {
-        factorizer<tau, out_it_t>(input, log).template factorize<approximate, fact_mode, phr_mode>(out_it);
+        factorizer<tau>(input, log).template factorize<approximate, fact_mode, phr_mode>(out_it);
     }
 
     template <
@@ -103,7 +105,7 @@ class lz77_sss {
         std::output_iterator<factor>    out_it_t
     >
     static void factorize_exact(std::string& input, out_it_t out_it, bool log = false) {
-        factorizer<tau, out_it_t>(input, log).template factorize<exact, fact_mode, phr_mode, transf_mode, range_ds_t>(out_it);
+        factorizer<tau>(input, log).template factorize<exact, fact_mode, phr_mode, transf_mode, range_ds_t>(out_it);
     }
 
     template <
@@ -175,7 +177,7 @@ class lz77_sss {
     lz77_sss& operator=(lz77_sss&& other) = delete;
     lz77_sss& operator=(const lz77_sss& other) = delete;
 
-    template <uint64_t tau, typename out_it_t>
+    template <uint64_t tau>
     class factorizer {
         public:
 
@@ -195,9 +197,8 @@ class lz77_sss {
         pos_t num_gaps = 0;
 
         lce_t LCE;
-        std::vector<pos_t> char_freq;
-        std::vector<uint8_t> map_ext;
         std::vector<lpf> LPF;
+        std::array<pos_t, 5> patt_lens;
 
         factorizer(std::string& input, bool log) : log(log), T(input), n(input.size()) {}
 
@@ -206,7 +207,8 @@ class lz77_sss {
             factorize_mode                  fact_mode       = default_fact_mode,
             phrase_mode                     phr_mode        = default_phr_mode,
             transform_mode                  transf_mode     = default_transf_mode,
-            template <typename> typename    range_ds_t      = default_range_ds_t
+            template <typename> typename    range_ds_t      = default_range_ds_t,
+            typename                        out_it_t
         >
         void factorize(out_it_t& out_it) {
             if (log) {
@@ -226,17 +228,17 @@ class lz77_sss {
                 ofile_approx.close();
                 std::ifstream ifile_approx(file_approx_name);
                 std::istream_iterator<factor> ifile_approx_it(ifile_approx);
-                pos_t delta = std::min<pos_t>(n / num_phr, 256);
+                pos_t delta = std::min<pos_t>(n / num_phr, delta_max);
 
                 if constexpr (std::is_same_v<pos_t, uint32_t>) {
-                    exact_factorizer<uint32_t, transf_mode, range_ds_t>(T, LCE, delta, num_phr, log).transform_to_exact(ifile_approx_it, out_it);
+                    exact_factorizer<uint32_t, transf_mode, range_ds_t, out_it_t>(T, LCE, delta, num_phr, log).transform_to_exact(ifile_approx_it, out_it);
                 } else {
                     pos_t max_num_samples = num_phr + n / delta;
 
                     if (max_num_samples <= std::numeric_limits<uint32_t>::max()) {
-                        exact_factorizer<uint32_t, transf_mode, range_ds_t>(T, LCE, delta, num_phr, log).transform_to_exact(ifile_approx_it, out_it);
+                        exact_factorizer<uint32_t, transf_mode, range_ds_t, out_it_t>(T, LCE, delta, num_phr, log).transform_to_exact(ifile_approx_it, out_it);
                     } else {
-                        exact_factorizer<uint64_t, transf_mode, range_ds_t>(T, LCE, delta, num_phr, log).transform_to_exact(ifile_approx_it, out_it);
+                        exact_factorizer<uint64_t, transf_mode, range_ds_t, out_it_t>(T, LCE, delta, num_phr, log).transform_to_exact(ifile_approx_it, out_it);
                     }
                 }
 
@@ -255,9 +257,17 @@ class lz77_sss {
             }
         }
 
+        template <uint8_t num_patt_lens>
+        void set_patt_lens(std::array<pos_t, num_patt_lens> lens) {
+            for_constexpr<0, num_patt_lens, 1>([&](auto i){
+                patt_lens[i] = lens[i];
+            });
+        }
+
         template <
             factorize_mode  fact_mode   = default_fact_mode,
-            phrase_mode     phr_mode    = default_phr_mode
+            phrase_mode     phr_mode    = default_phr_mode,
+            typename        out_it_t
         >
         void compute_approximation(out_it_t& out_it) {
             if constexpr (phr_mode == lpf_naive) {
@@ -306,15 +316,19 @@ class lz77_sss {
             
             target_index_size = std::max<uint64_t>(malloc_count_peak(), n / 4 + baseline_memory_alloc) - malloc_count_current();
             double patt_len_guess = std::min<double>(avg_gap_len, avg_lpf_phr_len);
+            
+                 if (patt_len_guess <= 12)  {set_patt_lens<5>({2,3, 4, 8,12});}
+            else if (patt_len_guess <= 16)  {set_patt_lens<5>({2,4, 6, 9,16});}
+            else if (patt_len_guess <= 32)  {set_patt_lens<5>({2,4, 6,10,20});}
+            else if (patt_len_guess <= 64)  {set_patt_lens<5>({2,4, 7,12,28});}
+            else if (patt_len_guess <= 128) {set_patt_lens<5>({2,4, 8,16,36});}
+            else if (patt_len_guess <= 256) {set_patt_lens<5>({2,5,10,20,42});}
+            else if (patt_len_guess <= 512) {set_patt_lens<5>({2,6,12,24,48});}
+            else                            {set_patt_lens<5>({2,8,16,32,64});}
 
-                 if (patt_len_guess <= 12)  {factorize<fact_mode,2,3, 4, 8,12>(out_it);}
-            else if (patt_len_guess <= 16)  {factorize<fact_mode,2,4, 6, 9,16>(out_it);}
-            else if (patt_len_guess <= 32)  {factorize<fact_mode,2,4, 6,10,20>(out_it);}
-            else if (patt_len_guess <= 64)  {factorize<fact_mode,2,4, 7,12,28>(out_it);}
-            else if (patt_len_guess <= 128) {factorize<fact_mode,2,4, 8,16,36>(out_it);}
-            else if (patt_len_guess <= 256) {factorize<fact_mode,2,5,10,20,42>(out_it);}
-            else if (patt_len_guess <= 512) {factorize<fact_mode,2,6,12,24,48>(out_it);}
-            else                            {factorize<fact_mode,2,8,16,32,64>(out_it);}
+            if constexpr (fact_mode == greedy)              {factorize_greedy<false,     5>(out_it);} else
+            if constexpr (fact_mode == greedy_skip_phrases) {factorize_greedy<true,      5>(out_it);} else
+            if constexpr (fact_mode == blockwise_optimal)   {factorize_blockwise_optimal<5>(out_it);}
         }
 
         inline pos_t LCE_R(pos_t i, pos_t j) {
@@ -335,25 +349,16 @@ class lz77_sss {
 
         void get_phrase_info();
 
-        template <pos_t... patt_lens>
-        inline factor longest_prev_occ(rolling_hash_index_107<pos_t, patt_lens...>& idx, pos_t pos, pos_t len_max);
+        template <uint8_t num_patt_lens>
+        inline factor longest_prev_occ(rolling_hash_index_107<pos_t, num_patt_lens>& idx, pos_t pos, pos_t len_max);
 
-        template <factorize_mode fact_mode, pos_t... patt_lens>
-        void factorize(out_it_t& out_it) {
-            if constexpr (fact_mode == greedy)              {factorize_greedy<false,     patt_lens...>(out_it);} else
-            if constexpr (fact_mode == greedy_skip_phrases) {factorize_greedy<true,      patt_lens...>(out_it);} else
-            if constexpr (fact_mode == blockwise_optimal)   {factorize_blockwise_optimal<patt_lens...>(out_it);}
-        }
-
-        template <bool skip_phrases, pos_t... patt_lens>
+        template <bool skip_phrases, uint8_t num_patt_lens, typename out_it_t>
         void factorize_greedy(out_it_t& out_it);
 
-        template <pos_t... patt_lens>
+        template <uint8_t num_patt_lens, typename out_it_t>
         void factorize_blockwise_optimal(out_it_t& out_it);
-    
-        static constexpr pos_t delta_max = 256;
 
-        template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t>
+        template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t, typename out_it_t>
         class exact_factorizer {
             public:
 
@@ -362,8 +367,6 @@ class lz77_sss {
             using sxa_interval_t = sample_index<pos_t, sidx_t, lce_t>::sxa_interval_t;
             using query_context_t = sample_index<pos_t, sidx_t, lce_t>::query_context;
             using time_point_t = std::chrono::steady_clock::time_point;
-
-            static constexpr sidx_t range_scan_threshold = 4096;
 
             std::chrono::steady_clock::time_point time_start, time, time_end;
             bool log = false;
@@ -392,6 +395,10 @@ class lz77_sss {
             uint64_t spa_range_sum = 0;
             uint64_t ssa_range_sum = 0;
 
+            inline pos_t LCE_R(pos_t i, pos_t j) {
+                return LCE.lce(i, j);
+            }
+
             exact_factorizer(std::string& T, const lce_t& LCE, pos_t delta, pos_t& num_phr, bool log)
                 : log(log), T(T), LCE(LCE), n(T.size()), delta(delta), num_phr(num_phr) {}
 
@@ -413,18 +420,14 @@ class lz77_sss {
                     std::cout << "building " << range_ds_t<sidx_t>::name() << std::flush;
                 }
 
-                if constexpr        (std::is_same_v<range_ds_t<sidx_t>, static_weighted_kd_tree<sidx_t>>) {
-                    //R = static_weighted_kd_tree<sidx_t>(std::move(P));
+                if        constexpr (std::is_same_v<range_ds_t<sidx_t>, static_weighted_kd_tree<sidx_t>>) {
+                    R = static_weighted_kd_tree<sidx_t>(std::move(P));
                 } else if constexpr (std::is_same_v<range_ds_t<sidx_t>, static_weighted_striped_square<sidx_t>>) {
-                    R = static_weighted_striped_square<sidx_t>(std::move(P), 128);
+                    R = static_weighted_striped_square<sidx_t>(std::move(P));
                 } else if constexpr (std::is_same_v<range_ds_t<sidx_t>, dynamic_square_grid<sidx_t>>) {
-                    //R = dynamic_square_grid<sidx_t>(c, 1.0);
-                } else if constexpr (std::is_same_v<range_ds_t<sidx_t>, dynamic_square_grid_sdvec<sidx_t>>) {
-                    //R = dynamic_square_grid_sdvec<sidx_t>(P, c, 1.0);
-                } else if constexpr (std::is_same_v<range_ds_t<sidx_t>, dynamic_square_grid_hash<sidx_t>>) {
-                    //R = dynamic_square_grid_hash<sidx_t>(c, 1.0);
+                    R = dynamic_square_grid<sidx_t>(c);
                 } else if constexpr (std::is_same_v<range_ds_t<sidx_t>, semi_dynamic_square_grid<sidx_t>>) {
-                    //R = semi_dynamic_square_grid<sidx_t>(P, c, 1.0);
+                    R = semi_dynamic_square_grid<sidx_t>(P, c);
                 }
 
                 if (log) {
@@ -441,6 +444,9 @@ class lz77_sss {
                 if (log) {
                     std::cout << "time for extend left: " << format_time(time_extend_left) << std::endl;
                     std::cout << "time for extend right: " << format_time(time_extend_right) << std::endl;
+                    std::cout << "time for range queries: " << format_time(time_range_queries) << std::endl;
+                    std::cout << "avg. SPA query range: " << spa_range_sum / (double) num_range_queries << std::endl;
+                    std::cout << "avg. SSA query range: " << ssa_range_sum / (double) num_range_queries << std::endl;
 
                     if constexpr (is_dynamic<range_ds_t>()) {
                         std::cout << "time for finding close sources: " << format_time(time_close_sources) << std::endl;
@@ -448,10 +454,6 @@ class lz77_sss {
                         std::cout << "final size of " << range_ds_t<sidx_t>::name()
                             << ": " << format_size(R.size_in_bytes()) << std::endl;
                     }
-
-                    std::cout << "time for range queries: " << format_time(time_range_queries) << std::endl;
-                    std::cout << "avg. SPA query range: " << spa_range_sum / (double) num_range_queries << std::endl;
-                    std::cout << "avg. SSA query range: " << ssa_range_sum / (double) num_range_queries << std::endl;
                 }
             }
 
@@ -468,9 +470,8 @@ class lz77_sss {
             void transform_to_exact_naive(out_it_t& out_it);
 
             bool intersect(
-                const sxa_interval_t& spa_iv,
-                const sxa_interval_t& ssa_iv,
-                pos_t i, pos_t j, pos_t lce_l, pos_t lce_r, sidx_t& x_c, factor& f
+                const sxa_interval_t& spa_iv, const sxa_interval_t& ssa_iv,
+                pos_t i, pos_t j, pos_t lce_l,pos_t lce_r, sidx_t& x_c, factor& f
             );
 
             void extend_right(const sxa_interval_t& spa_iv, pos_t i, pos_t j, sidx_t& x_c, factor& f);

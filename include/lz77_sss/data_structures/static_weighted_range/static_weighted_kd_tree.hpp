@@ -32,7 +32,8 @@ class static_weighted_kd_tree : static_weighted_range<pos_t> {
     }
 
     inline uint64_t size_in_bytes() const override {
-        return nodes.size() * sizeof(node_t);
+        return sizeof(this) +
+            nodes.size() * sizeof(node_t);
     }
 
     protected:
@@ -87,6 +88,8 @@ class static_weighted_kd_tree : static_weighted_range<pos_t> {
 
         return node_idx;
     }
+
+    public:
 
     template<bool vertical>
     inline std::tuple<point_t, bool> lighter_point_in_range(

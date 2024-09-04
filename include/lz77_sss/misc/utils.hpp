@@ -19,7 +19,9 @@ std::string random_repetitive_string(uint32_t min_size, uint32_t max_size) {
     std::random_device rd;
     std::mt19937 mt(rd());
     std::uniform_real_distribution<double> prob_distrib(0.0, 1.0);
-    std::uniform_int_distribution<char> char_distrib(-128, 127);
+    std::uniform_int_distribution<char> char_distrib(
+        std::numeric_limits<char>::min(),
+        std::numeric_limits<char>::max());
     std::uniform_int_distribution<uint32_t> input_size_distrib(min_size, max_size);
     uint32_t target_input_size = input_size_distrib(mt);
     enum string_construction_operation {new_character = 0, repetition = 1, run = 2};

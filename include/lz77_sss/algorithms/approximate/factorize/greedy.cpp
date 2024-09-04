@@ -3,15 +3,15 @@
 #include <lz77_sss/lz77_sss.hpp>
 
 template <typename pos_t>
-template <uint64_t tau, typename out_it_t>
-template <pos_t... patt_lens>
-lz77_sss<pos_t>::factor lz77_sss<pos_t>::factorizer<tau, out_it_t>::longest_prev_occ(
-    rolling_hash_index_107<pos_t, patt_lens...>& idx, pos_t pos, pos_t len_max
+template <uint64_t tau>
+template <uint8_t num_patt_lens>
+lz77_sss<pos_t>::factor lz77_sss<pos_t>::factorizer<tau>::longest_prev_occ(
+    rolling_hash_index_107<pos_t, num_patt_lens>& idx, pos_t pos, pos_t len_max
 ) {
     assert(idx.pos() == pos);
     factor f{0, 0};
 
-    for_constexpr<sizeof...(patt_lens) - 1, - 1, - 1>([&](auto patt_len_idx) {
+    for_constexpr<num_patt_lens - 1, - 1, - 1>([&](auto patt_len_idx) {
         if (f.len == 0) {
             pos_t src = idx.template advance_and_get_occ<patt_len_idx>();
 
@@ -46,14 +46,14 @@ lz77_sss<pos_t>::factor lz77_sss<pos_t>::factorizer<tau, out_it_t>::longest_prev
 }
 
 template <typename pos_t>
-template <uint64_t tau, typename out_it_t>
-template <bool skip_phrases, pos_t... patt_lens>
-void lz77_sss<pos_t>::factorizer<tau, out_it_t>::factorize_greedy(out_it_t& out_it) {
+template <uint64_t tau>
+template <bool skip_phrases, uint8_t num_patt_lens, typename out_it_t>
+void lz77_sss<pos_t>::factorizer<tau>::factorize_greedy(out_it_t& out_it) {
     if (log) {
         std::cout << "initializing rolling hash index" << std::flush;
     }
 
-    rolling_hash_index_107<pos_t, patt_lens...> idx(T, target_index_size);
+    rolling_hash_index_107<pos_t, num_patt_lens> idx(T.data(), n, patt_lens, target_index_size);
 
     if (log) {
         std::cout << " (size: " << format_size(idx.size_in_bytes()) << ")";
@@ -63,6 +63,11 @@ void lz77_sss<pos_t>::factorizer<tau, out_it_t>::factorize_greedy(out_it_t& out_
     
     pos_t cur_lpf = 0;
     pos_t gap_start = 0;
+    pos_t patt_len_sum = 0;
+
+    for_constexpr<0, num_patt_lens, 1>([&](auto i){
+        patt_len_sum += patt_lens[i];
+    });
     
     while (true) {
         pos_t gap_end = cur_lpf == num_lpf ? n : LPF[cur_lpf].beg;
@@ -70,9 +75,7 @@ void lz77_sss<pos_t>::factorizer<tau, out_it_t>::factorize_greedy(out_it_t& out_
         if (gap_start < gap_end) {
             if (idx.pos() < gap_start) {
                 if constexpr (skip_phrases) {
-                    if ((gap_start - idx.pos()) * (2 * sizeof...(patt_lens)) <
-                        constexpr_sum<pos_t>(patt_lens...)
-                    ) {
+                    if ((gap_start - idx.pos()) * (2 * num_patt_lens) < patt_len_sum) {
                         while (idx.pos() < gap_start) {
                             idx.roll();
                         }

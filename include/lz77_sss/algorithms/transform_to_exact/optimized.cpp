@@ -1,11 +1,9 @@
 #pragma once
 
-#include <lz77_sss/data_structures/ring_buffer.hpp>
-
 template <typename pos_t>
-template <uint64_t tau, typename out_it_t>
-template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t>
-bool lz77_sss<pos_t>::factorizer<tau, out_it_t>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::
+template <uint64_t tau>
+template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t, typename out_it_t>
+bool lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, range_ds_t, out_it_t>::
 intersect(
     const sxa_interval_t& spa_iv, const sxa_interval_t& ssa_iv,
     pos_t i, pos_t j, pos_t lce_l, pos_t lce_r, sidx_t& x_c, factor& f
@@ -53,7 +51,7 @@ intersect(
 
     if (result) {
         #ifndef NDEBUG
-        assert(spa_iv.b      <= p.x && p.x <= spa_iv.e);
+        assert(spa_iv.b <= p.x && p.x <= spa_iv.e);
         assert(ssa_iv.b <= p.y && p.y <= ssa_iv.e);
         #endif
 
@@ -84,9 +82,9 @@ intersect(
 }
 
 template <typename pos_t>
-template <uint64_t tau, typename out_it_t>
-template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t>
-void lz77_sss<pos_t>::factorizer<tau, out_it_t>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::
+template <uint64_t tau>
+template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t, typename out_it_t>
+void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, range_ds_t, out_it_t>::
 extend_right(
     const sample_index<pos_t, sidx_t, lce_t>::sxa_interval_t& spa_iv, pos_t i, pos_t j, sidx_t& x_c, factor& f
 ) {
@@ -107,26 +105,31 @@ extend_right(
     });
 
     sxa_interval_t ssa_iv;
-    pos_t last_lce_r = 0;
+    sxa_interval_t ssa_iv_nxt;
+    pos_t lce_r = 0;
+    pos_t lce_r_nxt = 0;
     uint64_t fp_right = 0;
     
     int16_t x_res = exp_search_max_geq<bool, int16_t, RIGHT>(true, x_min - 1, x_max, 1, [&](int16_t x){
         time_point_t t2;
         if (log) t2 = now();
-        pos_t lce_r = smpl_lens_right[x];
-        pos_t len_add = lce_r - last_lce_r;
-        uint64_t fp_add = rks.substring(j + last_lce_r, len_add);
-        uint64_t fp_right_tmp = rks.concat(fp_right, fp_add, len_add);
-        auto [ssa_iv_tmp, result] = idx_C.ssa_interval(x, j, fp_right_tmp);
+        pos_t lce_r_tmp = smpl_lens_right[x];
+        pos_t len_add = lce_r_tmp - lce_r;
+        uint64_t fp_add = rks.substring(j + lce_r, len_add);
+        uint64_t fp_tmp = rks.concat(fp_right, fp_add, len_add);
+        auto [ssa_iv_tmp, result] = idx_C.ssa_interval(x, j, fp_tmp);
 
         if (result) {
             if (log) time_extend_right += time_diff_ns(t2);
 
-            if (intersect(spa_iv, ssa_iv_tmp, i, j, lce_l, lce_r, x_c, f)) {
+            if (intersect(spa_iv, ssa_iv_tmp, i, j, lce_l, lce_r_tmp, x_c, f)) {
                 ssa_iv = ssa_iv_tmp;
-                fp_right = fp_right_tmp;
-                last_lce_r = lce_r;
+                fp_right = fp_tmp;
+                lce_r = lce_r_tmp;
                 return true;
+            } else {
+                ssa_iv_nxt = ssa_iv_tmp;
+                lce_r_nxt = lce_r_tmp;
             }
         } else if (log) {
             time_extend_right += time_diff_ns(t2);
@@ -139,19 +142,35 @@ extend_right(
         return;
     }
 
-    query_context_t qc_right = idx_C.query_right(ssa_iv, j, last_lce_r);
+    query_context_t qc_right = idx_C.query_right(ssa_iv, j, lce_r);
+    query_context_t qc_right_nxt = lce_r_nxt == 0 ? idx_C.query() :
+        idx_C.query_right(ssa_iv_nxt, j, lce_r_nxt);
+    assert(x_res < 0 || qc_right.match_length() >= smpl_lens_right[x_res]);
+    pos_t lce_r_max = lce_r_nxt == 0 ? n - j : lce_r_nxt;
 
-    exp_search_max_geq<bool, pos_t, RIGHT>(true, last_lce_r, n - j, 1, [&](pos_t lce_r){
+    exp_search_max_geq<bool, pos_t, RIGHT>(true, lce_r, lce_r_max, 1, [&](pos_t lce_r_tmp){
         query_context_t qc_right_tmp;
         time_point_t t2;
+        bool result = true;
         if (log) t2 = now();
+        
+        if (qc_right_nxt.match_length() == 0) {
+            result = idx_C.extend_right(qc_right, qc_right_tmp, j, lce_r_tmp, false);
+        } else {
+            qc_right_tmp = idx_C.interpolate_right(
+                qc_right, qc_right_nxt, j, lce_r_tmp);
+        }
 
-        if (idx_C.extend_right(qc_right, qc_right_tmp, j, lce_r)) {
+        if (result) {
             if (log) time_extend_right += time_diff_ns(t2);
 
-            if (intersect(spa_iv, qc_right_tmp.interval(), i, j, lce_l, lce_r, x_c, f)) {
+            if (intersect(spa_iv, qc_right_tmp.interval(),
+                i, j, lce_l, lce_r_tmp, x_c, f)
+            ) {
                 qc_right = qc_right_tmp;
                 return true;
+            } else {
+                qc_right_nxt = qc_right_tmp;
             }
         } else if (log) {
             time_extend_right += time_diff_ns(t2);
@@ -162,9 +181,9 @@ extend_right(
 }
 
 template <typename pos_t>
-template <uint64_t tau, typename out_it_t>
-template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t>
-void lz77_sss<pos_t>::factorizer<tau, out_it_t>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::
+template <uint64_t tau>
+template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t, typename out_it_t>
+void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, range_ds_t, out_it_t>::
 transform_to_exact_optimized(out_it_t& out_it) {
     if (log) {
         std::cout << "computing the exact factorization" << std::flush;
@@ -173,7 +192,7 @@ transform_to_exact_optimized(out_it_t& out_it) {
     std::vector<uint64_t> fp_left(delta);
     const rk61_substring& rks = idx_C.rabin_karp_substring();
     const std::vector<pos_t>& smpl_lens_left = idx_C.sampled_pattern_lengths_left();
-    std::vector<uint8_t> is_smpld_left(delta, 0);
+    std::vector<uint8_t> is_smpld_left(delta + 1, 0);
 
     for (pos_t len : smpl_lens_left) {
         is_smpld_left[len] = 1;
@@ -206,12 +225,12 @@ transform_to_exact_optimized(out_it_t& out_it) {
                     f.len = lce;
                 }
             }
-
+            
             if (log) time_close_sources += time_diff_ns(t5);
         }
 
         pos_t max_k = std::min<pos_t>(delta, n - i);
-        fp_left[0] = T[i];
+        fp_left[0] = char_to_uchar(T[i]);
 
         for (pos_t k = 1; k < max_k; k++) {
             fp_left[k] = rks.push(fp_left[k - 1], T[i + k]);
@@ -247,6 +266,14 @@ transform_to_exact_optimized(out_it_t& out_it) {
                 time_extend_left += time_diff_ns(t1);
             }
         }
+
+        #ifndef NDEBUG
+        assert((f.len == 0 && (char) f.src == T[i]) || f.src < i);
+
+        for (pos_t j = 0; j < f.len; j++) {
+            assert(T[f.src + j] == T[i + j]);
+        }
+        #endif
 
         *out_it++ = f;
         i += std::max<pos_t>(1, f.len);

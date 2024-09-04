@@ -33,18 +33,6 @@ add_subdirectory("${CMAKE_SOURCE_DIR}/external/fp/")
 # sparse-map
 add_subdirectory("${CMAKE_SOURCE_DIR}/external/sparse-map/")
 
-# gtl
-add_subdirectory("${CMAKE_SOURCE_DIR}/external/gtl/")
-
-# sdsl
-set(CMAKE_WARN_DEPRECATED OFF CACHE BOOL "" FORCE)
-add_subdirectory("${CMAKE_SOURCE_DIR}/external/sdsl-lite/")
-set_target_properties(
-  uninstall-sdsl uninstall divsufsort divsufsort64
-  PROPERTIES EXCLUDE_FROM_ALL 1 EXCLUDE_FROM_DEFAULT_BUILD 1
-)
-target_include_directories(sdsl PUBLIC "${CMAKE_BINARY_DIR}/external/sdsl-lite/external/libdivsufsort/include/")
-
 set_target_properties(
   ips4o_example benchmark_lce benchmark_pred benchmark_ss
   gen_sss genqueries test_lce test_pred test_rmq
@@ -55,7 +43,7 @@ set_target_properties(
 # lz77_sss
 add_library(lz77_sss INTERFACE)
 target_include_directories(lz77_sss INTERFACE "${CMAKE_SOURCE_DIR}/include/")
-target_link_libraries(lz77_sss INTERFACE ips4o malloc_count alx_rolling_hash alx_lce lz77 fp sparse_map sdsl gtl)
+target_link_libraries(lz77_sss INTERFACE malloc_count alx_rolling_hash alx_lce lz77 fp sparse_map)
 
 if(LZ77_SSS_BUILD_BENCH_CLI)
   add_executable(lz77_sss_bench "${CMAKE_SOURCE_DIR}/cli/lz77_sss_bench.cpp")
@@ -80,13 +68,13 @@ if(LZ77_SSS_BUILD_TESTS)
   target_link_libraries(test-sample_index PRIVATE gtest_main lz77_sss)
   gtest_discover_tests(test-sample_index)
 
-  # add_executable(test-test_dynamic_range_queries "${CMAKE_SOURCE_DIR}/tests/test_dynamic_range_queries.cpp")
-  # target_link_libraries(test-test_dynamic_range_queries PRIVATE gtest_main lz77_sss)
-  # gtest_discover_tests(test-test_dynamic_range_queries)
+  add_executable(test-dynamic_range "${CMAKE_SOURCE_DIR}/tests/test_dynamic_range.cpp")
+  target_link_libraries(test-dynamic_range PRIVATE gtest_main lz77_sss)
+  gtest_discover_tests(test-dynamic_range)
 
-  add_executable(test-static_weighted_range_queries "${CMAKE_SOURCE_DIR}/tests/test_static_weighted_range_queries.cpp")
-  target_link_libraries(test-static_weighted_range_queries PRIVATE gtest_main lz77_sss)
-  gtest_discover_tests(test-static_weighted_range_queries)
+  add_executable(test-static_weighted_range "${CMAKE_SOURCE_DIR}/tests/test_static_weighted_range.cpp")
+  target_link_libraries(test-static_weighted_range PRIVATE gtest_main lz77_sss)
+  gtest_discover_tests(test-static_weighted_range)
 
   add_executable(test-rk61_substring "${CMAKE_SOURCE_DIR}/tests/test_rk61_substring.cpp")
   target_link_libraries(test-rk61_substring PRIVATE gtest_main lz77_sss)

@@ -1,21 +1,12 @@
 [submodule "external/lz77"]
     path = external/lz77
     url = git@github.com:pdinklag/lz77.git
-[submodule "external/abseil-cpp"]
-	path = external/abseil-cpp
-	url = git@github.com:abseil/abseil-cpp.git
 [submodule "external/alx"]
 	path = external/alx
 	url = git@github.com:herlez/alx.git
+[submodule "external/sparse-map"]
+	path = external/sparse-map
+	url = git@github.com:Tessil/sparse-map.git
 [submodule "external/fp"]
 	path = external/fp
 	url = git@github.com:pdinklag/fp.git
-[submodule "external/sparse-map"]
-	path = external/sparse-map
-	url = https://github.com/Tessil/sparse-map
-[submodule "external/sdsl-lite"]
-	path = external/sdsl-lite
-	url = git@github.com:simongog/sdsl-lite.git
-[submodule "external/gtl"]
-	path = external/gtl
-	url = git@github.com:greg7mdp/gtl.git
