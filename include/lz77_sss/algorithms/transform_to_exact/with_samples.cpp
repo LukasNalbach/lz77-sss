@@ -1,92 +1,14 @@
 #pragma once
 
-template <typename pos_t>
-template <uint64_t tau>
-template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t, typename out_it_t>
-bool lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, range_ds_t, out_it_t>::
-intersect(
-    const sxa_interval_t& spa_iv, const sxa_interval_t& ssa_iv,
-    pos_t i, pos_t j, pos_t lce_l, pos_t lce_r, sidx_t& x_c, factor& f
-) {
-    time_point_t t3;
-    point_t p;
-    bool result = false;
-    if (log) t3 = now();
-    adjust_sample_index(x_c, j);
-
-    pos_t spa_rng = spa_iv.e - spa_iv.b + 1;
-    pos_t ssa_rng = ssa_iv.e - ssa_iv.b + 1;
-    
-    if (spa_rng <= range_scan_threshold && spa_rng <= ssa_rng) {
-        for (sidx_t x = spa_iv.b; x <= spa_iv.e; x++) {
-            if (idx_C.spa(x) < x_c &&
-                ssa_iv.b <= PS[x] && PS[x] <= ssa_iv.e
-            ) {
-                p.x = x;
-                p.y = PS[x];
-                result = true;
-                break;
-            }
-        }
-    } else if (ssa_rng <= range_scan_threshold) {
-        for (sidx_t y = ssa_iv.b; y <= ssa_iv.e; y++) {
-            if (idx_C.ssa(y) < x_c &&
-                spa_iv.b <= SP[y] && SP[y] <= spa_iv.e
-            ) {
-                p.x = SP[y];
-                p.y = y;
-                result = true;
-                break;
-            }
-        }
-    } else if constexpr (is_static<range_ds_t>()) {
-        std::tie(p, result) = R.lighter_point_in_range(
-            x_c, spa_iv.b, spa_iv.e, ssa_iv.b, ssa_iv.e
-        );
-    } else {
-        std::tie(p, result) = R.point_in_range(
-            spa_iv.b, spa_iv.e, ssa_iv.b, ssa_iv.e
-        );
-    }
-
-    if (result) {
-        #ifndef NDEBUG
-        assert(spa_iv.b <= p.x && p.x <= spa_iv.e);
-        assert(ssa_iv.b <= p.y && p.y <= ssa_iv.e);
-        #endif
-
-        pos_t lce = lce_l + lce_r - 1;
-
-        if (lce > f.len) {
-            f.len = lce;
-            f.src = C[idx_C.ssa(p.y)] - lce_l + 1;
-
-            #ifndef NDEBUG
-            assert(f.src < i);
-
-            for (pos_t x = 0; x < f.len; x++) {
-                assert(T[i + x] == T[f.src + x]);
-            }
-            #endif
-        }
-    }
-
-    if (log) {
-        num_range_queries++;
-        spa_range_sum += spa_iv.e - spa_iv.b + 1;
-        ssa_range_sum += ssa_iv.e - ssa_iv.b + 1;
-        time_range_queries += time_diff_ns(t3);
-    }
-        
-    return result;
-}
+#include <lz77_sss/lz77_sss.hpp>
 
 template <typename pos_t>
 template <uint64_t tau>
 template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t, typename out_it_t>
 void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, range_ds_t, out_it_t>::
-extend_right(
-    const sample_index<pos_t, sidx_t, lce_t>::sxa_interval_t& spa_iv, pos_t i, pos_t j, sidx_t& x_c, factor& f
+extend_right_with_samples(
+    const sxa_interval_t& spa_iv,
+    pos_t i, pos_t j, sidx_t& x_c, factor& f
 ) {
     const rk61_substring& rks = idx_C.rabin_karp_substring();
     const std::vector<pos_t>& smpl_lens_right = idx_C.sampled_pattern_lengths_right();
@@ -146,7 +68,7 @@ extend_right(
     query_context_t qc_right_nxt = lce_r_nxt == 0 ? idx_C.query() :
         idx_C.query_right(ssa_iv_nxt, j, lce_r_nxt);
     assert(x_res < 0 || qc_right.match_length() >= smpl_lens_right[x_res]);
-    pos_t lce_r_max = lce_r_nxt == 0 ? n - j : lce_r_nxt;
+    pos_t lce_r_max = lce_r_nxt == 0 ? n - j : (lce_r_nxt  - 1);
 
     exp_search_max_geq<bool, pos_t, RIGHT>(true, lce_r, lce_r_max, 1, [&](pos_t lce_r_tmp){
         query_context_t qc_right_tmp;
@@ -155,7 +77,8 @@ extend_right(
         if (log) t2 = now();
         
         if (qc_right_nxt.match_length() == 0) {
-            result = idx_C.extend_right(qc_right, qc_right_tmp, j, lce_r_tmp, false);
+            result = idx_C.extend_right(
+                qc_right, qc_right_tmp, j, lce_r_tmp, false);
         } else {
             qc_right_tmp = idx_C.interpolate_right(
                 qc_right, qc_right_nxt, j, lce_r_tmp);
@@ -184,7 +107,7 @@ template <typename pos_t>
 template <uint64_t tau>
 template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t, typename out_it_t>
 void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, range_ds_t, out_it_t>::
-transform_to_exact_optimized(out_it_t& out_it) {
+transform_to_exact_with_samples(out_it_t& out_it) {
     if (log) {
         std::cout << "computing the exact factorization" << std::flush;
     }
@@ -205,28 +128,8 @@ transform_to_exact_optimized(out_it_t& out_it) {
         factor f {.src = char_to_uchar(T[i]), .len = 0};
 
         if constexpr (is_dynamic<range_ds_t>()) {
-            while (x_c < c && C[x_c] < i) {
-                time_point_t t0;
-                if (log) t0 = now();
-                R.insert(P[x_c]);
-                if (log) time_insert_points += time_diff_ns(t0);
-                x_c++;
-            }
-
-            pos_t min_j = i <= delta ? 0 : (i - delta);
-            time_point_t t5;
-            if (log) t5 = now();
-
-            for (pos_t j = min_j; j < i; j++) {
-                pos_t lce = LCE_R(j, i);
-                
-                if (lce > f.len) {
-                    f.src = j;
-                    f.len = lce;
-                }
-            }
-            
-            if (log) time_close_sources += time_diff_ns(t5);
+            insert_points(x_c, i);
+            handle_close_sources(f, i);
         }
 
         pos_t max_k = std::min<pos_t>(delta, n - i);
@@ -245,13 +148,13 @@ transform_to_exact_optimized(out_it_t& out_it) {
 
             if (result) {
                 if (log) time_extend_left += time_diff_ns(t1);
-                extend_right(spa_iv, i, j, x_c, f);
+                extend_right_with_samples(spa_iv, i, j, x_c, f);
             } else if (log) {
                 time_extend_left += time_diff_ns(t1);
             }
         }
 
-        for (pos_t k = 0; k < max_k; k++) {
+        for (pos_t k = 2; k < max_k; k++) {
             pos_t lce_l = k + 1;
             if (is_smpld_left[lce_l]) continue;
             pos_t j = i + k;
@@ -261,7 +164,7 @@ transform_to_exact_optimized(out_it_t& out_it) {
 
             if (idx_C.extend_left(qc_left, j, lce_l)) {
                 if (log) time_extend_left += time_diff_ns(t1);
-                extend_right(qc_left.interval(), i, j, x_c, f);
+                extend_right_with_samples(qc_left.interval(), i, j, x_c, f);
             } else if (log) {
                 time_extend_left += time_diff_ns(t1);
             }

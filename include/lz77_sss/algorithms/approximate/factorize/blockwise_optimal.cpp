@@ -4,17 +4,9 @@
 
 template <typename pos_t>
 template <uint64_t tau>
-template <uint8_t num_patt_lens, typename out_it_t>
+template <typename out_it_t>
 void lz77_sss<pos_t>::factorizer<tau>::factorize_blockwise_optimal(out_it_t& out_it) {
     if (log) {
-        std::cout << "initializing rolling hash index" << std::flush;
-    }
-
-    rolling_hash_index_107<pos_t, num_patt_lens> idx(T.data(), n, patt_lens, target_index_size);
-
-    if (log) {
-        std::cout << " (size: " << format_size(idx.size_in_bytes()) << ")";
-        time = log_runtime(time);
         std::cout << "factorizing" << std::flush;
     }
 
@@ -34,11 +26,11 @@ void lz77_sss<pos_t>::factorizer<tau>::factorize_blockwise_optimal(out_it_t& out
             block_end = phrases.back().end;
         }
 
-        assert(idx.pos() == block_start);
+        assert(gap_idx.pos() == block_start);
 
         for (pos_t i = block_start; i < block_end; i++) {
-            for_constexpr<0, num_patt_lens, 1>([&](auto patt_len_idx) {
-                pos_t src = idx.template advance_and_get_occ<patt_len_idx>();
+            for_constexpr<0, num_patt_lens, 1>([&](auto x) {
+                pos_t src = gap_idx.template advance_and_get_occ<x>();
 
                 if (src < i) {
                     pos_t lce_l = src == 0 ? 0 : LCE_L(src - 1, i - 1, i - block_start);
@@ -51,7 +43,7 @@ void lz77_sss<pos_t>::factorizer<tau>::factorize_blockwise_optimal(out_it_t& out
                         #ifndef NDEBUG
                         assert(src < beg);
                         
-                        for (pos_t j=0; j<end-beg; j++) {
+                        for (pos_t j = 0; j < end - beg; j++) {
                             assert(T[src + j] == T[beg + j]);
                         }
                         #endif
@@ -65,10 +57,10 @@ void lz77_sss<pos_t>::factorizer<tau>::factorize_blockwise_optimal(out_it_t& out
                 }
             });
 
-            idx.inc_pos();
+            gap_idx.inc_pos();
         }
 
-        assert(idx.pos() == block_end);
+        assert(gap_idx.pos() == block_end);
         greedy_phrase_selection(phrases);
         pos_t pos = block_start;
 
@@ -107,12 +99,9 @@ void lz77_sss<pos_t>::factorizer<tau>::factorize_blockwise_optimal(out_it_t& out
         block_end = std::min<pos_t>(block_start + block_size, n);
     }
 
-    assert(idx.pos() == n);
+    assert(gap_idx.pos() == n);
 
     if (log) {
         time = log_runtime(time);
-        #ifndef NDEBUG
-        std::cout << "rate of initialized values in the rolling hash index: " << idx.rate_init() << std::endl;
-        #endif
     }
 }

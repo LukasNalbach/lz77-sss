@@ -21,11 +21,15 @@ class rolling_hash_index_61 {
     public:
     rolling_hash_index_61() = default;
 
-    rolling_hash_index_61(
-        const char* input, pos_t size,
-        const std::array<pos_t, num_patt_lens> patt_lens,
+    void initialize(
+        char* input, pos_t size,
+        std::array<pos_t, num_patt_lens> patt_lens,
         uint64_t target_size_in_bytes
-    ) : input(input), input_size(size), patt_lens(patt_lens) {
+    ) {
+        this->input = input;
+        this->patt_lens = patt_lens;
+        input_size = size;
+
         uint64_t target_size_h = std::max<int64_t>(
             int64_t{(input_size / sizeof(pos_t)) / 5},
             (int64_t{target_size_in_bytes} - int64_t{sizeof(rolling_hash_t) *
@@ -40,9 +44,9 @@ class rolling_hash_index_61 {
         std::uniform_int_distribution<uint64_t> distrib(
             257, std::numeric_limits<uint64_t>::max());
 
-        for_constexpr<0, num_patt_lens, 1>([&](auto patt_len_idx) {
-            rolling_hash[patt_len_idx] = new rolling_hash_t(
-                distrib(mt), patt_lens[patt_len_idx]);
+        for_constexpr<0, num_patt_lens, 1>([&](auto i) {
+            rolling_hash[i] = new rolling_hash_t(
+                distrib(mt), patt_lens[i]);
         });
 
         reinit(0);
@@ -51,71 +55,71 @@ class rolling_hash_index_61 {
     inline void reinit(pos_t pos) {
         cur_pos = pos;
 
-        for_constexpr<0, num_patt_lens, 1>([&](auto patt_len_idx) {
-            fingerprints[patt_len_idx] = 0;
-            init<patt_len_idx>();
+        for_constexpr<0, num_patt_lens, 1>([&](auto i) {
+            fingerprints[i] = 0;
+            init<i>();
         });
     }
     
-    template <pos_t patt_len_idx>
+    template <pos_t i>
     inline void init() {
-        for (pos_t i = 0; i < patt_lens[patt_len_idx]; i++) {
-            fingerprints[patt_len_idx] = rolling_hash[patt_len_idx]->push(
-                fingerprints[patt_len_idx],
-                char_to_uchar(input[cur_pos + i])
+        for (pos_t j = 0; j < patt_lens[i]; j++) {
+            fingerprints[i] = rolling_hash[i]->push(
+                fingerprints[i],
+                char_to_uchar(input[cur_pos + j])
             );
         }
     }
 
-    template <pos_t patt_len_idx>
+    template <pos_t i>
     inline void roll() {
-        fingerprints[patt_len_idx] = rolling_hash[patt_len_idx]->roll(
-            fingerprints[patt_len_idx],
+        fingerprints[i] = rolling_hash[i]->roll(
+            fingerprints[i],
             char_to_uchar(input[cur_pos]),
-            char_to_uchar(input[cur_pos + patt_lens[patt_len_idx]])
+            char_to_uchar(input[cur_pos + patt_lens[i]])
         );
     }
 
     inline void roll() {
-        for_constexpr<0, num_patt_lens, 1>([&](auto patt_len_idx) {
-            roll<patt_len_idx>();
+        for_constexpr<0, num_patt_lens, 1>([&](auto i) {
+            roll<i>();
         });
 
         cur_pos++;
     }
 
-    template <pos_t patt_len_idx>
+    template <pos_t i>
     inline void advance() {
-        if (cur_pos + patt_lens[patt_len_idx] < input_size) {
-            H[fingerprints[patt_len_idx] & h_mod_mask] = cur_pos;
-            roll<patt_len_idx>();
+        if (cur_pos + patt_lens[i] < input_size) {
+            H[fingerprints[i] & h_mod_mask] = cur_pos;
+            roll<i>();
         }
     }
 
     inline void advance() {
-        for_constexpr<0, num_patt_lens, 1>([&](auto patt_len_idx) {
-            advance<patt_len_idx>();
+        for_constexpr<0, num_patt_lens, 1>([&](auto i) {
+            advance<i>();
         });
 
         cur_pos++;
     }
 
-    template <pos_t patt_len_idx>
+    template <pos_t i>
     inline pos_t advance_and_get_occ() {
-        fingerprint_t h_pos = fingerprints[patt_len_idx] & h_mod_mask;
+        fingerprint_t h_pos = fingerprints[i] & h_mod_mask;
         pos_t occ = H[h_pos];
         H[h_pos] = cur_pos;
 
-        if (cur_pos + patt_lens[patt_len_idx] < input_size) {
-            roll<patt_len_idx>();
+        if (cur_pos + patt_lens[i] < input_size) {
+            roll<i>();
         }
 
         return occ;
     }
 
-    template <pos_t patt_len_idx>
+    template <pos_t i>
     inline pos_t get_occ() const {
-        return H[fingerprints[patt_len_idx] & h_mod_mask];
+        return H[fingerprints[i] & h_mod_mask];
     }
 
     inline uint64_t size_in_bytes() const {

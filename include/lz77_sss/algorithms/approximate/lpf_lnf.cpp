@@ -24,15 +24,14 @@ void lz77_sss<pos_t>::factorizer<tau>::build_LPF_S() {
     std::vector<uint32_t> PSV_S;
     std::vector<uint32_t> NSV_S;
     no_init_resize(PSV_S, s);
-    no_init_resize(NSV_S, s);
-
+    NSV_S.resize(s, s);
     PSV_S[0] = 0;
-    NSV_S[s - 1] = s;
 
     for (uint32_t i = 1; i < s; i++) {
         uint32_t j = i - 1;
 
         while (j != 0 && SSA_S[j] > SSA_S[i]) {
+            NSV_S[j] = i;
             j = PSV_S[j];
         }
 
@@ -43,22 +42,14 @@ void lz77_sss<pos_t>::factorizer<tau>::build_LPF_S() {
         #endif
     }
 
+    #ifndef NDEBUG
     for (int64_t i = s - 1; i >= 0; i--) {
-        uint32_t j = i + 1;
-
-        while (j != s && SSA_S[j] > SSA_S[i]) {
-            j = NSV_S[j];
-        }
-
-        NSV_S[i] = j;
-        
-        #ifndef NDEBUG
         assert(NSV_S[i] == s || S[SSA_S[NSV_S[i]]] < S[SSA_S[i]]);
-        #endif
     }
+    #endif
 
     if constexpr (mode == naive) {
-        LPF.reserve(s);
+        LPF.reserve(LPF.size() + s + 1);
 
         for (uint32_t i = 0; i < s;) {
             pos_t src;
@@ -115,48 +106,56 @@ void lz77_sss<pos_t>::factorizer<tau>::build_LPF_S() {
             } while (i < s && S[i] < pos + len);
         }
     } else if (mode == optimal) {
-        LPF.reserve(2 * s);
+        LPF.reserve(LPF.size() + 2 * s + 1);
 
         for (uint32_t i = 0; i < s; i++) {
-            if (PSV_S[ISSA_S[i]] > 0) {
+            if (PSV_S[ISSA_S[i]] > 0) [[likely]] {
                 pos_t src = S[SSA_S[PSV_S[ISSA_S[i]]]];
-                pos_t len = LCE_R(src, S[i]);
+                pos_t lce_l = 0;
+
+                if (src != 0) [[likely]] {
+                    lce_l = LCE_L(src - 1, S[i] - 1, tau);
+                }
+                
+                pos_t end = S[i] + LCE_R(src, S[i]);
+                pos_t beg = S[i] - lce_l;
+                src -= lce_l;
 
                 #ifndef NDEBUG
-                assert(src < S[i]);
+                assert(src < beg);
 
-                for (pos_t j = 0; j < len; j++) {
-                    assert(T[src + j] == T[S[i] + j]);
+                for (pos_t j = 0; j < end - beg; j++) {
+                    assert(T[src + j] == T[beg + j]);
                 }
                 #endif
 
-                if (len > 1) {
-                    LPF.emplace_back(lpf {
-                        .beg = S[i],
-                        .end = S[i] + len,
-                        .src = src
-                    });
+                if (end - beg > 1) [[likely]] {
+                    LPF.emplace_back(lpf {beg, end, src});
                 }
             }
 
-            if (NSV_S[ISSA_S[i]] < s) {
+            if (NSV_S[ISSA_S[i]] < s) [[likely]] {
                 pos_t src = S[SSA_S[NSV_S[ISSA_S[i]]]];
-                pos_t len = LCE_R(src, S[i]);
+                pos_t lce_l = 0;
+
+                if (src != 0) [[likely]] {
+                    lce_l = LCE_L(src - 1, S[i] - 1, tau);
+                }
+
+                pos_t end = S[i] + LCE_R(src, S[i]);
+                pos_t beg = S[i] - lce_l;
+                src -= lce_l;
 
                 #ifndef NDEBUG
-                assert(src < S[i]);
-
-                for (pos_t j = 0; j < len; j++) {
-                    assert(T[src + j] == T[S[i] + j]);
+                assert(src < beg);
+                
+                for (pos_t j = 0; j < end - beg; j++) {
+                    assert(T[src + j] == T[beg + j]);
                 }
                 #endif
 
-                if (len > 1) {
-                    LPF.emplace_back(lpf {
-                        .beg = S[i],
-                        .end = S[i] + len,
-                        .src = src
-                    });
+                if (end - beg > 1) [[likely]] {
+                    LPF.emplace_back(lpf {beg, end, src});
                 }
             }
         }
@@ -189,15 +188,14 @@ void lz77_sss<pos_t>::factorizer<tau>::build_LNF_S() {
     std::vector<uint32_t> PGV_S;
     std::vector<uint32_t> NGV_S;
     no_init_resize(PGV_S, s);
-    no_init_resize(NGV_S, s);
-
+    NGV_S.resize(s, s);
     PGV_S[0] = 0;
-    NGV_S[s - 1] = s;
 
     for (uint32_t i = 1; i < s; i++) {
         uint32_t j = i - 1;
 
         while (j != 0 && SSA_S[j] < SSA_S[i]) {
+            NGV_S[j] = i;
             j = PGV_S[j];
         }
 
@@ -208,22 +206,14 @@ void lz77_sss<pos_t>::factorizer<tau>::build_LNF_S() {
         #endif
     }
 
+    #ifndef NDEBUG
     for (int64_t i = s - 1; i >= 0; i--) {
-        uint32_t j = i + 1;
-
-        while (j != s && SSA_S[j] < SSA_S[i]) {
-            j = NGV_S[j];
-        }
-
-        NGV_S[i] = j;
-        
-        #ifndef NDEBUG
         assert(NGV_S[i] == s || S[SSA_S[NGV_S[i]]] > S[SSA_S[i]]);
-        #endif
     }
+    #endif
 
     if constexpr (mode == naive) {
-        LPF.reserve(s);
+        LPF.reserve(LPF.size() + s + 1);
 
         for (uint32_t i = 0; i < s;) {
             pos_t src;
@@ -280,47 +270,63 @@ void lz77_sss<pos_t>::factorizer<tau>::build_LNF_S() {
             } while (i < s && S[i] < pos + len);
         }
     } else if (mode == optimal) {
-        LPF.reserve(2 * s);
+        LPF.reserve(LPF.size() + 2 * s + 1);
 
         for (uint32_t i = 0; i < s; i++) {
-            if (PGV_S[ISSA_S[i]] > 0) {
+            if (PGV_S[ISSA_S[i]] > 0) [[likely]] {
                 pos_t src = S[SSA_S[PGV_S[ISSA_S[i]]]];
-                pos_t len = LCE_R(src, S[i]);
+                pos_t lce_l = 0;
+
+                if (src != 0) [[likely]] {
+                    lce_l = LCE_L(src - 1, S[i] - 1, tau);
+                }
+
+                pos_t end = S[i] + LCE_R(src, S[i]);
+                pos_t beg = S[i] - lce_l;
+                src -= lce_l;
 
                 #ifndef NDEBUG
-                assert(src > S[i]);
+                assert(src > beg);
 
-                for (pos_t j = 0; j < len; j++) {
-                    assert(T[src + j] == T[S[i] + j]);
+                for (pos_t j = 0; j < end - beg; j++) {
+                    assert(T[src + j] == T[beg + j]);
                 }
                 #endif
 
-                if (len > 1) {
+                if (end - beg > 1) [[likely]] {
                     LPF.emplace_back(lpf {
-                        .beg = n - S[i] - len,
-                        .end = n - S[i],
-                        .src = n - src - len
+                        .beg = n - end,
+                        .end = n - beg,
+                        .src = n - (src + (end - beg))
                     });
                 }
             }
 
-            if (NGV_S[ISSA_S[i]] < s) {
+            if (NGV_S[ISSA_S[i]] < s) [[likely]] {
                 pos_t src = S[SSA_S[NGV_S[ISSA_S[i]]]];
-                pos_t len = LCE_R(src, S[i]);
+                pos_t lce_l = 0;
+
+                if (src != 0) [[likely]] {
+                    lce_l = LCE_L(src - 1, S[i] - 1, tau);
+                }
+
+                pos_t end = S[i] + LCE_R(src, S[i]);
+                pos_t beg = S[i] - lce_l;
+                src -= lce_l;
 
                 #ifndef NDEBUG
-                assert(src > S[i]);
+                assert(src > beg);
                 
-                for (pos_t j = 0; j < len; j++) {
-                    assert(T[src + j] == T[S[i] + j]);
+                for (pos_t j = 0; j < end - beg; j++) {
+                    assert(T[src + j] == T[beg + j]);
                 }
                 #endif
 
-                if (len > 1) {
+                if (end - beg > 1) [[likely]] {
                     LPF.emplace_back(lpf {
-                        .beg = n - S[i] - len,
-                        .end = n - S[i],
-                        .src = n - src - len
+                        .beg = n - end,
+                        .end = n - beg,
+                        .src = n - (src + (end - beg))
                     });
                 }
             }

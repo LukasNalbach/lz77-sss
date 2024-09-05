@@ -102,8 +102,12 @@ std::string format_size(uint64_t B) {
     return size_str;
 }
 
+double throughput(uint64_t bytes, uint64_t ns) {
+    return 1'000.0 * (bytes / (double) ns);
+}
+
 std::string format_throughput(uint64_t bytes, uint64_t ns) {
-    return std::to_string(1'000.0 * (bytes / (double) ns)) + " MB/s";
+    return std::to_string(throughput(bytes, ns)) + " MB/s";
 }
 
 uint64_t time_diff_min(std::chrono::steady_clock::time_point t1, std::chrono::steady_clock::time_point t2) {

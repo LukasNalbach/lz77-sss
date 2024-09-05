@@ -1,9 +1,16 @@
 #pragma once
 
+#include <lz77_sss/data_structures/sample_index/sample_index.hpp>
+
 template <typename pos_t, typename sidx_t, typename lce_r_t>
 template <direction dir>
 void sample_index<pos_t, sidx_t, lce_r_t>::build_samples(pos_t typ_lce_r, bool log) {
     auto time = now();
+
+    for (uint32_t c = 0; c < (1 << 16); c++) {
+        SXIV2[dir][c].b = no_occ;
+        SXIV2[dir][c].e = no_occ;
+    }
 
     if (log) {
         std::cout << "building SLC" << (dir == LEFT ? "S" : "P") << std::flush;
