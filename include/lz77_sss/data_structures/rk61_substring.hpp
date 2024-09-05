@@ -193,7 +193,9 @@ class rk61_substring {
             pos -= len - 1;
         }
 
-        if (len < s) return substring_naive<RIGHT>(pos, len);
+        if (len < s) [[likely]] {
+            return substring_naive<RIGHT>(pos, len);
+        }
 
         uint64_t h = log2_clz(len / s) - 1;
         uint64_t sl_h = s * (1 << h);
@@ -211,12 +213,12 @@ class rk61_substring {
         const uint64_t p_r = p_m + sl_h;
         uint64_t fp = fp_smpl_tree[h][i];
         
-        if (p_m > pos) {
+        if (p_m > pos) [[likely]] {
             const uint64_t fp_l = substring<RIGHT>(pos, p_m - pos);
             fp = concat(fp_l, fp, sl_h);
         }
         
-        if (p_r < end) {
+        if (p_r < end) [[likely]] {
             const uint64_t l_r = end - p_r;
             const uint64_t fp_r = substring<RIGHT>(p_r, l_r);
             fp = concat(fp, fp_r, l_r);

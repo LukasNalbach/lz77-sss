@@ -228,10 +228,6 @@ template <
     public:
 
     sample_index() = default;
-    sample_index(sample_index&& other) = delete;
-    sample_index(const sample_index& other) = delete;
-    sample_index& operator=(sample_index&& other) = delete;
-    sample_index& operator=(const sample_index& other) = delete;
 
     template <direction dir>
     void build_samples(pos_t typ_lce_r, bool log);
@@ -325,13 +321,6 @@ template <
             for (uint16_t c = 0; c < 256; c++) {
                 SCIV[c].b = no_occ;
                 SCIV[c].e = no_occ;
-            }
-
-            for (uint32_t c = 0; c < (1 << 16); c++) {
-                SXIV2[LEFT][c].b = no_occ;
-                SXIV2[LEFT][c].e = no_occ;
-                SXIV2[RIGHT][c].b = no_occ;
-                SXIV2[RIGHT][c].e = no_occ;
             }
 
             build_samples<LEFT>(typ_lce_r, log);

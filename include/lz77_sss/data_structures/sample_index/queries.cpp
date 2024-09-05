@@ -1,5 +1,7 @@
 #pragma once
 
+#include <lz77_sss/data_structures/sample_index/sample_index.hpp>
+
 template <typename pos_t, typename sidx_t, typename lce_r_t>
 template <direction dir>
 inline std::pair<typename sample_index<pos_t, sidx_t, lce_r_t>::sxa_interval_t, bool>

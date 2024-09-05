@@ -25,14 +25,15 @@ enum phrase_mode {
 };
 
 enum factorize_mode {
-    greedy,
-    greedy_skip_phrases,
+    greedy_naive,
+    greedy_optimized,
     blockwise_optimal
 };
 
 enum transform_mode {
     naive,
-    optimized
+    optimized_with_samples,
+    optimized_without_samples,
 };
 
 template <typename pos_t = uint32_t>
@@ -42,10 +43,11 @@ class lz77_sss {
 
     static constexpr uint64_t           default_tau             = 512;
     static constexpr phrase_mode        default_phr_mode        = lpf_optimal;
-    static constexpr factorize_mode     default_fact_mode       = greedy_skip_phrases;
-    static constexpr transform_mode     default_transf_mode     = optimized;
-    template <typename sidx_t> using    default_range_ds_t      = static_weighted_kd_tree<sidx_t>;
+    static constexpr factorize_mode     default_fact_mode       = greedy_optimized;
+    static constexpr transform_mode     default_transf_mode     = optimized_with_samples;
+    template <typename sidx_t> using    default_range_ds_t      = semi_dynamic_square_grid<sidx_t>;
 
+    static constexpr uint8_t            num_patt_lens           = 5;
     static constexpr pos_t              delta_max               = 256;
     static constexpr pos_t              range_scan_threshold    = 4096;
 
@@ -116,7 +118,8 @@ class lz77_sss {
         uint64_t                        tau             = default_tau
     >
     static void factorize_exact(std::string& input, std::ofstream& out, bool log = false) {
-        factorize_exact<fact_mode, phr_mode, transf_mode, range_ds_t, tau>(input, std::ostream_iterator<factor>(out, ""), log);
+        factorize_exact<fact_mode, phr_mode, transf_mode, range_ds_t, tau>(
+            input, std::ostream_iterator<factor>(out, ""), log);
     }
 
     template <
@@ -128,7 +131,8 @@ class lz77_sss {
     >
     static std::vector<factor> factorize_exact(std::string& input, bool log = false) {
         std::vector<factor> factorization;
-        factorize_exact<fact_mode, phr_mode, transf_mode, range_ds_t, tau>(input, std::back_insert_iterator(factorization), log);
+        factorize_exact<fact_mode, phr_mode, transf_mode, range_ds_t, tau>(
+            input, std::back_insert_iterator(factorization), log);
         return factorization;
     }
     
@@ -198,7 +202,8 @@ class lz77_sss {
 
         lce_t LCE;
         std::vector<lpf> LPF;
-        std::array<pos_t, 5> patt_lens;
+        std::array<pos_t, num_patt_lens> patt_lens;
+        rolling_hash_index_107<pos_t, num_patt_lens> gap_idx;
 
         factorizer(std::string& input, bool log) : log(log), T(input), n(input.size()) {}
 
@@ -231,14 +236,17 @@ class lz77_sss {
                 pos_t delta = std::min<pos_t>(n / num_phr, delta_max);
 
                 if constexpr (std::is_same_v<pos_t, uint32_t>) {
-                    exact_factorizer<uint32_t, transf_mode, range_ds_t, out_it_t>(T, LCE, delta, num_phr, log).transform_to_exact(ifile_approx_it, out_it);
+                    exact_factorizer<uint32_t, transf_mode, range_ds_t, out_it_t>(
+                        T, LCE, delta, num_phr, log).transform_to_exact(ifile_approx_it, out_it);
                 } else {
                     pos_t max_num_samples = num_phr + n / delta;
 
                     if (max_num_samples <= std::numeric_limits<uint32_t>::max()) {
-                        exact_factorizer<uint32_t, transf_mode, range_ds_t, out_it_t>(T, LCE, delta, num_phr, log).transform_to_exact(ifile_approx_it, out_it);
+                        exact_factorizer<uint32_t, transf_mode, range_ds_t, out_it_t>(
+                            T, LCE, delta, num_phr, log).transform_to_exact(ifile_approx_it, out_it);
                     } else {
-                        exact_factorizer<uint64_t, transf_mode, range_ds_t, out_it_t>(T, LCE, delta, num_phr, log).transform_to_exact(ifile_approx_it, out_it);
+                        exact_factorizer<uint64_t, transf_mode, range_ds_t, out_it_t>(
+                            T, LCE, delta, num_phr, log).transform_to_exact(ifile_approx_it, out_it);
                     }
                 }
 
@@ -250,18 +258,34 @@ class lz77_sss {
 
             if (log) {
                 uint64_t time_total = time_diff_ns(time_start, now());
-                std::cout << "compression ratio: " << n / (double) num_phr << std::endl;
+                uint64_t mem_peak = malloc_count_peak() - baseline_memory_alloc;
+                double comp_ratio = n / (double) num_phr;
+
+                std::cout << "compression ratio: " << comp_ratio << std::endl;
                 std::cout << "total time: " << format_time(time_total) << std::endl;
                 std::cout << "throughput: " << format_throughput(n, time_total) << std::endl;
-                std::cout << "peak memory consumption: " << format_size(malloc_count_peak() - baseline_memory_alloc) << std::endl;
-            }
-        }
+                std::cout << "peak memory consumption: " << format_size(mem_peak) << std::endl;
 
-        template <uint8_t num_patt_lens>
-        void set_patt_lens(std::array<pos_t, num_patt_lens> lens) {
-            for_constexpr<0, num_patt_lens, 1>([&](auto i){
-                patt_lens[i] = lens[i];
-            });
+                #ifdef LZ77_SSS_BENCH
+                if (result_file_path != "") {
+                    std::ofstream result_file(
+                        result_file_path, std::ofstream::app);
+
+                    result_file << "RESULT"
+                        << " text_name=" << text_name
+                        << " n=" << n
+                        << " alg=lz77_sss"
+                        << " phr_mode=" << phr_mode
+                        << " fact_mode=" << fact_mode
+                        << " transf_mode=" << (qual_mode != exact ? 0 : transf_mode)
+                        << " num_factors=" << num_phr
+                        << " comp_ratio=" << comp_ratio
+                        << " time=" << time_total
+                        << " throughput=" << throughput(n, time_total)
+                        << " mem_peak=" << mem_peak << std::endl;
+                }
+                #endif
+            }
         }
 
         template <
@@ -277,11 +301,15 @@ class lz77_sss {
                 build_lce();
                 build_LPF_S<optimal>();
             } else if constexpr (phr_mode == lpf_lnf_optimal) {
+                if (log) std::cout << "reversing T" << std::flush;
                 std::reverse(T.begin(), T.end());
+                if (log) time = log_runtime(time);
                 build_lce();
                 build_LNF_S<optimal>();
                 LCE = lce_t();
+                if (log) std::cout << "reversing T" << std::flush;
                 std::reverse(T.begin(), T.end());
+                if (log) time = log_runtime(time);
                 build_lce();
                 build_LPF_S<optimal>();
             }
@@ -294,19 +322,23 @@ class lz77_sss {
                 }
 
                 greedy_phrase_selection(LPF);
-                LPF.shrink_to_fit();
 
                 if (log) {
                     time = log_runtime(time);
                 }
             }
 
+            if (log) std::cout << "inspecting LPF" << std::flush;
+
             get_phrase_info();
-            
+            LPF.emplace_back(lpf {.beg = n});
+            LPF.shrink_to_fit();
+
             double avg_gap_len = len_gaps / (double) num_gaps;
             double avg_lpf_phr_len = len_lpf_phr / (double) num_lpf;
 
             if (log) {
+                time = log_runtime(time);
                 std::cout << "num. of LPF phrases / SSS size = " << num_lpf / (double) size_sss << std::endl;
                 std::cout << "gaps length / input length: " << len_gaps / (double) n << std::endl;
                 std::cout << "num. of gaps / num. of LPF phrases: " << num_gaps / (double) num_lpf << std::endl;
@@ -314,28 +346,52 @@ class lz77_sss {
                 std::cout << "avg. LPF phrase length: " << avg_lpf_phr_len << std::endl;
             }
             
-            target_index_size = std::max<uint64_t>(malloc_count_peak(), n / 4 + baseline_memory_alloc) - malloc_count_current();
+            target_index_size = std::max<uint64_t>(malloc_count_peak(),
+                n / 4 + baseline_memory_alloc) - malloc_count_current();
             double patt_len_guess = std::min<double>(avg_gap_len, avg_lpf_phr_len);
             
-                 if (patt_len_guess <= 12)  {set_patt_lens<5>({2,3, 4, 8,12});}
-            else if (patt_len_guess <= 16)  {set_patt_lens<5>({2,4, 6, 9,16});}
-            else if (patt_len_guess <= 32)  {set_patt_lens<5>({2,4, 6,10,20});}
-            else if (patt_len_guess <= 64)  {set_patt_lens<5>({2,4, 7,12,28});}
-            else if (patt_len_guess <= 128) {set_patt_lens<5>({2,4, 8,16,36});}
-            else if (patt_len_guess <= 256) {set_patt_lens<5>({2,5,10,20,42});}
-            else if (patt_len_guess <= 512) {set_patt_lens<5>({2,6,12,24,48});}
-            else                            {set_patt_lens<5>({2,8,16,32,64});}
+                 if (patt_len_guess <= 12)  {patt_lens = {2,3, 4, 8,12};}
+            else if (patt_len_guess <= 16)  {patt_lens = {2,4, 6, 9,16};}
+            else if (patt_len_guess <= 32)  {patt_lens = {2,4, 6,10,20};}
+            else if (patt_len_guess <= 64)  {patt_lens = {2,4, 7,12,28};}
+            else if (patt_len_guess <= 128) {patt_lens = {2,4, 8,16,36};}
+            else if (patt_len_guess <= 256) {patt_lens = {2,5,10,20,42};}
+            else if (patt_len_guess <= 512) {patt_lens = {2,6,12,24,48};}
+            else                            {patt_lens = {2,8,16,32,64};}
 
-            if constexpr (fact_mode == greedy)              {factorize_greedy<false,     5>(out_it);} else
-            if constexpr (fact_mode == greedy_skip_phrases) {factorize_greedy<true,      5>(out_it);} else
-            if constexpr (fact_mode == blockwise_optimal)   {factorize_blockwise_optimal<5>(out_it);}
+            if (log) {
+                std::cout << "pattern lengths for the rolling hash index: ";
+                for (pos_t i = 0; i < 4; i++) std::cout << patt_lens[i] << ", ";
+                std::cout << patt_lens[4] << std::endl;
+                std::cout << "initializing rolling hash index" << std::flush;
+            }
+
+            gap_idx.initialize(T.data(), n, patt_lens, target_index_size);
+
+            if (log) {
+                std::cout << " (size: " << format_size(gap_idx.size_in_bytes()) << ")";
+                time = log_runtime(time);
+            }
+
+            if constexpr (fact_mode == greedy_naive)      {factorize_greedy_naive<     >(out_it);} else
+            if constexpr (fact_mode == greedy_optimized)  {factorize_greedy_optimized< >(out_it);} else
+            if constexpr (fact_mode == blockwise_optimal) {factorize_blockwise_optimal<>(out_it);}
+
+            if (log) {
+                #ifndef NDEBUG
+                std::cout << "rate of initialized values"
+                    << "in the rolling hash index: "
+                    << gap_idx.rate_init()
+                    << std::endl;
+                #endif
+            }
         }
 
         inline pos_t LCE_R(pos_t i, pos_t j) {
             return LCE.lce(i, j);
         }
 
-        inline pos_t LCE_L(pos_t i, pos_t j, pos_t max_lce = 32768) {
+        inline pos_t LCE_L(pos_t i, pos_t j, pos_t max_lce) {
             return lce_l_128<pos_t>(T.data(), i, j, max_lce);
         }
 
@@ -349,16 +405,23 @@ class lz77_sss {
 
         void get_phrase_info();
 
-        template <uint8_t num_patt_lens>
-        inline factor longest_prev_occ(rolling_hash_index_107<pos_t, num_patt_lens>& idx, pos_t pos, pos_t len_max);
+        inline factor longest_prev_occ(pos_t pos);
 
-        template <bool skip_phrases, uint8_t num_patt_lens, typename out_it_t>
-        void factorize_greedy(out_it_t& out_it);
+        template <typename out_it_t>
+        void factorize_greedy_naive(out_it_t& out_it);
 
-        template <uint8_t num_patt_lens, typename out_it_t>
+        template <typename out_it_t>
+        void factorize_greedy_optimized(out_it_t& out_it);
+
+        template <typename out_it_t>
         void factorize_blockwise_optimal(out_it_t& out_it);
 
-        template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t, typename out_it_t>
+        template <
+            typename sidx_t,
+            transform_mode transf_mode,
+            template <typename> typename range_ds_t,
+            typename out_it_t
+        >
         class exact_factorizer {
             public:
 
@@ -412,7 +475,7 @@ class lz77_sss {
                 build_idx_C();
                 build_p();
 
-                if constexpr (transf_mode == optimized) {
+                if constexpr (transf_mode != naive) {
                     build_ps_sp();
                 }
 
@@ -435,10 +498,10 @@ class lz77_sss {
                     time = log_runtime(time);
                 }
 
-                if constexpr (transf_mode == naive) {
-                    transform_to_exact_naive(out_it);
+                if constexpr (transf_mode == optimized_with_samples) {
+                    transform_to_exact_with_samples(out_it);
                 } else {
-                    transform_to_exact_optimized(out_it);
+                    transform_to_exact_without_samples(out_it);
                 }
 
                 if (log) {
@@ -465,18 +528,22 @@ class lz77_sss {
 
             void build_p();
 
-            void adjust_sample_index(sidx_t& idx, pos_t pos);
+            void insert_points(sidx_t& x_c, pos_t i);
 
-            void transform_to_exact_naive(out_it_t& out_it);
+            void handle_close_sources(factor& f, pos_t i);
+
+            void adjust_xc(sidx_t& gap_idx, pos_t pos);
 
             bool intersect(
                 const sxa_interval_t& spa_iv, const sxa_interval_t& ssa_iv,
                 pos_t i, pos_t j, pos_t lce_l,pos_t lce_r, sidx_t& x_c, factor& f
             );
 
-            void extend_right(const sxa_interval_t& spa_iv, pos_t i, pos_t j, sidx_t& x_c, factor& f);
+            void transform_to_exact_without_samples(out_it_t& out_it);
 
-            void transform_to_exact_optimized(out_it_t& out_it);
+            void extend_right_with_samples(const sxa_interval_t& spa_iv, pos_t i, pos_t j, sidx_t& x_c, factor& f);
+
+            void transform_to_exact_with_samples(out_it_t& out_it);
         };
     };
 };
@@ -484,11 +551,12 @@ class lz77_sss {
 #include "algorithms/common.cpp"
 
 #include "algorithms/approximate/common.cpp"
-#include "algorithms/approximate/encode_gaps.cpp"
 #include "algorithms/approximate/lpf_lnf.cpp"
-#include "algorithms/approximate/factorize/greedy.cpp"
+#include "algorithms/approximate/factorize/common.cpp"
+#include "algorithms/approximate/factorize/greedy_naive.cpp"
+#include "algorithms/approximate/factorize/greedy_optimized.cpp"
 #include "algorithms/approximate/factorize/blockwise_optimal.cpp"
 
 #include "algorithms/transform_to_exact/common.cpp"
-#include "algorithms/transform_to_exact/naive.cpp"
-#include "algorithms/transform_to_exact/optimized.cpp"
+#include "algorithms/transform_to_exact/with_samples.cpp"
+#include "algorithms/transform_to_exact/without_samples.cpp"
