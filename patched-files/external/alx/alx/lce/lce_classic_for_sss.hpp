@@ -14,7 +14,7 @@
 #include <cstdint>
 #include <gsaca-double-sort-par.hpp>
 
-#include "lce/lce_naive_wordwise.hpp"
+#include "lce/lce_naive_wordwise_xor.hpp"
 #include "rmq/rmq_n.hpp"
 
 #ifdef ALX_BENCHMARK_INTERNAL
@@ -68,7 +68,6 @@ class lce_classic_for_sss {
     // build lcp
     m_lcp.resize(m_sa.size());
     m_lcp[0] = 0;
-    size_t current_lcp = 0;
 
 #pragma omp parallel
     {
@@ -88,11 +87,11 @@ class lce_classic_for_sss {
         assert(suffix_array_pos != 0);
 
         size_t preceding_suffix_pos = m_sa[suffix_array_pos - 1];
-        current_lcp += lce_naive_wordwise<uint8_t>::lce_uneq(
+        current_lcp += lce_naive_wordwise_xor<uint8_t>::lce_uneq(
             text, text_size, sss[i] + current_lcp,
             sss[preceding_suffix_pos] + current_lcp);
         m_lcp[suffix_array_pos] = current_lcp;
-        assert(lce_naive_wordwise<uint8_t>::lce_uneq(
+        assert(lce_naive_wordwise_xor<uint8_t>::lce_uneq(
                    text, text_size, sss[i], sss[preceding_suffix_pos]) ==
                current_lcp);
         if (i == end-1) break;
