@@ -14,7 +14,6 @@
 #include <vector>
 
 #include "lce/lce_classic_for_sss.hpp"
-#include "lce/lce_naive_wordwise.hpp"
 #include "lce/lce_naive_wordwise_xor.hpp"
 #include "pred/pred_index.hpp"
 #include "rolling_hash/reduce_fingerprints.hpp"

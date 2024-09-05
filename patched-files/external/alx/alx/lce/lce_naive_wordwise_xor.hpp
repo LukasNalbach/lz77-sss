@@ -106,6 +106,13 @@ class lce_naive_wordwise_xor {
             text_blocks_j + max_lce / (sizeof(__uint128_t) / sizeof(char_type)),
             text_blocks_i)
             .first);
+    if (r + (lce_val + 1) * (sizeof(__uint128_t) / sizeof(char_type)) > size) [[unlikely]] {
+      lce_val *= sizeof(__uint128_t) / sizeof(char_type);
+      while (r + lce_val < size && text[l + lce_val] == text[r + lce_val]) {
+        lce_val++;
+      }
+      return lce_val;
+    }
     size_t lce_rest =
         std::countr_zero(text_blocks_i[lce_val] ^ text_blocks_j[lce_val]) /
         (8 * sizeof(char_type));
