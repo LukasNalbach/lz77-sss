@@ -105,7 +105,7 @@ void lz77_sss<pos_t>::factorizer<tau>::build_LPF_S() {
                 i++;
             } while (i < s && S[i] < pos + len);
         }
-    } else if (mode == optimal) {
+    } else if (mode == all) {
         LPF.reserve(LPF.size() + 2 * s + 1);
 
         for (uint32_t i = 0; i < s; i++) {
@@ -269,7 +269,7 @@ void lz77_sss<pos_t>::factorizer<tau>::build_LNF_S() {
                 i++;
             } while (i < s && S[i] < pos + len);
         }
-    } else if (mode == optimal) {
+    } else if (mode == all) {
         LPF.reserve(LPF.size() + 2 * s + 1);
 
         for (uint32_t i = 0; i < s; i++) {

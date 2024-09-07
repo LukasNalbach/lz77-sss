@@ -9,13 +9,13 @@ sample_index<pos_t, sidx_t, lce_r_t>::sxa_interval(
     pos_t pat_len_idx, pos_t pos_pat, std::size_t hash
 ) {
     if (pat_len_idx == 0) {
-        if (!occurs1(pos_pat)) {
+        if (!occurs1(pos_pat)) [[unlikely]] {
             return {{0, 0}, false};
         } else {
             return {sciv(pos_pat), true};
         }
     } else if (pat_len_idx == 1) {
-        if (!occurs2<dir>(pos_pat)) {
+        if (!occurs2<dir>(pos_pat)) [[unlikely]] {
             return {{0, 0}, false};
         } else {
             return {sxiv2<dir>(pos_pat), true};
@@ -93,10 +93,10 @@ bool sample_index<pos_t, sidx_t, lce_r_t>::extend(
         lce_e = qc_old.lce_e;
     }
 
-    if (lce_b < len) lce_b = lce_offs<dir>(
+    if (lce_b < len) [[likely]] lce_b = lce_offs<dir>(
         pos_pat, S[SXA<dir>(b)], lce_b, len);
     
-    if (lce_e < len) {
+    if (lce_e < len) [[likely]] {
         if (e == b) {
             lce_e = lce_b;
         } else {
@@ -274,13 +274,11 @@ sample_index<pos_t, sidx_t, lce_r_t>::interpolate(
     query_context qc_ret;
     pos_t pos_m;
 
-    if constexpr (dir == LEFT) {
-        lce_l = lce_offs<dir>(
-            pos_pat, S[SXA<dir>(l)],
-            lce_l,
-            len
-        );
-    }
+    lce_l = lce_offs<dir>(
+        pos_pat, S[SXA<dir>(l)],
+        lce_l,
+        len
+    );
 
     while (r - l > 1) {
         m = l + (r - l) / 2;
@@ -314,11 +312,9 @@ sample_index<pos_t, sidx_t, lce_r_t>::interpolate(
     lce_l = qc_long.lce_e;
     lce_r = qc_short.lce_e;
 
-    if constexpr (dir == LEFT) {
-        lce_r = lce_offs<dir>(
-            pos_pat, S[SXA<dir>(r)],
-            lce_r, len);
-    }
+    lce_r = lce_offs<dir>(
+        pos_pat, S[SXA<dir>(r)],
+        lce_r, len);
 
     while (r - l > 1) {
         m = l + (r - l) / 2;

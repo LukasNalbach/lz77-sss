@@ -29,8 +29,8 @@ class semi_dynamic_square_grid : dynamic_range<pos_t> {
         return grid_width * y_w + x_w;
     }
 
-    inline pos_t window_index(pos_t x, pos_t y) const {
-        return grid_index(x / win_size, y / win_size);
+    inline pos_t window_index(point_t p) const {
+        return grid_index(p.x / win_size, p.y / win_size);
     }
 
     public:
@@ -48,7 +48,7 @@ class semi_dynamic_square_grid : dynamic_range<pos_t> {
         grid.resize(num_win, {.len = 0});
 
         for (const point_t& p : points) {
-            grid[window_index(p.x, p.y)].len++;
+            grid[window_index(p)].len++;
         }
 
         for (window& w : grid) {
@@ -71,7 +71,7 @@ class semi_dynamic_square_grid : dynamic_range<pos_t> {
     }
 
     inline void insert(point_t p) override {
-        window& w = grid[window_index(p.x, p.y)];
+        window& w = grid[window_index(p)];
         points[w.beg + w.len] = p;
         w.len++;
         num_points++;

@@ -5,36 +5,36 @@
 template <typename pos_t>
 template <uint64_t tau>
 template <typename out_it_t>
-void lz77_sss<pos_t>::factorizer<tau>::factorize_blockwise_optimal(out_it_t& out_it) {
+void lz77_sss<pos_t>::factorizer<tau>::factorize_blockwise_all(out_it_t& out_it) {
     if (log) {
         std::cout << "factorizing" << std::flush;
     }
 
-    pos_t block_size = std::min<pos_t>(n, std::max<pos_t>(1000, n / 2000));
-    pos_t block_start = 0;
-    pos_t block_end = block_size;
-    std::vector<lpf> phrases;
-    pos_t cur_lpf = 0;
+    pos_t blk_size = std::min<pos_t>(n, std::max<pos_t>(1000, n / 2000));
+    pos_t blk_beg = 0;
+    pos_t blk_end = blk_size;
+    std::vector<lpf> P;
+    pos_t p = 0;
 
-    while (block_start < n) {
-        while (cur_lpf < LPF.size() && LPF[cur_lpf].beg < block_end) {
-            phrases.emplace_back(LPF[cur_lpf]);
-            cur_lpf++;
+    while (blk_beg < n) {
+        while (p < LPF.size() && LPF[p].beg < blk_end) {
+            P.emplace_back(LPF[p]);
+            p++;
         }
 
-        if (!phrases.empty() && phrases.back().end > block_end) {
-            block_end = phrases.back().end;
+        if (!P.empty() && P.back().end > blk_end) {
+            blk_end = P.back().end;
         }
 
-        assert(gap_idx.pos() == block_start);
+        assert(gap_idx.pos() == blk_beg);
 
-        for (pos_t i = block_start; i < block_end; i++) {
+        for (pos_t i = blk_beg; i < blk_end; i++) {
             for_constexpr<0, num_patt_lens, 1>([&](auto x) {
                 pos_t src = gap_idx.template advance_and_get_occ<x>();
 
                 if (src < i) {
-                    pos_t lce_l = src == 0 ? 0 : LCE_L(src - 1, i - 1, i - block_start);
-                    pos_t end = std::min<pos_t>(i + LCE_R(src, i), block_end);
+                    pos_t lce_l = src == 0 ? 0 : LCE_L(src - 1, i - 1, i - blk_beg);
+                    pos_t end = std::min<pos_t>(i + LCE_R(src, i), blk_end);
                     pos_t beg = i - lce_l;
 
                     if (end - beg > 1) {
@@ -48,7 +48,7 @@ void lz77_sss<pos_t>::factorizer<tau>::factorize_blockwise_optimal(out_it_t& out
                         }
                         #endif
                         
-                        phrases.emplace_back(lpf {
+                        P.emplace_back(lpf {
                             .beg = beg,
                             .end = end,
                             .src = src
@@ -60,11 +60,11 @@ void lz77_sss<pos_t>::factorizer<tau>::factorize_blockwise_optimal(out_it_t& out
             gap_idx.inc_pos();
         }
 
-        assert(gap_idx.pos() == block_end);
-        greedy_phrase_selection(phrases);
-        pos_t pos = block_start;
+        assert(gap_idx.pos() == blk_end);
+        greedy_phrase_selection(P);
+        pos_t pos = blk_beg;
 
-        for (lpf phr : phrases) {
+        for (lpf phr : P) {
             while (pos < phr.beg) {
                 *out_it++ = factor{char_to_uchar(T[pos]),0};
                 num_phr++;
@@ -88,15 +88,15 @@ void lz77_sss<pos_t>::factorizer<tau>::factorize_blockwise_optimal(out_it_t& out
             pos = phr.end;
         }
 
-        while (pos < block_end) {
+        while (pos < blk_end) {
             *out_it++ = factor{char_to_uchar(T[pos]),0};
             num_phr++;
             pos++;
         }
 
-        phrases.clear();
-        block_start = block_end;
-        block_end = std::min<pos_t>(block_start + block_size, n);
+        P.clear();
+        blk_beg = blk_end;
+        blk_end = std::min<pos_t>(blk_beg + blk_size, n);
     }
 
     assert(gap_idx.pos() == n);

@@ -34,23 +34,43 @@ transform_to_exact_without_samples(out_it_t& out_it) {
             if (idx_C.extend_left(qc_left, j, lce_l, false)) {
                 if (log) time_extend_left += time_diff_ns(t1);
                 query_context_t qc_right = idx_C.query();
-                pos_t lce_r_min = (transf_mode == naive || f.len < j - i) ? 0 : (i + f.len - j);
+                query_context_t qc_right_nxt = idx_C.query();
+                pos_t lce_r_min = f.len < j - i ? 0 : (i + f.len - j);
+                pos_t lce_r_max = n - j;
 
-                exp_search_max_geq<bool, pos_t, RIGHT>(true, lce_r_min, n - j, 1, [&](pos_t lce_r){
+                exp_search_max_geq<bool, pos_t, RIGHT>(
+                    true, lce_r_min, lce_r_max,
+                    1, [&](pos_t lce_r_tmp)
+                {
                     query_context_t qc_right_tmp;
                     time_point_t t2;
+                    bool result = true;
                     if (log) t2 = now();
+                    
+                    if (qc_right_nxt.match_length() == 0) {
+                        result = idx_C.extend_right(
+                            qc_right, qc_right_tmp, j, lce_r_tmp, false);
+                    } else {
+                        qc_right_tmp = idx_C.interpolate_right(
+                            qc_right, qc_right_nxt, j, lce_r_tmp);
+                    }
 
-                    if (idx_C.extend_right(qc_right, qc_right_tmp, j, lce_r, false)) {
-                        time_extend_right += time_diff_ns(t2);
+                    if (result) {
+                        if (log) time_extend_right += time_diff_ns(t2);
 
-                        return intersect(qc_left.interval(),
+                        if (intersect(qc_left.interval(),
                             qc_right_tmp.interval(), i, j,
-                            lce_l, lce_r, x_c, f);
+                            lce_l, lce_r_tmp, x_c, f)
+                        ) {
+                            qc_right = qc_right_tmp;
+                            return true;
+                        } else {
+                            qc_right_nxt = qc_right_tmp;
+                        }
                     } else if (log) {
                         time_extend_right += time_diff_ns(t2);
                     }
-                        
+
                     return false;
                 });
             } else if (log) {

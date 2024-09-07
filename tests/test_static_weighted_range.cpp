@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include <ips4o.hpp>
 #include <lz77_sss/data_structures/static_weighted_range/static_weighted_kd_tree.hpp>
+#include <lz77_sss/data_structures/static_weighted_range/static_weighted_square_grid.hpp>
 #include <lz77_sss/data_structures/static_weighted_range/static_weighted_striped_square.hpp>
 
 using point_t = static_weighted_range<>::point_t;
@@ -89,7 +90,8 @@ TEST(test_static_weighted_range, fuzzy_test) {
     while (time_diff_min(start_time,now()) < 60) {
         switch (std::rand() % 3) {
             case 0: test<static_weighted_kd_tree<>>(); break;
-            case 1: test<static_weighted_striped_square<>>(); break;
+            case 1: test<static_weighted_square_grid<>>(); break;
+            case 2: test<static_weighted_striped_square<>>(); break;
         }
     }
 }

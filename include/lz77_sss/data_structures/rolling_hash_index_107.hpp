@@ -19,15 +19,11 @@ class rolling_hash_index_107 {
     public:
     rolling_hash_index_107() = default;
 
-    void initialize(
+    rolling_hash_index_107(
         char* input, pos_t size,
         std::array<pos_t, num_patt_lens> patt_lens,
         uint64_t target_size_in_bytes
-    ) {
-        this->input = input;
-        this->patt_lens = patt_lens;
-        input_size = size;
-
+    ) : input(input), input_size(size), patt_lens(patt_lens) {
         uint64_t target_size_h = std::max<int64_t>(
             int64_t{(input_size / sizeof(pos_t)) / 5},
             (int64_t{target_size_in_bytes} - int64_t{sizeof(rolling_hash_t) *

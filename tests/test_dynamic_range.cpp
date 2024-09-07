@@ -103,7 +103,7 @@ TEST(test_static_weighted_range, fuzzy_test) {
     auto start_time = now();
 
     while (time_diff_min(start_time,now()) < 60) {
-        switch (std::rand() % 3) {
+        switch (std::rand() % 2) {
             case 0: test<dynamic_square_grid<>>(); break;
             case 1: test<semi_dynamic_square_grid<>>(); break;
         }
