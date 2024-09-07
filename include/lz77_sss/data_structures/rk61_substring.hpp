@@ -7,7 +7,7 @@
 #include <lz77_sss/misc/utils.hpp>
 
 class rk61_substring {
-    private:
+    protected:
 
     static constexpr uint64_t e61 = 61;
     static constexpr uint64_t p61 = (uint64_t(1) << e61) - 1;

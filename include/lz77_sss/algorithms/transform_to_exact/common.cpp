@@ -50,7 +50,7 @@ void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, ran
     double aprx_comp_ratio = n / (double) num_phr;
     pos_t typ_lce_r = std::round(aprx_comp_ratio * (1.0 + 0.5 * std::exp(- aprx_comp_ratio / 1000.0)));
 
-    idx_C.build(T, C, LCE, delta, typ_lce_r, transf_mode == with_samples, log);
+    idx_C.build(T, C, LCE, transf_mode == with_samples, log, delta, typ_lce_r);
 
     if (log) {
         std::cout << "size: " << format_size(idx_C.size_in_bytes());
@@ -69,7 +69,7 @@ void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, ran
     P.reserve(c);
 
     for (sidx_t i = 0; i < c; i++) {
-        if constexpr (is_static<range_ds_t>()) {
+        if constexpr (range_ds_t<sidx_t>::is_static()) {
             P.emplace_back(point_t{.weight = i});
         } else {
             P.emplace_back(point_t{});
@@ -133,7 +133,13 @@ void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, ran
     while (x_c < c && C[x_c] < i) {
         time_point_t t0;
         if (log) t0 = now();
-        R.insert(P[x_c]);
+
+        if constexpr (range_ds_t<sidx_t>::is_decomposed()) {
+            R.insert(T[C[x_c]], P[x_c]);
+        } else {
+            R.insert(P[x_c]);
+        }
+
         if (log) time_insert_points += time_diff_ns(t0);
         x_c++;
     }
@@ -200,16 +206,31 @@ bool lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, ran
                 }
             }
         }
-    } else if constexpr (is_static<range_ds_t>()) {
+    } else if constexpr (range_ds_t<sidx_t>::is_static()) {
         adjust_xc(x_c, j);
 
-        std::tie(p, result) = R.lighter_point_in_range(
-            x_c, spa_iv.b, spa_iv.e, ssa_iv.b, ssa_iv.e
-        );
+        if constexpr (range_ds_t<sidx_t>::is_decomposed()) {
+            std::tie(p, result) = R.lighter_point_in_range(
+                T[j], x_c,
+                spa_iv.b, spa_iv.e,
+                ssa_iv.b, ssa_iv.e);
+        } else {
+            std::tie(p, result) = R.lighter_point_in_range(
+                x_c,
+                spa_iv.b, spa_iv.e,
+                ssa_iv.b, ssa_iv.e);
+        }
     } else {
-        std::tie(p, result) = R.point_in_range(
-            spa_iv.b, spa_iv.e, ssa_iv.b, ssa_iv.e
-        );
+        if constexpr (range_ds_t<sidx_t>::is_decomposed()) {
+            std::tie(p, result) = R.point_in_range(
+                T[j],
+                spa_iv.b, spa_iv.e,
+                ssa_iv.b, ssa_iv.e);
+        } else {
+            std::tie(p, result) = R.point_in_range(
+                spa_iv.b, spa_iv.e,
+                ssa_iv.b, ssa_iv.e);
+        }
     }
 
     if (result) {

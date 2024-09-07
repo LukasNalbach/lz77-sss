@@ -166,16 +166,6 @@ class lz77_sss {
         exact
     };
 
-    template <template <typename> typename range_ds_t>
-    inline static constexpr bool is_static() {
-        return std::is_base_of_v<static_weighted_range<uint32_t>, range_ds_t<uint32_t>>;
-    }
-
-    template <template <typename> typename range_ds_t>
-    inline static constexpr bool is_dynamic() {
-        return !is_static<range_ds_t>();
-    }
-
     lz77_sss() = delete;
     lz77_sss(lz77_sss&& other) = delete;
     lz77_sss(const lz77_sss& other) = delete;
@@ -488,16 +478,10 @@ class lz77_sss {
                     std::cout << "building " << range_ds_t<sidx_t>::name() << std::flush;
                 }
 
-                if        constexpr (std::is_same_v<range_ds_t<sidx_t>, static_weighted_kd_tree<sidx_t>>) {
-                    R = static_weighted_kd_tree<sidx_t>(std::move(P));
-                } else if constexpr (std::is_same_v<range_ds_t<sidx_t>, static_weighted_striped_square<sidx_t>>) {
-                    R = static_weighted_striped_square<sidx_t>(std::move(P));
-                } else if constexpr (std::is_same_v<range_ds_t<sidx_t>, static_weighted_square_grid<sidx_t>>) {
-                    R = static_weighted_square_grid<sidx_t>(std::move(P));
-                } else if constexpr (std::is_same_v<range_ds_t<sidx_t>, dynamic_square_grid<sidx_t>>) {
-                    R = dynamic_square_grid<sidx_t>(c);
-                } else if constexpr (std::is_same_v<range_ds_t<sidx_t>, semi_dynamic_square_grid<sidx_t>>) {
-                    R = semi_dynamic_square_grid<sidx_t>(P, c);
+                if constexpr (range_ds_t<sidx_t>::is_decomposed()) {
+                    R = range_ds_t<sidx_t>(T, C, P);
+                } else {
+                    R = range_ds_t<sidx_t>(P, c);
                 }
 
                 if (log) {
@@ -520,7 +504,7 @@ class lz77_sss {
                     std::cout << "avg. SPA query range: " << spa_range_sum / (double) num_range_queries << std::endl;
                     std::cout << "avg. SSA query range: " << ssa_range_sum / (double) num_range_queries << std::endl;
 
-                    if constexpr (is_dynamic<range_ds_t>()) {
+                    if constexpr (range_ds_t<sidx_t>::is_dynamic()) {
                         std::cout << "time for finding close sources: " << format_time(time_close_sources) << std::endl;
                         std::cout << "time for inserting points: " << format_time(time_insert_points) << std::endl;
                         std::cout << "final size of " << range_ds_t<sidx_t>::name()

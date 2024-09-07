@@ -5,16 +5,19 @@
 
 #include <lz77_sss/misc/utils.hpp>
 #include <lz77_sss/data_structures/static_weighted_range/static_weighted_range.hpp>
+#include <lz77_sss/data_structures/decomposed_range.hpp>
 
 template<typename pos_t = uint32_t>
-class static_weighted_kd_tree : static_weighted_range<pos_t> {
+class static_weighted_kd_tree : public static_weighted_range<pos_t> {
     public:
     
     using point_t = static_weighted_range<pos_t>::point_t;
 
     static_weighted_kd_tree() = default;
 
-    static_weighted_kd_tree(std::vector<point_t>&& points) {
+    static_weighted_kd_tree(
+        std::vector<point_t>& points, pos_t pos_max
+    ) {
         nodes.reserve(points.size());
         build<true>(points, 0, points.size());
         points.clear();
@@ -139,3 +142,7 @@ class static_weighted_kd_tree : static_weighted_range<pos_t> {
         return "static weighted k-d tree";
     }
 };
+
+template <typename sidx_t = uint32_t>
+using decomposed_static_weighted_kd_tree =
+    decomposed_range<static_weighted_kd_tree, sidx_t>;

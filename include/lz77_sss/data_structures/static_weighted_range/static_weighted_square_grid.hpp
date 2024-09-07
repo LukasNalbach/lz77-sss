@@ -4,9 +4,10 @@
 #include <tsl/sparse_map.h>
 #include <lz77_sss/misc/utils.hpp>
 #include <lz77_sss/data_structures/static_weighted_range/static_weighted_range.hpp>
+#include <lz77_sss/data_structures/decomposed_range.hpp>
 
 template<typename pos_t = uint32_t>
-class static_weighted_square_grid : static_weighted_range<pos_t> {
+class static_weighted_square_grid : public static_weighted_range<pos_t> {
     public:
     
     using point_t = static_weighted_range<pos_t>::point_t;
@@ -38,8 +39,9 @@ class static_weighted_square_grid : static_weighted_range<pos_t> {
     static_weighted_square_grid() = default;
 
     static_weighted_square_grid(
-        std::vector<point_t>&& points, double s = 1.0
-    ) : pos_max(points.size()) {
+        std::vector<point_t>& points,
+        pos_t pos_max, double s = 1.0
+    ) : pos_max(pos_max) {
         win_size = std::ceil(std::sqrt(pos_max) / std::sqrt(s));
         grid_width = std::ceil(pos_max / (double) win_size);
         pos_t num_win = grid_width * grid_width;
@@ -56,13 +58,13 @@ class static_weighted_square_grid : static_weighted_range<pos_t> {
             p_idx += w.len;
         }
 
+        this->points = std::move(points);
+
         // this can also be done in O(n) time, but requires more space
-        ips4o::sort(points.begin(), points.end(),
+        ips4o::sort(this->points.begin(), this->points.end(),
             [&](const point_t& p1, const point_t& p2){
                 return window_index(p1) < window_index(p2);
         });
-
-        this->points = std::move(points);
     }
 
     inline pos_t size() const override {
@@ -121,3 +123,7 @@ class static_weighted_square_grid : static_weighted_range<pos_t> {
         return "static weighted square grid";
     }
 };
+
+template <typename sidx_t = uint32_t>
+using decomposed_static_weighted_square_grid =
+    decomposed_range<static_weighted_square_grid, sidx_t>;

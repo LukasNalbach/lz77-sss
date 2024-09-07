@@ -135,7 +135,6 @@ int main(int argc, char** argv) {
     read_from_file(input_file, T.data(), n);
     input_file.close();
     log_runtime(t0);
-
     std::cout << std::endl << "running naive LZ77 SSS 3-approximation:" << std::endl;
     run_sss_approximate<greedy_naive, lpf_naive>("fact_sss_aprx");
     std::filesystem::remove("fact_sss_aprx");
@@ -155,12 +154,12 @@ int main(int argc, char** argv) {
 
     std::cout << std::endl << "running LZ77 SSS exact algorithm (with samples):" << std::endl;
     run_sss_exact<greedy, lpf_all, with_samples,
-        static_weighted_square_grid>("fact_sss_exact");
+        decomposed_static_weighted_square_grid>("fact_sss_exact");
     std::filesystem::remove("fact_sss_exact");
     
     std::cout << std::endl << "running LZ77 SSS exact algorithm (without samples):" << std::endl;
     run_sss_exact<greedy, lpf_all, without_samples,
-        static_weighted_square_grid>("fact_sss_exact");
+        decomposed_static_weighted_square_grid>("fact_sss_exact");
     std::filesystem::remove("fact_sss_exact");
 
     std::cout << std::endl << "running LZ77 LPF algorithm" << std::flush;
