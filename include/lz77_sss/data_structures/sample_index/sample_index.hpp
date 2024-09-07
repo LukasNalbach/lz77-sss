@@ -160,7 +160,13 @@ template <
 
     template <direction dir>
     inline bool occurs2(pos_t pos_pat) const {
-        return (dir == LEFT ? pos_pat >= 1 : (pos_pat < n - 1)) && sxiv2<dir>(pos_pat).b != no_occ;
+        if constexpr (dir == LEFT) {
+            if (pos_pat < 1) [[unlikely]] return false;
+        } else {
+            if (pos_pat >= n - 1) [[unlikely]] return false;
+        }
+
+        return sxiv2<dir>(pos_pat).b != no_occ;
     }
 
     template <direction dir>
@@ -181,13 +187,13 @@ template <
         pos_t max_lce_l = std::numeric_limits<pos_t>::max()
     ) const {
         if constexpr (dir == LEFT) {
-            if (!is_pos_in_T<dir>(std::min<pos_t>(i, j), offs)) {
+            if (!is_pos_in_T<dir>(std::min<pos_t>(i, j), offs)) [[unlikely]] {
                 return offs;
             }
 
             return offs + lce_l_128<pos_t>(T, i - offs, j - offs, max_lce_l - offs);
         } else {
-            if (!is_pos_in_T<dir>(std::max<pos_t>(i, j), offs)) {
+            if (!is_pos_in_T<dir>(std::max<pos_t>(i, j), offs)) [[unlikely]] {
                 return offs;
             }
 
@@ -202,13 +208,13 @@ template <
         }
 
         if constexpr (dir == LEFT) {
-            if (lce > std::min<pos_t>(i, j)) {
+            if (lce > std::min<pos_t>(i, j)) [[unlikely]] {
                 return i < j;
             }
 
             return T[i - lce] < T[j - lce];
         } else {
-            if (std::max<pos_t>(i, j) + lce == n) {
+            if (std::max<pos_t>(i, j) + lce == n) [[unlikely]] {
                 return i > j;
             }
 
@@ -218,7 +224,7 @@ template <
 
     template <direction dir>
     inline bool cmp_sample_lex(sidx_t i, sidx_t j) const {
-        if (i == j) {
+        if (i == j) [[unlikely]] {
             return false;
         }
 

@@ -5,7 +5,7 @@
 template <typename pos_t>
 template <uint64_t tau>
 template <typename out_it_t>
-void lz77_sss<pos_t>::factorizer<tau>::factorize_greedy_optimized(out_it_t& out_it) {
+void lz77_sss<pos_t>::factorizer<tau>::factorize_greedy(out_it_t& out_it) {
     if (log) {
         std::cout << "factorizing" << std::flush;
     }
@@ -17,7 +17,7 @@ void lz77_sss<pos_t>::factorizer<tau>::factorize_greedy_optimized(out_it_t& out_
         roll_threshold += patt_lens[j];
     });
 
-    roll_threshold /= 2 * num_patt_lens;
+    roll_threshold /= num_patt_lens;
     
     for (pos_t i = 0; true;) {
         pos_t gap_end = LPF[p].beg;
@@ -44,7 +44,7 @@ void lz77_sss<pos_t>::factorizer<tau>::factorize_greedy_optimized(out_it_t& out_
                     } else {
                         do {
                             p++;
-                        } while (p < num_lpf && LPF[p].end <= i);
+                        } while (LPF[p].end <= i);
 
                         while (gap_idx.pos() < gap_end) {
                             gap_idx.advance();
@@ -108,7 +108,7 @@ void lz77_sss<pos_t>::factorizer<tau>::factorize_greedy_optimized(out_it_t& out_
 
         do {
             p++;
-        } while (p < num_lpf && LPF[p].end <= i);
+        } while (LPF[p].end <= i);
     }
 
     if (log) {

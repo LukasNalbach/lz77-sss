@@ -141,26 +141,26 @@ int main(int argc, char** argv) {
     std::filesystem::remove("fact_sss_aprx");
 
     std::cout << std::endl << "running LZ77 SSS 3-approximation:" << std::endl;
-    run_sss_approximate<greedy_optimized, lpf_optimal>("fact_sss_aprx");
+    run_sss_approximate<greedy, lpf_all>("fact_sss_aprx");
     std::filesystem::remove("fact_sss_aprx");
 
     std::cout << std::endl << "running LZ77 SSS 1.5-approximation:" << std::endl;
-    run_sss_approximate<greedy_optimized, lpf_lnf_optimal>("fact_sss_aprx");
+    run_sss_approximate<greedy, lpf_lnf_all>("fact_sss_aprx");
     std::filesystem::remove("fact_sss_aprx");
     
     std::cout << std::endl << "running naive LZ77 SSS exact algorithm:" << std::endl;
-    run_sss_exact<greedy_optimized, lpf_optimal, naive,
-        semi_dynamic_square_grid>("fact_sss_exact");
+    run_sss_exact<greedy, lpf_all, naive,
+        static_weighted_square_grid>("fact_sss_exact");
     std::filesystem::remove("fact_sss_exact");
 
     std::cout << std::endl << "running LZ77 SSS exact algorithm (with samples):" << std::endl;
-    run_sss_exact<greedy_optimized, lpf_optimal, optimized_with_samples,
-        semi_dynamic_square_grid>("fact_sss_exact");
+    run_sss_exact<greedy, lpf_all, with_samples,
+        static_weighted_square_grid>("fact_sss_exact");
     std::filesystem::remove("fact_sss_exact");
     
     std::cout << std::endl << "running LZ77 SSS exact algorithm (without samples):" << std::endl;
-    run_sss_exact<greedy_optimized, lpf_optimal, optimized_without_samples,
-        semi_dynamic_square_grid>("fact_sss_exact");
+    run_sss_exact<greedy, lpf_all, without_samples,
+        static_weighted_square_grid>("fact_sss_exact");
     std::filesystem::remove("fact_sss_exact");
 
     std::cout << std::endl << "running LZ77 LPF algorithm" << std::flush;

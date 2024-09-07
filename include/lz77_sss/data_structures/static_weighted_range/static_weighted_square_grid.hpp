@@ -3,13 +3,13 @@
 #include <vector>
 #include <tsl/sparse_map.h>
 #include <lz77_sss/misc/utils.hpp>
-#include <lz77_sss/data_structures/dynamic_range/dynamic_range.hpp>
+#include <lz77_sss/data_structures/static_weighted_range/static_weighted_range.hpp>
 
 template<typename pos_t = uint32_t>
-class semi_dynamic_square_grid : dynamic_range<pos_t> {
+class static_weighted_square_grid : static_weighted_range<pos_t> {
     public:
     
-    using point_t = dynamic_range<pos_t>::point_t;
+    using point_t = static_weighted_range<pos_t>::point_t;
 
     protected:
     
@@ -35,17 +35,17 @@ class semi_dynamic_square_grid : dynamic_range<pos_t> {
 
     public:
 
-    semi_dynamic_square_grid() = default;
+    static_weighted_square_grid() = default;
 
-    semi_dynamic_square_grid(
-        const std::vector<point_t>& points,
-        pos_t pos_max, double s = 1.0
-    ) : pos_max(pos_max) {
+    static_weighted_square_grid(
+        std::vector<point_t>&& points, double s = 1.0
+    ) : pos_max(points.size()) {
         win_size = std::ceil(std::sqrt(pos_max) / std::sqrt(s));
         grid_width = std::ceil(pos_max / (double) win_size);
         pos_t num_win = grid_width * grid_width;
-        pos_t p_idx = 0;
+        num_points = points.size();
         grid.resize(num_win, {.len = 0});
+        pos_t p_idx = 0;
 
         for (const point_t& p : points) {
             grid[window_index(p)].len++;
@@ -54,10 +54,15 @@ class semi_dynamic_square_grid : dynamic_range<pos_t> {
         for (window& w : grid) {
             w.beg = p_idx;
             p_idx += w.len;
-            w.len = 0;
         }
 
-        this->points.resize(points.size(), {});
+        // this can also be done in O(n) time, but requires more space
+        ips4o::sort(points.begin(), points.end(),
+            [&](const point_t& p1, const point_t& p2){
+                return window_index(p1) < window_index(p2);
+        });
+
+        this->points = std::move(points);
     }
 
     inline pos_t size() const override {
@@ -70,14 +75,8 @@ class semi_dynamic_square_grid : dynamic_range<pos_t> {
             points.size() * sizeof(point_t);
     }
 
-    inline void insert(point_t p) override {
-        window& w = grid[window_index(p)];
-        points[w.beg + w.len] = p;
-        w.len++;
-        num_points++;
-    }
-
-    std::tuple<point_t, bool> point_in_range(
+    std::tuple<point_t, bool> lighter_point_in_range(
+        pos_t weight,
         pos_t x1, pos_t x2, pos_t y1, pos_t y2
     ) const override {
         pos_t xw_1 = x1 / win_size;
@@ -100,7 +99,8 @@ class semi_dynamic_square_grid : dynamic_range<pos_t> {
                     for (pos_t i = b; i < e; i++) {
                         const point_t& p = points[i];
 
-                        if (x1 <= p.x && p.x <= x2 &&
+                        if (p.weight < weight &&
+                            x1 <= p.x && p.x <= x2 &&
                             y1 <= p.y && p.y <= y2
                         ) {
                             return {p, true};
@@ -118,6 +118,6 @@ class semi_dynamic_square_grid : dynamic_range<pos_t> {
     }
 
     static constexpr std::string name() {
-        return "semi-dynamic square grid";
+        return "static weighted square grid";
     }
 };

@@ -47,7 +47,10 @@ void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, ran
         std::cout << "building sample-index for C:" << std::endl;
     }
 
-    idx_C.build(T, C, LCE, delta, n / (1.0 * num_phr), transf_mode == optimized_with_samples, log);
+    double aprx_comp_ratio = n / (double) num_phr;
+    pos_t typ_lce_r = std::round(aprx_comp_ratio * (1.0 + 0.5 * std::exp(- aprx_comp_ratio / 1000.0)));
+
+    idx_C.build(T, C, LCE, delta, typ_lce_r, transf_mode == with_samples, log);
 
     if (log) {
         std::cout << "size: " << format_size(idx_C.size_in_bytes());

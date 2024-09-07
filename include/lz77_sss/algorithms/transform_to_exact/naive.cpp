@@ -6,7 +6,7 @@ template <typename pos_t>
 template <uint64_t tau>
 template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t, typename out_it_t>
 void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, range_ds_t, out_it_t>::
-transform_to_exact_without_samples(out_it_t& out_it) {
+transform_to_exact_naive(out_it_t& out_it) {
     if (log) {
         std::cout << "computing the exact factorization" << std::flush;
     }
@@ -34,43 +34,22 @@ transform_to_exact_without_samples(out_it_t& out_it) {
             if (idx_C.extend_left(qc_left, j, lce_l, false)) {
                 if (log) time_extend_left += time_diff_ns(t1);
                 query_context_t qc_right = idx_C.query();
-                query_context_t qc_right_nxt = idx_C.query();
-                pos_t lce_r_min = f.len < j - i ? 0 : (i + f.len - j);
-                pos_t lce_r_max = n - j;
 
-                exp_search_max_geq<bool, pos_t, RIGHT>(
-                    true, lce_r_min, lce_r_max,
-                    1, [&](pos_t lce_r_tmp)
-                {
+                exp_search_max_geq<bool, pos_t, RIGHT>(true, 0, n - j, 1, [&](pos_t lce_r){
                     query_context_t qc_right_tmp;
                     time_point_t t2;
-                    bool result = true;
                     if (log) t2 = now();
-                    
-                    if (qc_right_nxt.match_length() == 0) {
-                        result = idx_C.extend_right(
-                            qc_right, qc_right_tmp, j, lce_r_tmp, false);
-                    } else {
-                        qc_right_tmp = idx_C.interpolate_right(
-                            qc_right, qc_right_nxt, j, lce_r_tmp);
-                    }
 
-                    if (result) {
-                        if (log) time_extend_right += time_diff_ns(t2);
+                    if (idx_C.extend_right(qc_right, qc_right_tmp, j, lce_r, false)) {
+                        time_extend_right += time_diff_ns(t2);
 
-                        if (intersect(qc_left.interval(),
+                        return intersect(qc_left.interval(),
                             qc_right_tmp.interval(), i, j,
-                            lce_l, lce_r_tmp, x_c, f)
-                        ) {
-                            qc_right = qc_right_tmp;
-                            return true;
-                        } else {
-                            qc_right_nxt = qc_right_tmp;
-                        }
+                            lce_l, lce_r, x_c, f);
                     } else if (log) {
                         time_extend_right += time_diff_ns(t2);
                     }
-
+                        
                     return false;
                 });
             } else if (log) {

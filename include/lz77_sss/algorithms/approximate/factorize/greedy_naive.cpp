@@ -11,34 +11,28 @@ void lz77_sss<pos_t>::factorizer<tau>::factorize_greedy_naive(out_it_t& out_it) 
     }
     
     pos_t p = 0;
-    pos_t gap_start = 0;
-    pos_t patt_len_sum = 0;
-
-    for_constexpr<0, num_patt_lens, 1>([&](auto i){
-        patt_len_sum += patt_lens[i];
-    });
     
     for (pos_t i = 0; true;) {
         pos_t gap_end = LPF[p].beg;
 
-        if (gap_start < gap_end) {
-            if (gap_idx.pos() < gap_start) {
-                while (gap_idx.pos() < gap_start) {
+        if (i < gap_end) {
+            if (gap_idx.pos() < i) {
+                while (gap_idx.pos() < i) {
                     gap_idx.advance();
                 }
             }
 
             do {
-                factor f = longest_prev_occ(gap_start);
-                f.len = std::min<pos_t>(f.len, gap_end - gap_start);
+                factor f = longest_prev_occ(i);
+                f.len = std::min<pos_t>(f.len, gap_end - i);
                 *out_it++ = f;
                 num_phr++;
-                gap_start += std::max<pos_t>(1, f.len);
+                i += std::max<pos_t>(1, f.len);
 
-                while (gap_idx.pos() < gap_start) {
+                while (gap_idx.pos() < i) {
                     gap_idx.advance();
                 }
-            } while (gap_start < gap_end);
+            } while (i < gap_end);
         }
 
         if (gap_end == n) {
@@ -51,9 +45,8 @@ void lz77_sss<pos_t>::factorizer<tau>::factorize_greedy_naive(out_it_t& out_it) 
         };
         
         if (gap_idx.pos() == gap_end) {
-            pos_t beg_nxt_lpf = p + 1 == num_lpf ? n : LPF[p + 1].beg;
             factor f = longest_prev_occ(gap_end);
-            f.len = std::min<pos_t>(f.len, beg_nxt_lpf - gap_end);
+            f.len = std::min<pos_t>(f.len, LPF[p + 1].beg - gap_end);
 
             if (f.len > lpf.len) {
                 lpf = f;
@@ -70,7 +63,7 @@ void lz77_sss<pos_t>::factorizer<tau>::factorize_greedy_naive(out_it_t& out_it) 
 
         *out_it++ = lpf;
         num_phr++;
-        gap_start += lpf.len;
+        i += lpf.len;
         p++;
     }
 
