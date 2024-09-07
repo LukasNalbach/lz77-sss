@@ -17,7 +17,7 @@ transform_to_exact_naive(out_it_t& out_it) {
     for (pos_t i = 0; i < n;) {
         factor f {.src = char_to_uchar(T[i]), .len = 0};
 
-        if constexpr (is_dynamic<range_ds_t>()) {
+        if constexpr (range_ds_t<sidx_t>::is_dynamic()) {
             insert_points(x_c, i);
             handle_close_sources(f, i);
         }

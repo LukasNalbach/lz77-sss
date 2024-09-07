@@ -5,6 +5,10 @@
 template<typename pos_t = uint32_t>
 class dynamic_range {
     public:
+    
+    static constexpr bool is_decomposed() {return false;}
+    static constexpr bool is_static() {return false;}
+    static constexpr bool is_dynamic() {return true;}
 
     struct point_t {
         pos_t x, y;

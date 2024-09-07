@@ -212,13 +212,13 @@ template <
                 return i < j;
             }
 
-            return T[i - lce] < T[j - lce];
+            return char_to_uchar(T[i - lce]) < char_to_uchar(T[j - lce]);
         } else {
             if (std::max<pos_t>(i, j) + lce == n) [[unlikely]] {
                 return i > j;
             }
 
-            return T[i + lce] < T[j + lce];
+            return char_to_uchar(T[i + lce]) < char_to_uchar(T[j + lce]);
         }
     }
 
@@ -242,10 +242,10 @@ template <
         const std::string& T,
         const std::vector<pos_t>& S,
         const lce_r_t& LCE_R,
-        pos_t max_lce_l = std::numeric_limits<pos_t>::max(),
-        pos_t typ_lce_r = std::numeric_limits<pos_t>::max(),
         bool use_samples = true,
-        bool log = false
+        bool log = false,
+        pos_t max_lce_l = std::numeric_limits<pos_t>::max(),
+        pos_t typ_lce_r = std::numeric_limits<pos_t>::max()
     ) {
         uint64_t baseline_memory_alloc = malloc_count_current();
         auto time = now();

@@ -74,13 +74,7 @@ void test() {
     }
 
     // build the range data structure
-    range_ds_t ds;
-    
-    if constexpr (std::is_same_v<range_ds_t, dynamic_square_grid<>>) {
-        ds = dynamic_square_grid<>(pos_max);
-    } else if constexpr (std::is_same_v<range_ds_t, semi_dynamic_square_grid<>>) {
-        ds = semi_dynamic_square_grid<>(input, pos_max);
-    }
+    range_ds_t ds(input, pos_max);
 
     // verify that all queries are answered correctly
     for (uint32_t i = 0; i < num_queries; i++) {

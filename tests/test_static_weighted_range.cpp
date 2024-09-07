@@ -28,7 +28,7 @@ void test() {
     std::uniform_int_distribution<uint32_t> distrib(0, input_size - 1);
 
     // generate a random set of input points with random weights,
-    // s.t. the sets of x-coordinates, the y-coordinates and weights
+    // s.t. the sets of x-coordinates, y-coordinates and weights
     // are permutations of [0, input_size - 1]
     input.resize(input_size);
     for (uint32_t i = 0; i < input_size; i++) input[i].x = i;
@@ -67,7 +67,7 @@ void test() {
     }
 
     // build the range data structure
-    range_ds_t ds(std::move(input));
+    range_ds_t ds(input, input_size);
 
     // verify that all queries are answered correctly
     for (query& q : queries) {

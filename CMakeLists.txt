@@ -76,6 +76,10 @@ if(LZ77_SSS_BUILD_TESTS)
   target_link_libraries(test-static_weighted_range PRIVATE gtest_main lz77_sss)
   gtest_discover_tests(test-static_weighted_range)
 
+  add_executable(test-decomposed_range "${CMAKE_SOURCE_DIR}/tests/test_decomposed_range.cpp")
+  target_link_libraries(test-decomposed_range PRIVATE gtest_main lz77_sss)
+  gtest_discover_tests(test-decomposed_range)
+
   add_executable(test-rk61_substring "${CMAKE_SOURCE_DIR}/tests/test_rk61_substring.cpp")
   target_link_libraries(test-rk61_substring PRIVATE gtest_main lz77_sss)
   gtest_discover_tests(test-rk61_substring)

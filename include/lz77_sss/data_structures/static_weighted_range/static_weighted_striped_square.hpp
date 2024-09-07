@@ -3,9 +3,10 @@
 #include <vector>
 #include <lz77_sss/misc/utils.hpp>
 #include <lz77_sss/data_structures/static_weighted_range/static_weighted_range.hpp>
+#include <lz77_sss/data_structures/decomposed_range.hpp>
 
 template<typename pos_t = uint32_t>
-class static_weighted_striped_square : static_weighted_range<pos_t> {
+class static_weighted_striped_square : public static_weighted_range<pos_t> {
     public:
 
     using point_t = static_weighted_range<pos_t>::point_t;
@@ -21,7 +22,8 @@ class static_weighted_striped_square : static_weighted_range<pos_t> {
     static_weighted_striped_square() = default;
 
     static_weighted_striped_square(
-        std::vector<point_t>&& points, pos_t seg_size = 128
+        std::vector<point_t>& points,
+        pos_t pos_max, pos_t seg_size = 128
     ) : num_points(points.size()), seg_size(seg_size) {
         // this can also be done in O(n) time, but requires more space
         ips4o::sort(points.begin(), points.end(),
@@ -99,3 +101,7 @@ class static_weighted_striped_square : static_weighted_range<pos_t> {
         return "static weighted striped square";
     }
 };
+
+template <typename sidx_t = uint32_t>
+using decomposed_static_weighted_striped_square =
+    decomposed_range<static_weighted_striped_square, sidx_t>;

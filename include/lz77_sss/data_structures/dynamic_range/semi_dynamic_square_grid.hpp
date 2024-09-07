@@ -4,9 +4,10 @@
 #include <tsl/sparse_map.h>
 #include <lz77_sss/misc/utils.hpp>
 #include <lz77_sss/data_structures/dynamic_range/dynamic_range.hpp>
+#include <lz77_sss/data_structures/decomposed_range.hpp>
 
 template<typename pos_t = uint32_t>
-class semi_dynamic_square_grid : dynamic_range<pos_t> {
+class semi_dynamic_square_grid : public dynamic_range<pos_t> {
     public:
     
     using point_t = dynamic_range<pos_t>::point_t;
@@ -44,8 +45,8 @@ class semi_dynamic_square_grid : dynamic_range<pos_t> {
         win_size = std::ceil(std::sqrt(pos_max) / std::sqrt(s));
         grid_width = std::ceil(pos_max / (double) win_size);
         pos_t num_win = grid_width * grid_width;
-        pos_t p_idx = 0;
         grid.resize(num_win, {.len = 0});
+        pos_t p_idx = 0;
 
         for (const point_t& p : points) {
             grid[window_index(p)].len++;
@@ -121,3 +122,7 @@ class semi_dynamic_square_grid : dynamic_range<pos_t> {
         return "semi-dynamic square grid";
     }
 };
+
+template <typename sidx_t = uint32_t>
+using decomposed_semi_dynamic_square_grid =
+    decomposed_range<semi_dynamic_square_grid, sidx_t>;

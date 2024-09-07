@@ -5,6 +5,10 @@
 template<typename pos_t = uint32_t>
 class static_weighted_range {
     public:
+    
+    static constexpr bool is_decomposed() {return false;}
+    static constexpr bool is_static() {return true;}
+    static constexpr bool is_dynamic() {return false;}
 
     struct __attribute__((packed)) point_t {
         pos_t x, y;
