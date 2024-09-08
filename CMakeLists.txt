@@ -66,6 +66,9 @@ endif()
 if(LZ77_SSS_BUILD_BENCH_CLI)
   add_executable(lz77_sss_bench "${CMAKE_SOURCE_DIR}/cli/lz77_sss_bench.cpp")
   target_link_libraries(lz77_sss_bench PRIVATE lz77_sss)
+
+  add_executable(lz77_sss_bench-tau "${CMAKE_SOURCE_DIR}/cli/lz77_sss_bench-tau.cpp")
+  target_link_libraries(lz77_sss_bench-tau PRIVATE lz77_sss)
 endif()
 
 if(LZ77_SSS_BUILD_EXAMPLES)

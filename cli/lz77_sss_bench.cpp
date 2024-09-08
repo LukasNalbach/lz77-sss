@@ -108,6 +108,7 @@ void log_algorithm(
 int main(int argc, char** argv) {
     if (!(argc == 2 || argc == 3)) {
         std::cout << "usage: lz77_sss_bench <file> <result_file>";
+        std::cout << "       the second parameter is optional";
         exit(-1);
     }
 
