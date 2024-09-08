@@ -17,6 +17,7 @@ set(CMAKE_CXX_FLAGS_RELEASE         "${lz77_sss_release_flags} -Ofast")
 set(CMAKE_CXX_FLAGS_MINSIZEREL      "${lz77_sss_release_flags} -Os")
 set(CMAKE_CXX_FLAGS_RELWITHDEBINFO  "${lz77_sss_debug_flags} -Ofast")
 
+option(LZ77_SSS_BUILD_CLI "Build the cli programs" ON)
 option(LZ77_SSS_BUILD_BENCH_CLI "Build the benchmark cli program" ON)
 option(LZ77_SSS_BUILD_EXAMPLES "Build the example programs" ON)
 option(LZ77_SSS_BUILD_TESTS "Build tests" ON)
@@ -44,6 +45,23 @@ set_target_properties(
 add_library(lz77_sss INTERFACE)
 target_include_directories(lz77_sss INTERFACE "${CMAKE_SOURCE_DIR}/include/")
 target_link_libraries(lz77_sss INTERFACE malloc_count alx_rolling_hash alx_lce lz77 fp sparse_map)
+
+if(LZ77_SSS_BUILD_CLI)
+  add_executable(lz77_sss_3-aprx "${CMAKE_SOURCE_DIR}/cli/lz77_sss_3-aprx.cpp")
+  target_link_libraries(lz77_sss_3-aprx PRIVATE lz77_sss)
+
+  add_executable(lz77_sss_1_5-aprx "${CMAKE_SOURCE_DIR}/cli/lz77_sss_1_5-aprx.cpp")
+  target_link_libraries(lz77_sss_1_5-aprx PRIVATE lz77_sss)
+
+  add_executable(lz77_sss_exact "${CMAKE_SOURCE_DIR}/cli/lz77_sss_exact.cpp")
+  target_link_libraries(lz77_sss_exact PRIVATE lz77_sss)
+
+  add_executable(lz77_sss_exact-smpl "${CMAKE_SOURCE_DIR}/cli/lz77_sss_exact-smpl.cpp")
+  target_link_libraries(lz77_sss_exact-smpl PRIVATE lz77_sss)
+
+  add_executable(lz77_sss_decode "${CMAKE_SOURCE_DIR}/cli/lz77_sss_decode.cpp")
+  target_link_libraries(lz77_sss_decode PRIVATE lz77_sss)
+endif()
 
 if(LZ77_SSS_BUILD_BENCH_CLI)
   add_executable(lz77_sss_bench "${CMAKE_SOURCE_DIR}/cli/lz77_sss_bench.cpp")

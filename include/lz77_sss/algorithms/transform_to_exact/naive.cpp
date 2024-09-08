@@ -11,14 +11,14 @@ transform_to_exact_naive(out_it_t& out_it) {
         std::cout << "computing the exact factorization" << std::flush;
     }
 
-    sidx_t x_c = 0;
+    sidx_t x_r = 0;
     num_phr = 0;
 
     for (pos_t i = 0; i < n;) {
         factor f {.src = char_to_uchar(T[i]), .len = 0};
 
         if constexpr (range_ds_t<sidx_t>::is_dynamic()) {
-            insert_points(x_c, i);
+            insert_points(x_r, i);
             handle_close_sources(f, i);
         }
 
@@ -45,7 +45,7 @@ transform_to_exact_naive(out_it_t& out_it) {
 
                         return intersect(qc_left.interval(),
                             qc_right_tmp.interval(), i, j,
-                            lce_l, lce_r, x_c, f);
+                            lce_l, lce_r, x_r, f);
                     } else if (log) {
                         time_extend_right += time_diff_ns(t2);
                     }

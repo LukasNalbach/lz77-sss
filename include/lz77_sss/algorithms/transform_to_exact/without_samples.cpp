@@ -12,13 +12,14 @@ transform_to_exact_without_samples(out_it_t& out_it) {
     }
 
     sidx_t x_c = 0;
+    sidx_t x_r = 0;
     num_phr = 0;
 
     for (pos_t i = 0; i < n;) {
         factor f {.src = char_to_uchar(T[i]), .len = 0};
 
         if constexpr (range_ds_t<sidx_t>::is_dynamic()) {
-            insert_points(x_c, i);
+            insert_points(x_r, i);
             handle_close_sources(f, i);
         }
 
