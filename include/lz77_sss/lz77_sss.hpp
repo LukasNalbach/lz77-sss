@@ -45,7 +45,7 @@ class lz77_sss {
     static constexpr uint64_t           default_tau             = 512;
     static constexpr phrase_mode        default_phr_mode        = lpf_all;
     static constexpr factorize_mode     default_fact_mode       = greedy;
-    static constexpr transform_mode     default_transf_mode     = with_samples;
+    static constexpr transform_mode     default_transf_mode     = without_samples;
     template <typename sidx_t> using    default_range_ds_t      = decomposed_static_weighted_square_grid<sidx_t>;
 
     static constexpr uint8_t            num_patt_lens           = 5;
@@ -269,6 +269,7 @@ class lz77_sss {
                         << " text_name=" << text_name
                         << " n=" << n
                         << " alg=lz77_sss"
+                        << " tau=" << tau
                         << " phr_mode=" << phr_mode
                         << " fact_mode=" << fact_mode
                         << " transf_mode=" << transf_mode_int
@@ -328,32 +329,43 @@ class lz77_sss {
             LPF.emplace_back(lpf {.beg = n, .end = n + 1});
             LPF.shrink_to_fit();
 
+            double lpf_phr_per_sync = num_lpf / (double) size_sss;
+            double rel_len_gaps = len_gaps / (double) n;
+            double gaps_per_lpf_phr = num_gaps / (double) num_lpf;
+            double avg_gap_len = len_gaps / (double) num_gaps;
+            double avg_lpf_phr_len = len_lpf_phr / (double) num_lpf;
+
             if (log) {
                 time = log_runtime(time);
-                std::cout << "num. of LPF phrases / SSS size = " << num_lpf / (double) size_sss << std::endl;
-                std::cout << "gaps length / input length: " << len_gaps / (double) n << std::endl;
-                std::cout << "num. of gaps / num. of LPF phrases: " << num_gaps / (double) num_lpf << std::endl;
-                std::cout << "avg. gap length: " << len_gaps / (double) num_gaps << std::endl;
-                std::cout << "avg. LPF phrase length: " << len_lpf_phr / (double) num_lpf << std::endl;
+                std::cout << "num. of LPF phrases / SSS size = " << lpf_phr_per_sync << std::endl;
+                std::cout << "gaps length / input length: " << rel_len_gaps << std::endl;
+                std::cout << "num. of gaps / num. of LPF phrases: " << gaps_per_lpf_phr << std::endl;
+                std::cout << "avg. gap length: " << avg_gap_len << std::endl;
+                std::cout << "avg. LPF phrase length: " << avg_lpf_phr_len << std::endl;
             }
             
-            double rel_len_gaps = len_gaps / (double) n;
             target_index_size = std::max<uint64_t>(malloc_count_peak(),
                 double(n / 4 + baseline_memory_alloc) * rel_len_gaps) - malloc_count_current();
+
+            double patt_len_guess = std::min<double>({
+                avg_gap_len, avg_lpf_phr_len,
+                8.0 * std::pow(128, 1.0 - rel_len_gaps)});
             
-                 if (rel_len_gaps >= .90) {patt_lens = {2,3, 4, 8,12};}
-            else if (rel_len_gaps >= .80) {patt_lens = {2,4, 6, 9,16};}
-            else if (rel_len_gaps >= .60) {patt_lens = {2,4, 6,10,20};}
-            else if (rel_len_gaps >= .50) {patt_lens = {2,4, 7,12,28};}
-            else if (rel_len_gaps >= .30) {patt_lens = {2,4, 8,16,36};}
-            else if (rel_len_gaps >= .10) {patt_lens = {2,5,10,20,42};}
-            else if (rel_len_gaps >= .05) {patt_lens = {2,6,12,24,48};}
-            else                          {patt_lens = {2,8,16,32,64};}
+                 if (patt_len_guess <= 6)   {patt_lens = {2,3, 4, 5, 6};}
+            else if (patt_len_guess <= 8)   {patt_lens = {2,3, 4, 6, 8};}
+            else if (patt_len_guess <= 12)  {patt_lens = {2,3, 4, 8,12};}
+            else if (patt_len_guess <= 16)  {patt_lens = {2,4, 6, 9,16};}
+            else if (patt_len_guess <= 32)  {patt_lens = {2,4, 6,10,20};}
+            else if (patt_len_guess <= 64)  {patt_lens = {2,4, 7,12,28};}
+            else if (patt_len_guess <= 128) {patt_lens = {2,4, 8,16,36};}
+            else if (patt_len_guess <= 256) {patt_lens = {2,5,10,20,42};}
+            else if (patt_len_guess <= 512) {patt_lens = {2,6,12,24,48};}
+            else                            {patt_lens = {2,8,16,32,64};}
             
             if (log) {
                 std::cout << "pattern lengths for the rolling hash index: ";
-                for (pos_t i = 0; i < 4; i++) std::cout << patt_lens[i] << ", ";
-                std::cout << patt_lens[4] << std::endl;
+                for (pos_t i = 0; i < num_patt_lens - 1; i++) std::cout << patt_lens[i] << ", ";
+                std::cout << patt_lens[num_patt_lens - 1] << std::endl;
                 std::cout << "initializing rolling hash index" << std::flush;
             }
 
