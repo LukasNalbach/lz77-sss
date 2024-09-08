@@ -46,7 +46,7 @@ class lz77_sss {
     static constexpr phrase_mode        default_phr_mode        = lpf_all;
     static constexpr factorize_mode     default_fact_mode       = greedy;
     static constexpr transform_mode     default_transf_mode     = with_samples;
-    template <typename sidx_t> using    default_range_ds_t      = static_weighted_square_grid<sidx_t>;
+    template <typename sidx_t> using    default_range_ds_t      = decomposed_static_weighted_square_grid<sidx_t>;
 
     static constexpr uint8_t            num_patt_lens           = 5;
     static constexpr pos_t              delta_max               = 256;
@@ -337,9 +337,9 @@ class lz77_sss {
                 std::cout << "avg. LPF phrase length: " << len_lpf_phr / (double) num_lpf << std::endl;
             }
             
-            target_index_size = std::max<uint64_t>(malloc_count_peak(),
-                n / 4 + baseline_memory_alloc) - malloc_count_current();
             double rel_len_gaps = len_gaps / (double) n;
+            target_index_size = std::max<uint64_t>(malloc_count_peak(),
+                double(n / 4 + baseline_memory_alloc) * rel_len_gaps) - malloc_count_current();
             
                  if (rel_len_gaps >= .90) {patt_lens = {2,3, 4, 8,12};}
             else if (rel_len_gaps >= .80) {patt_lens = {2,4, 6, 9,16};}
@@ -525,7 +525,7 @@ class lz77_sss {
 
             void handle_close_sources(factor& f, pos_t i);
 
-            void adjust_xc(sidx_t& gap_idx, pos_t pos);
+            inline void adjust_xc(sidx_t& gap_idx, pos_t pos);
 
             bool intersect(
                 const sxa_interval_t& spa_iv, const sxa_interval_t& ssa_iv,
@@ -536,7 +536,10 @@ class lz77_sss {
 
             void transform_to_exact_without_samples(out_it_t& out_it);
 
-            void extend_right_with_samples(const sxa_interval_t& spa_iv, pos_t i, pos_t j, sidx_t& x_c, factor& f);
+            void extend_right_with_samples(
+                const sxa_interval_t& spa_iv,
+                pos_t i, pos_t j, sidx_t& x_c, factor& f
+            );
 
             void transform_to_exact_with_samples(out_it_t& out_it);
         };

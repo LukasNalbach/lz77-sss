@@ -116,7 +116,7 @@ void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, ran
 template <typename pos_t>
 template <uint64_t tau>
 template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t, typename out_it_t>
-void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, range_ds_t, out_it_t>::adjust_xc(sidx_t& idx, pos_t pos) {
+inline void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, range_ds_t, out_it_t>::adjust_xc(sidx_t& idx, pos_t pos) {
     while (idx < c && C[idx] < pos) {
         idx++;
     }
@@ -129,29 +129,30 @@ void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, ran
 template <typename pos_t>
 template <uint64_t tau>
 template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t, typename out_it_t>
-void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, range_ds_t, out_it_t>::insert_points(sidx_t& x_c, pos_t i) {
-    while (x_c < c && C[x_c] < i) {
-        time_point_t t0;
-        if (log) t0 = now();
+void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, range_ds_t, out_it_t>::insert_points(sidx_t& x_r, pos_t i) {
+    time_point_t t0;
+    if (log) t0 = now();
 
+    while (x_r < c && C[x_r] < i) {
         if constexpr (range_ds_t<sidx_t>::is_decomposed()) {
-            R.insert(T[C[x_c]], P[x_c]);
+            R.insert(T[C[x_r]], P[x_r]);
         } else {
-            R.insert(P[x_c]);
+            R.insert(P[x_r]);
         }
 
-        if (log) time_insert_points += time_diff_ns(t0);
-        x_c++;
+        x_r++;
     }
+
+    if (log) time_insert_points += time_diff_ns(t0);
 }
 
 template <typename pos_t>
 template <uint64_t tau>
 template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t, typename out_it_t>
 void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, range_ds_t, out_it_t>::handle_close_sources(factor& f, pos_t i) {
-    pos_t min_j = i <= delta ? 0 : (i - delta);
     time_point_t t5;
     if (log) t5 = now();
+    pos_t min_j = i <= delta ? 0 : (i - delta);
 
     for (pos_t j = min_j; j < i; j++) {
         pos_t lce = LCE_R(j, i);

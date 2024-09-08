@@ -45,6 +45,10 @@ void sample_index<pos_t, sidx_t, lce_r_t>::build_samples(pos_t typ_lce_r, bool l
     sidx_t slcx_rng_min = bin_search_min_geq<pos_t, sidx_t>(
         3, 0, s - 1, [&](sidx_t i){return SLCX_sorted[i];});
 
+    if (typ_lce_r == std::numeric_limits<pos_t>::max()) {
+        typ_lce_r = SLCX_sorted[s - 1];
+    }
+
     pos_t max_sampled_len = std::min<pos_t>(
         SLCX_sorted[s - 1],
         dir == LEFT ? max_lce_l : typ_lce_r);

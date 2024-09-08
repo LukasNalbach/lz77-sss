@@ -10,7 +10,6 @@ std::string result_file_path;
 
 std::string T;
 uint64_t n;
-std::ifstream input_file;
 
 template <typename pos_t>
 void check_correctness(std::string file_name) {
@@ -113,7 +112,7 @@ int main(int argc, char** argv) {
     }
 
     std::string file_path = argv[1];
-    input_file.open(file_path);
+    std::ifstream input_file(file_path);
     
     if (!input_file.good()) {
         std::cout << "error: could not read <file>";
@@ -135,6 +134,7 @@ int main(int argc, char** argv) {
     read_from_file(input_file, T.data(), n);
     input_file.close();
     log_runtime(t0);
+
     std::cout << std::endl << "running naive LZ77 SSS 3-approximation:" << std::endl;
     run_sss_approximate<greedy_naive, lpf_naive>("fact_sss_aprx");
     std::filesystem::remove("fact_sss_aprx");
