@@ -24,10 +24,8 @@ class rolling_hash_index_107 {
         std::array<pos_t, num_patt_lens> patt_lens,
         uint64_t target_size_in_bytes
     ) : input(input), input_size(size), patt_lens(patt_lens) {
-        uint64_t target_size_h = std::max<int64_t>(
-            int64_t{(input_size / sizeof(pos_t)) / 5},
-            (int64_t{target_size_in_bytes} - int64_t{sizeof(rolling_hash_t) *
-                num_patt_lens}) / int64_t{sizeof(pos_t)});
+        uint64_t target_size_h = (int64_t{target_size_in_bytes} -
+            int64_t{sizeof(rolling_hash_t) * num_patt_lens}) / int64_t{sizeof(pos_t)};
         uint8_t log2_size_h = std::round(std::log2(target_size_h));
         pos_t size_h = 1 << log2_size_h;
         h_mod_mask = size_h - 1;

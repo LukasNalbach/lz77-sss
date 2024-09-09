@@ -5,7 +5,7 @@
 template <typename pos_t>
 template <uint64_t tau>
 template <typename out_it_t>
-void lz77_sss<pos_t>::factorizer<tau>::factorize_blockwise_all(out_it_t& out_it) {
+void lz77_sss<pos_t>::factorizer<tau>::factorize_blockwise_all(out_it_t& out_it, std::function<lpf()> lpf_it) {
     if (log) {
         std::cout << "factorizing" << std::flush;
     }
@@ -14,12 +14,12 @@ void lz77_sss<pos_t>::factorizer<tau>::factorize_blockwise_all(out_it_t& out_it)
     pos_t blk_beg = 0;
     pos_t blk_end = blk_size;
     std::vector<lpf> P;
-    pos_t p = 0;
+    lpf p = lpf_it();
 
     while (blk_beg < n) {
-        while (p < LPF.size() && LPF[p].beg < blk_end) {
-            P.emplace_back(LPF[p]);
-            p++;
+        while (p.beg < blk_end) {
+            P.emplace_back(p);
+            p = lpf_it();
         }
 
         if (!P.empty() && P.back().end > blk_end) {

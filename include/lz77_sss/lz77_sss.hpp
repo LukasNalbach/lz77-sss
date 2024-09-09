@@ -22,7 +22,8 @@
 enum phrase_mode {
     lpf_naive,
     lpf_all,
-    lpf_lnf_all
+    lpf_all_external,
+    lpf_lnf_all,
 };
 
 enum factorize_mode {
@@ -42,15 +43,16 @@ class lz77_sss {
     public:
     static_assert(std::is_same_v<pos_t, uint32_t> || std::is_same_v<pos_t, uint64_t>);
 
-    static constexpr uint64_t           default_tau             = 512;
-    static constexpr phrase_mode        default_phr_mode        = lpf_all;
-    static constexpr factorize_mode     default_fact_mode       = greedy;
-    static constexpr transform_mode     default_transf_mode     = without_samples;
-    template <typename sidx_t> using    default_range_ds_t      = decomposed_static_weighted_square_grid<sidx_t>;
+    static constexpr uint64_t           default_tau              = 512;
+    static constexpr phrase_mode        default_phr_mode         = lpf_all_external;
+    static constexpr factorize_mode     default_fact_mode        = greedy;
+    static constexpr transform_mode     default_transf_mode      = without_samples;
+    template <typename sidx_t> using    default_range_ds_t       = decomposed_static_weighted_square_grid<sidx_t>;
 
-    static constexpr uint8_t            num_patt_lens           = 5;
-    static constexpr pos_t              delta_max               = 256;
-    static constexpr pos_t              range_scan_threshold    = 4096;
+    static constexpr uint8_t            num_patt_lens            = 5;
+    static constexpr pos_t              delta_max                = 256;
+    static constexpr pos_t              range_scan_threshold     = 4096;
+    static constexpr uint64_t           max_buffered_lpf_phrases = 2048;
 
     struct factor {
         pos_t src;
@@ -154,6 +156,16 @@ class lz77_sss {
         pos_t beg;
         pos_t end;
         pos_t src;
+        
+        friend std::istream& operator>>(std::istream& in, const lpf& p) {
+            in.read((char*) &p, sizeof(lpf));
+            return in;
+        }
+
+        friend std::ostream& operator<<(std::ostream& out, const lpf& p) {
+            out.write((char*) &p, sizeof(lpf));
+            return out;
+        }
     };
 
     enum lpf_mode {
@@ -182,6 +194,7 @@ class lz77_sss {
         uint64_t baseline_memory_alloc = 0;
         uint64_t target_index_size = 0;
         bool log = false;
+        std::string lpf_file_name, sel_lpf_file_name;
         
         std::string& T;
         pos_t n = 0;
@@ -196,6 +209,11 @@ class lz77_sss {
         std::vector<lpf> LPF;
         std::array<pos_t, num_patt_lens> patt_lens;
         gap_idx_t gap_idx;
+
+        std::vector<uint32_t> PSV_S;
+        std::vector<uint32_t> NSV_S;
+        std::vector<uint32_t> PGV_S;
+        std::vector<uint32_t> NGV_S;
 
         factorizer(std::string& input, bool log) : log(log), T(input), n(input.size()) {}
 
@@ -291,22 +309,25 @@ class lz77_sss {
         void compute_approximation(out_it_t& out_it) {
             if constexpr (phr_mode == lpf_naive) {
                 build_lce();
-                build_LPF_S<naive>();
+                build_LPF_greedy();
             } else if constexpr (phr_mode == lpf_all) {
                 build_lce();
-                build_LPF_S<all>();
-            } else if constexpr (phr_mode == lpf_lnf_all) {
+                build_LPF_all([&](lpf&& p, pos_t){LPF.emplace_back(p);});
+            } else if constexpr (phr_mode == lpf_all_external) {
+                build_lce();
+                build_LPF_all_external();
+            } else {
                 if (log) std::cout << "reversing T" << std::flush;
                 std::reverse(T.begin(), T.end());
                 if (log) time = log_runtime(time);
                 build_lce();
-                build_LNF_S<all>();
+                build_LNF_all([&](lpf&& p, pos_t){LPF.emplace_back(p);});
                 LCE = lce_t();
                 if (log) std::cout << "reversing T" << std::flush;
                 std::reverse(T.begin(), T.end());
                 if (log) time = log_runtime(time);
                 build_lce();
-                build_LPF_S<all>();
+                build_LPF_all([&](lpf&& p, pos_t){LPF.emplace_back(p);});
             }
 
             LCE.delete_ssa();
@@ -316,7 +337,11 @@ class lz77_sss {
                     std::cout << "greedily selecting LPF phrases" << std::flush;
                 }
 
-                greedy_phrase_selection(LPF);
+                if constexpr (phr_mode == lpf_all_external) {
+                    greedy_phrase_selection_external();
+                } else {
+                    greedy_phrase_selection(LPF);
+                }
 
                 if (log) {
                     time = log_runtime(time);
@@ -325,15 +350,28 @@ class lz77_sss {
 
             if (log) std::cout << "inspecting LPF" << std::flush;
 
-            get_phrase_info();
-            LPF.emplace_back(lpf {.beg = n, .end = n + 1});
-            LPF.shrink_to_fit();
+            if constexpr (phr_mode == lpf_all_external) {
+                get_phrase_info_external();
+                std::ofstream lpf_ofile(sel_lpf_file_name, std::ios::app);
+                lpf_ofile << lpf {.beg = n, .end = n + 1};
+                lpf_ofile.close();
+            } else {
+                get_phrase_info();
+                LPF.emplace_back(lpf {.beg = n, .end = n + 1});
+                LPF.shrink_to_fit();
+            }
 
             double lpf_phr_per_sync = num_lpf / (double) size_sss;
             double rel_len_gaps = len_gaps / (double) n;
             double gaps_per_lpf_phr = num_gaps / (double) num_lpf;
             double avg_gap_len = len_gaps / (double) num_gaps;
             double avg_lpf_phr_len = len_lpf_phr / (double) num_lpf;
+            
+            target_index_size = std::max<uint64_t>({
+                malloc_count_peak(),
+                baseline_memory_alloc + ((n / 3.0) * rel_len_gaps),
+                baseline_memory_alloc + (n / 10.0)
+            }) - malloc_count_current();
 
             if (log) {
                 time = log_runtime(time);
@@ -342,10 +380,12 @@ class lz77_sss {
                 std::cout << "num. of gaps / num. of LPF phrases: " << gaps_per_lpf_phr << std::endl;
                 std::cout << "avg. gap length: " << avg_gap_len << std::endl;
                 std::cout << "avg. LPF phrase length: " << avg_lpf_phr_len << std::endl;
+                std::cout << "peak memory consumption: "
+                    << format_size(malloc_count_peak() - baseline_memory_alloc) << std::endl;
+                std::cout << "current memory consumption: "
+                    << format_size(malloc_count_current() - baseline_memory_alloc) << std::endl;
+                std::cout << "target index size: " << format_size(target_index_size) << std::endl;
             }
-            
-            target_index_size = std::max<uint64_t>(malloc_count_peak(),
-                double(n / 4 + baseline_memory_alloc) * rel_len_gaps) - malloc_count_current();
 
             double patt_len_guess = std::min<double>({
                 avg_gap_len, avg_lpf_phr_len,
@@ -376,9 +416,15 @@ class lz77_sss {
                 time = log_runtime(time);
             }
 
-            if constexpr (fact_mode == greedy)        {factorize_greedy<       >(out_it);} else
-            if constexpr (fact_mode == greedy_naive)  {factorize_greedy_naive< >(out_it);} else
-            if constexpr (fact_mode == blockwise_all) {factorize_blockwise_all<>(out_it);}
+            if constexpr (phr_mode == lpf_all_external) {
+                std::ifstream lpf_ifile(sel_lpf_file_name);
+                std::istream_iterator<lpf> lpf_it(lpf_ifile);
+                factorize<fact_mode>(out_it, [&](){return *lpf_it++;});
+                std::filesystem::remove(sel_lpf_file_name);
+            } else {
+                uint32_t p = 0;
+                factorize<fact_mode>(out_it, [&](){return LPF[p++];});
+            }
 
             if (log) {
                 #ifndef NDEBUG
@@ -404,24 +450,45 @@ class lz77_sss {
 
         static void greedy_phrase_selection(std::vector<lpf>& P);
 
+        void greedy_phrase_selection_external();
+
         void build_lce();
 
-        template <lpf_mode mode> void build_LPF_S();
+        void build_PSV_NSV_S();
+        
+        void build_PGV_NGV_S();
 
-        template <lpf_mode mode> void build_LNF_S();
+        void build_LPF_greedy();
+
+        void build_LNF_greedy();
+
+        void build_LPF_all(std::function<void(lpf&&,pos_t)> lpf_it);
+
+        void build_LNF_all(std::function<void(lpf&&,pos_t)> lpf_it);
+
+        void build_LPF_all_external();
 
         void get_phrase_info();
 
+        void get_phrase_info_external();
+
         inline factor longest_prev_occ(pos_t pos);
 
-        template <typename out_it_t>
-        void factorize_greedy_naive(out_it_t& out_it);
+        template <factorize_mode fact_mode, typename out_it_t>
+        void factorize(out_it_t& out_it, std::function<lpf()> lpf_it) {
+            if constexpr (fact_mode == greedy)        {factorize_greedy<       >(out_it, lpf_it);} else
+            if constexpr (fact_mode == greedy_naive)  {factorize_greedy_naive< >(out_it, lpf_it);} else
+            if constexpr (fact_mode == blockwise_all) {factorize_blockwise_all<>(out_it, lpf_it);}
+        }
 
         template <typename out_it_t>
-        void factorize_greedy(out_it_t& out_it);
+        void factorize_greedy_naive(out_it_t& out_it, std::function<lpf()> lpf_it);
 
         template <typename out_it_t>
-        void factorize_blockwise_all(out_it_t& out_it);
+        void factorize_greedy(out_it_t& out_it, std::function<lpf()> lpf_it);
+
+        template <typename out_it_t>
+        void factorize_blockwise_all(out_it_t& out_it, std::function<lpf()> lpf_it);
 
         template <
             typename sidx_t,
@@ -496,6 +563,11 @@ class lz77_sss {
                     R = range_ds_t<sidx_t>(P, c);
                 }
 
+                if constexpr (range_ds_t<sidx_t>::is_static()) {
+                    P.clear();
+                    P.shrink_to_fit();
+                }
+
                 if (log) {
                     std::cout << " (" << format_size(R.size_in_bytes()) << ")";
                     time = log_runtime(time);
@@ -561,7 +633,10 @@ class lz77_sss {
 #include "algorithms/common.cpp"
 
 #include "algorithms/approximate/common.cpp"
-#include "algorithms/approximate/lpf_lnf.cpp"
+#include "algorithms/approximate/lpf_lnf/nxv_pxv.cpp"
+#include "algorithms/approximate/lpf_lnf/greedy.cpp"
+#include "algorithms/approximate/lpf_lnf/all.cpp"
+#include "algorithms/approximate/lpf_lnf/external.cpp"
 #include "algorithms/approximate/factorize/common.cpp"
 #include "algorithms/approximate/factorize/greedy.cpp"
 #include "algorithms/approximate/factorize/greedy_naive.cpp"

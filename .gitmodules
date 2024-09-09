@@ -10,3 +10,6 @@
 [submodule "external/fp"]
 	path = external/fp
 	url = git@github.com:pdinklag/fp.git
+[submodule "external/gtl"]
+	path = external/gtl
+	url = git@github.com:greg7mdp/gtl.git

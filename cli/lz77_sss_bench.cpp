@@ -141,25 +141,25 @@ int main(int argc, char** argv) {
     std::filesystem::remove("fact_sss_aprx");
 
     std::cout << std::endl << "running LZ77 SSS 3-approximation:" << std::endl;
-    run_sss_approximate<greedy, lpf_all>("fact_sss_aprx");
+    run_sss_approximate<greedy, lpf_all_external>("fact_sss_aprx");
     std::filesystem::remove("fact_sss_aprx");
-
+    
     std::cout << std::endl << "running LZ77 SSS 1.5-approximation:" << std::endl;
     run_sss_approximate<greedy, lpf_lnf_all>("fact_sss_aprx");
     std::filesystem::remove("fact_sss_aprx");
     
     std::cout << std::endl << "running naive LZ77 SSS exact algorithm:" << std::endl;
-    run_sss_exact<greedy, lpf_all, naive,
+    run_sss_exact<greedy, lpf_all_external, naive,
         static_weighted_square_grid>("fact_sss_exact");
     std::filesystem::remove("fact_sss_exact");
 
     std::cout << std::endl << "running LZ77 SSS exact algorithm (with samples):" << std::endl;
-    run_sss_exact<greedy, lpf_all, with_samples,
+    run_sss_exact<greedy, lpf_all_external, with_samples,
         decomposed_static_weighted_square_grid>("fact_sss_exact");
     std::filesystem::remove("fact_sss_exact");
     
     std::cout << std::endl << "running LZ77 SSS exact algorithm (without samples):" << std::endl;
-    run_sss_exact<greedy, lpf_all, without_samples,
+    run_sss_exact<greedy, lpf_all_external, without_samples,
         decomposed_static_weighted_square_grid>("fact_sss_exact");
     std::filesystem::remove("fact_sss_exact");
 
@@ -178,6 +178,7 @@ int main(int argc, char** argv) {
     std::filesystem::remove("fact_lpf");
     log_algorithm("lpf", time, mem_peak, num_factors);
 
+    baseline_memory_alloc = malloc_count_current();
     std::cout << std::endl << "running gzip -9" << std::flush;
     std::ofstream file_gz9("fact_gz9");
     malloc_count_reset_peak();

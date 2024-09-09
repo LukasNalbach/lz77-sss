@@ -22,17 +22,11 @@ option(LZ77_SSS_BUILD_BENCH_CLI "Build the benchmark cli program" ON)
 option(LZ77_SSS_BUILD_EXAMPLES "Build the example programs" ON)
 option(LZ77_SSS_BUILD_TESTS "Build tests" ON)
 
-# lz77
 add_subdirectory("${CMAKE_SOURCE_DIR}/external/lz77/")
-
-# alx
 add_subdirectory("${CMAKE_SOURCE_DIR}/external/alx/")
-
-# fp
 add_subdirectory("${CMAKE_SOURCE_DIR}/external/fp/")
-
-# sparse-map
 add_subdirectory("${CMAKE_SOURCE_DIR}/external/sparse-map/")
+add_subdirectory("${CMAKE_SOURCE_DIR}/external/gtl/")
 
 set_target_properties(
   ips4o_example benchmark_lce benchmark_pred benchmark_ss
@@ -44,7 +38,7 @@ set_target_properties(
 # lz77_sss
 add_library(lz77_sss INTERFACE)
 target_include_directories(lz77_sss INTERFACE "${CMAKE_SOURCE_DIR}/include/")
-target_link_libraries(lz77_sss INTERFACE malloc_count alx_rolling_hash alx_lce lz77 fp sparse_map)
+target_link_libraries(lz77_sss INTERFACE malloc_count alx_rolling_hash alx_lce lz77 fp sparse_map gtl)
 
 if(LZ77_SSS_BUILD_CLI)
   add_executable(lz77_sss_3-aprx "${CMAKE_SOURCE_DIR}/cli/lz77_sss_3-aprx.cpp")

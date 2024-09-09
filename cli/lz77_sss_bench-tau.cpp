@@ -8,7 +8,7 @@ std::string result_file_path;
 
 int main(int argc, char** argv) {
     if (!(2 <= argc && argc <= 5)) {
-        std::cout << "usage: lz77_sss_bench-tau <file> <min_tau> <max_tau> <result_file>";
+        std::cout << "usage: lz77_sss_bench-tau <file> <result_file> <min_tau> <max_tau>";
         std::cout << "       the last three parameters are optional";
         std::cout << "       min_tau and max_tau must be in the range [4, 4096]";
         exit(-1);
@@ -22,17 +22,17 @@ int main(int argc, char** argv) {
         exit(-1);
     }
 
+    if (argc >= 3) {
+        text_name = file_path.substr(
+            file_path.find_last_of("/\\") + 1);
+        result_file_path = argv[2];
+    }
+
     uint64_t min_tau = 4;
     uint64_t max_tau = 4096;
 
-    if (argc >= 3) min_tau = atol(argv[2]);
-    if (argc >= 4) max_tau = atol(argv[3]);
-
-    if (argc == 5) {
-        text_name = file_path.substr(
-            file_path.find_last_of("/\\") + 1);
-        result_file_path = argv[4];
-    }
+    if (argc >= 4) min_tau = atol(argv[3]);
+    if (argc >= 5) max_tau = atol(argv[4]);
 
     input_file.seekg(0, std::ios::end);
     uint64_t n = input_file.tellg();
@@ -54,10 +54,10 @@ int main(int argc, char** argv) {
             
             if (n <= std::numeric_limits<uint32_t>::max()) {
                 lz77_sss<uint32_t>::factorize_approximate<
-                    greedy, lpf_all, tau>(T, fact_sss_file, true);
+                    greedy, lpf_all_external, tau>(T, fact_sss_file, true);
             } else {
                 lz77_sss<uint64_t>::factorize_approximate<
-                    greedy, lpf_all, tau>(T, fact_sss_file, true);
+                    greedy, lpf_all_external, tau>(T, fact_sss_file, true);
             }
 
             fact_sss_file.close();
