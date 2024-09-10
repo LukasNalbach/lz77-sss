@@ -229,10 +229,10 @@ class lz77_sss {
             if (log) {
                 time = now();
                 time_start = time;
-                baseline_memory_alloc = malloc_count_current();
-                malloc_count_reset_peak();
             }
 
+            baseline_memory_alloc = malloc_count_current();
+            malloc_count_reset_peak();
             omp_set_num_threads(1);
 
             if constexpr (qual_mode == exact) {
@@ -367,11 +367,10 @@ class lz77_sss {
             double avg_gap_len = len_gaps / (double) num_gaps;
             double avg_lpf_phr_len = len_lpf_phr / (double) num_lpf;
             
-            target_index_size = std::max<uint64_t>({
-                malloc_count_peak(),
-                baseline_memory_alloc + ((n / 3.0) * rel_len_gaps),
-                baseline_memory_alloc + (n / 10.0)
-            }) - malloc_count_current();
+            target_index_size = std::max<uint64_t>(
+                malloc_count_peak() - malloc_count_current(),
+                ((n / 3.0) * rel_len_gaps)
+            );
 
             if (log) {
                 time = log_runtime(time);
