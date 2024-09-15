@@ -16,6 +16,8 @@ template <
 > class sample_index {
     public:
 
+    static constexpr uint64_t fingerprint_sample_rate = 64;
+
     struct sxa_interval_t {
         sidx_t b;
         sidx_t e;

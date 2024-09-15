@@ -55,7 +55,6 @@ class lz77_sss {
     template <typename sidx_t> using    default_range_ds_t       = decomposed_static_weighted_square_grid<sidx_t>;
 
     static constexpr uint8_t            num_patt_lens            = 5;
-    static constexpr uint64_t           fingerprint_sample_rate  = 64;
     static constexpr pos_t              delta_max                = 256;
     static constexpr pos_t              range_scan_threshold     = 4096;
     static constexpr uint64_t           max_buffered_lpf_phrases = 2048;
