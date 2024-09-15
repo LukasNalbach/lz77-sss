@@ -49,7 +49,7 @@ int main(int argc, char** argv) {
             greedy, lpf_all_external, with_samples>(T,
             output_file, {.num_threads = p, .log = true});
     } else {
-        lz77_sss<uint64_t>::factorize_approximate<
+        lz77_sss<uint64_t>::factorize_exact<
             greedy, lpf_all_external, with_samples>(T,
             output_file, {.num_threads = p, .log = true});
     }
