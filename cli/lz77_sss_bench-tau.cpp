@@ -54,10 +54,12 @@ int main(int argc, char** argv) {
             
             if (n <= std::numeric_limits<uint32_t>::max()) {
                 lz77_sss<uint32_t>::factorize_approximate<
-                    greedy, lpf_all_external, tau>(T, fact_sss_file, true);
+                    greedy, lpf_all_external, tau>(T,
+                    fact_sss_file, {.log = true});
             } else {
                 lz77_sss<uint64_t>::factorize_approximate<
-                    greedy, lpf_all_external, tau>(T, fact_sss_file, true);
+                    greedy, lpf_all_external, tau>(T,
+                    fact_sss_file, {.log = true});
             }
 
             fact_sss_file.close();

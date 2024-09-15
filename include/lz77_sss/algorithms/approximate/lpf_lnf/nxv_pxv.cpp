@@ -11,7 +11,6 @@ void lz77_sss<pos_t>::factorizer<tau>::build_PSV_NSV_S() {
     
     const std::vector<pos_t>& S = LCE.get_sync_set();
     const std::vector<uint32_t>& SSA_S = LCE.get_ssa();
-    const std::vector<uint32_t>& ISSA_S = LCE.get_issa();
     pos_t s = S.size();
 
     #ifndef NDEBUG

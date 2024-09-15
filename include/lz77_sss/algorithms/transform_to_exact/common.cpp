@@ -13,6 +13,12 @@ void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, ran
 
     C.reserve(num_phr + n / delta);
     C.emplace_back(0);
+    start_thr.resize(p + 1);
+    start_thr[0] = 0;
+    start_thr[p] = n;
+    pos_t phr = 0;
+    pos_t phr_nxt = num_phr / p;
+    pos_t i_p = 1;
     pos_t end_lst = 0;
     pos_t end_nxt;
 
@@ -27,6 +33,15 @@ void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, ran
 
         C.emplace_back(end_nxt);
         end_lst = end_nxt;
+
+        if (phr >= phr_nxt) {
+            start_thr[i_p] = end_nxt;
+            i_p++;
+            phr_nxt = i_p == p ? num_phr
+              : (i_p * (num_phr / p));
+        }
+
+        phr++;
     }
 
     C.shrink_to_fit();
@@ -50,7 +65,7 @@ void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, ran
     double aprx_comp_ratio = n / (double) num_phr;
     pos_t typ_lce_r = std::round(aprx_comp_ratio * (1.0 + 0.5 * std::exp(- aprx_comp_ratio / 1000.0)));
 
-    idx_C.build(T, C, LCE, transf_mode == with_samples, log, delta, typ_lce_r);
+    idx_C.build(T, C, LCE, transf_mode == with_samples, p, log, delta, typ_lce_r);
 
     if (log) {
         std::cout << "size: " << format_size(idx_C.size_in_bytes());
@@ -66,17 +81,14 @@ void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, ran
         std::cout << "building P" << std::flush;
     }
 
-    P.reserve(c);
+    P.resize(c, point_t{});
 
-    for (sidx_t i = 0; i < c; i++) {
+    #pragma omp parallel for num_threads(p)
+    for (uint64_t i = 0; i < c; i++) {
         if constexpr (range_ds_t<sidx_t>::is_static()) {
-            P.emplace_back(point_t{.weight = i});
-        } else {
-            P.emplace_back(point_t{});
+            P[i].weight = i;
         }
-    }
-
-    for (sidx_t i = 0; i < c; i++) {
+        
         P[idx_C.spa(i)].x = i;
         P[idx_C.ssa(i)].y = i;
     }
@@ -95,16 +107,17 @@ void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, ran
         std::cout << "building PS and SP" << std::flush;
     }
     
-    PS.reserve(c);
+    no_init_resize(PS, c);
+    no_init_resize(SP, c);
 
-    for (sidx_t i = 0; i < c; i++) {
-        PS.push_back(P[idx_C.spa(i)].y);
+    #pragma omp parallel for num_threads(p)
+    for (uint64_t i = 0; i < c; i++) {
+        PS[i] = P[idx_C.spa(i)].y;
     }
 
-    SP.reserve(c);
-
-    for (sidx_t i = 0; i < c; i++) {
-        SP.push_back(P[idx_C.ssa(i)].x);
+    #pragma omp parallel for num_threads(p)
+    for (uint64_t i = 0; i < c; i++) {
+        SP[i] = P[idx_C.ssa(i)].x;
     }
 
     if (log) {
@@ -130,8 +143,7 @@ template <typename pos_t>
 template <uint64_t tau>
 template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t, typename out_it_t>
 void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, range_ds_t, out_it_t>::insert_points(sidx_t& x_r, pos_t i) {
-    time_point_t t0;
-    if (log) t0 = now();
+    uint16_t i_p = omp_get_thread_num();
 
     while (x_r < c && C[x_r] < i) {
         if constexpr (range_ds_t<sidx_t>::is_decomposed()) {
@@ -142,16 +154,12 @@ void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, ran
 
         x_r++;
     }
-
-    if (log) time_insert_points += time_diff_ns(t0);
 }
 
 template <typename pos_t>
 template <uint64_t tau>
 template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t, typename out_it_t>
-void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, range_ds_t, out_it_t>::handle_close_sources(factor& f, pos_t i) {
-    time_point_t t5;
-    if (log) t5 = now();
+void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, range_ds_t, out_it_t>::find_close_sources(factor& f, pos_t i, pos_t e) {
     pos_t min_j = i <= delta ? 0 : (i - delta);
 
     for (pos_t j = min_j; j < i; j++) {
@@ -162,8 +170,10 @@ void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, ran
             f.len = lce;
         }
     }
-    
-    if (log) time_close_sources += time_diff_ns(t5);
+
+    if (f.len > e - i) [[unlikely]] {
+        f.len = e - i;
+    }
 }
 
 template <typename pos_t>
@@ -173,10 +183,8 @@ bool lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, ran
     const sxa_interval_t& spa_iv, const sxa_interval_t& ssa_iv,
     pos_t i, pos_t j, pos_t lce_l, pos_t lce_r, sidx_t& x_c, factor& f
 ) {
-    time_point_t t3;
     point_t p;
     bool result = false;
-    if (log) t3 = now();
 
     pos_t spa_rng = spa_iv.e - spa_iv.b + 1;
     pos_t ssa_rng = ssa_iv.e - ssa_iv.b + 1;
@@ -255,13 +263,25 @@ bool lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, ran
             #endif
         }
     }
-
-    if (log) {
-        num_range_queries++;
-        spa_range_sum += spa_iv.e - spa_iv.b + 1;
-        ssa_range_sum += ssa_iv.e - ssa_iv.b + 1;
-        time_range_queries += time_diff_ns(t3);
-    }
         
     return result;
+}
+
+template <typename pos_t>
+template <uint64_t tau>
+template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t, typename out_it_t>
+void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, range_ds_t, out_it_t>::
+combine_factorizations(out_it_t& out_it) {
+    for (uint16_t i_p = 0; i_p < p; i_p++) {
+        std::string fact_file_name_thr = fact_file_name + "_" + std::to_string(i_p);
+        std::ifstream fact_ifile(fact_file_name_thr);
+        std::istream_iterator<factor> fact_it(fact_ifile);
+
+        while (fact_it != std::istream_iterator<factor>()) {
+            *out_it++ = *fact_it++;
+        }
+
+        fact_ifile.close();
+        std::filesystem::remove(fact_file_name_thr);
+    }
 }

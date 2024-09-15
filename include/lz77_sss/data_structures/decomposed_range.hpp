@@ -54,14 +54,22 @@ class decomposed_range : public range_ds_base<range_ds_t, sidx_t> {
     decomposed_range(
         const std::string& T,
         const std::vector<pos_t>& S,
-        const std::vector<point_t>& P
+        const std::vector<point_t>& P,
+        uint16_t p = 1
     ) {
         std::array<std::vector<point_t>, 256> P_c;
-        for (pos_t s : S) C[char_to_uchar(T[s])]++;
+
+        #pragma omp parallel for num_threads(p)
+        for (uint64_t i = 0; i < S.size(); i++) {
+            #pragma omp atomic
+            C[char_to_uchar(T[S[i]])]++;
+        }
+
         for (uint16_t c = 1; c < 256; c++) C[c] += C[c - 1];
         for (uint16_t c = 256; c > 0; c--) C[c] = C[c - 1];
         C[0] = 0;
 
+        #pragma omp parallel for num_threads(p)
         for (uint16_t c = 0; c < 256; c++) {
             P_c[c].reserve(C[c + 1] - C[c]);
         }
@@ -76,7 +84,7 @@ class decomposed_range : public range_ds_base<range_ds_t, sidx_t> {
         for (uint16_t c = 0; c < 256; c++) {
             sidx_t frq = C[c + 1] - C[c];
             if (frq == 0) continue;
-            R_c[c] = range_ds_t<sidx_t>(P_c[c], frq);
+            R_c[c] = range_ds_t<sidx_t>(P_c[c], frq, p);
             P_c[c].clear();
             P_c[c].shrink_to_fit();
         }

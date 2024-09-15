@@ -89,7 +89,7 @@ TEST(test_sample_index, fuzzy_test) {
 
         // build the sample-index
         sample_index<> index;
-        index.build(input, sampling, lce_r_t(input));
+        index.build(input, sampling, lce_r_t(input), true, omp_get_max_threads());
 
         // perform random queries and check their correctness
         for (uint32_t i = 0; i < 1000; i++) {

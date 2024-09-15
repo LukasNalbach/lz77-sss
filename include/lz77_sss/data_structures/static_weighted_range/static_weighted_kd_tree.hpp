@@ -16,7 +16,8 @@ class static_weighted_kd_tree : public static_weighted_range<pos_t> {
     static_weighted_kd_tree() = default;
 
     static_weighted_kd_tree(
-        std::vector<point_t>& points, pos_t pos_max
+        std::vector<point_t>& points,
+        pos_t pos_max, uint16_t p = 1
     ) {
         nodes.reserve(points.size());
         build<true>(points, 0, points.size());
@@ -71,7 +72,6 @@ class static_weighted_kd_tree : public static_weighted_range<pos_t> {
         });
 
         node_t& node = nodes[node_idx];
-
         node.left_child = build<!vertical>(points, beg, mid);
         node.right_child = build<!vertical>(points, mid + 1, end);
 

@@ -15,13 +15,14 @@ class rk61_substring {
 
     const char* T;
     uint64_t n;
+    uint64_t sqrt_n;
     uint128_t b;
     uint64_t s;
     uint64_t w;
     uint128_t pop_prec[256] = {};
     std::vector<std::vector<uint64_t>> fp_smpl_tree;
-    std::vector<uint64_t> bp_leq_s;
-    std::vector<uint64_t> bp_stp_s;
+    std::vector<uint64_t> bp_leq_sqrt_n;
+    std::vector<uint64_t> bp_stp_sqrt_n;
     
     inline static uint64_t mod(const uint128_t val) {
         const uint128_t v = val + 1;
@@ -30,10 +31,10 @@ class rk61_substring {
     }
 
     inline uint64_t b_pow(const uint64_t exp) const {
-        const uint64_t exp_s = exp / s;
-        const uint64_t offs_exp = exp - exp_s * s;
-        return mod(uint128_t{bp_stp_s[exp_s]} *
-                   uint128_t{bp_leq_s[offs_exp]});
+        const uint64_t exp_sqrt_n = exp / sqrt_n;
+        const uint64_t offs_exp = exp - exp_sqrt_n * sqrt_n;
+        return mod(uint128_t{bp_stp_sqrt_n[exp_sqrt_n]} *
+                   uint128_t{bp_leq_sqrt_n[offs_exp]});
     }
 
     inline static uint64_t pow(uint64_t b, uint64_t exp) {
@@ -55,31 +56,36 @@ class rk61_substring {
     rk61_substring(
         const std::string& T,
         const uint64_t s,
-        const uint64_t w = 0
+        const uint64_t w = 0,
+        uint16_t p = 1
     ) : T(T.data()), n(T.size()), s(s), w(w) {
+        sqrt_n = std::ceil(std::sqrt(double(n)));
         std::random_device rd;
         std::mt19937_64 mt(rd());
         std::uniform_int_distribution<uint128_t> distrib(257, p61);
         b = distrib(mt);
         const uint64_t n_s = div_ceil<uint64_t>(n, s);
-        no_init_resize(bp_leq_s, s + 1);
-        no_init_resize(bp_stp_s, n_s);
-        bp_leq_s[0] = 1;
-        bp_stp_s[0] = 1;
 
-        for (uint64_t i = 1; i <= s; i++) {
-            bp_leq_s[i] = mod(uint128_t{bp_leq_s[i - 1]} * b);
+        no_init_resize(bp_leq_sqrt_n, sqrt_n + 1);
+        no_init_resize(bp_stp_sqrt_n, sqrt_n + 1);
+        bp_leq_sqrt_n[0] = 1;
+        bp_stp_sqrt_n[0] = 1;
+
+        for (uint64_t i = 1; i <= sqrt_n; i++) {
+            bp_leq_sqrt_n[i] = mod(uint128_t{bp_leq_sqrt_n[i - 1]} * b);
 
             #ifndef NDEBUG
-            assert(bp_leq_s[i] == pow(b, i));
+            assert(bp_leq_sqrt_n[i] == pow(b, i));
             #endif
         }
 
-        for (uint64_t i = 1; i < n_s; i++) {
-            bp_stp_s[i] = mod(uint128_t{bp_stp_s[i - 1]} * uint128_t{bp_leq_s[s]});
+        for (uint64_t i = 1; i <= sqrt_n; i++) {
+            bp_stp_sqrt_n[i] = mod(
+                uint128_t{bp_stp_sqrt_n[i - 1]} *
+                uint128_t{bp_leq_sqrt_n[sqrt_n]});
             
             #ifndef NDEBUG
-            assert(bp_stp_s[i] == pow(b, s * i));
+            assert(bp_stp_sqrt_n[i] == pow(b, i * sqrt_n));
             #endif
         }
 
@@ -91,10 +97,12 @@ class rk61_substring {
             }
         }
 
+        if (s >= n) return;
         const uint64_t h_max = log2_clz_up(n_s);
         fp_smpl_tree.resize(h_max + 1);
         no_init_resize(fp_smpl_tree[0], n_s);
 
+        #pragma omp parallel for num_threads(p)
         for (uint64_t i = 0; i < n_s; i++) {
             const uint64_t pos = i * s;
             const uint64_t len = std::min<uint64_t>((i + 1) * s, n) - pos;
@@ -107,24 +115,22 @@ class rk61_substring {
             const uint64_t l_h = s * (1 << h);
             const uint64_t l_ch = s * (1 << ch);
             no_init_resize(fp_smpl_tree[h], w_h);
-            uint64_t p_lc = 0;
-            uint64_t p_rc = 1;
 
+            #pragma omp parallel for num_threads(p)
             for (uint64_t i = 0; i < w_h - 1; i++) {
                 fp_smpl_tree[h][i] = concat(
-                    fp_smpl_tree[ch][p_lc],
-                    fp_smpl_tree[ch][p_rc],
+                    fp_smpl_tree[ch][2 * i],
+                    fp_smpl_tree[ch][2 * i + 1],
                     l_ch
                 );
 
                 #ifndef NDEBUG
-                assert(fp_smpl_tree[h][i] ==
-                    substring_naive<>(i * l_h, l_h));
+                assert(fp_smpl_tree[h][i] == substring_naive(i * l_h, l_h));
                 #endif
-
-                p_lc += 2;
-                p_rc += 2;
             }
+
+            uint64_t p_lc = 2 * (w_h - 1);
+            uint64_t p_rc = 2 * (w_h - 1) + 1;
 
             if (p_rc * l_ch >= n) {
                 fp_smpl_tree[h][w_h - 1] = fp_smpl_tree[ch][p_lc];
@@ -137,7 +143,7 @@ class rk61_substring {
 
                 #ifndef NDEBUG
                 assert(fp_smpl_tree[h][w_h - 1] ==
-                    substring_naive<>((w_h - 1) * l_h, n - p_lc * l_ch));
+                    substring_naive((w_h - 1) * l_h, n - p_lc * l_ch));
                 #endif
             }
         }
@@ -153,8 +159,8 @@ class rk61_substring {
 
     inline uint64_t size_in_bytes() const {
         uint64_t size = sizeof(this);
-        size += bp_leq_s.size() * sizeof(uint64_t);
-        size += bp_stp_s.size() * sizeof(uint64_t);
+        size += bp_leq_sqrt_n.size() * sizeof(uint64_t);
+        size += bp_stp_sqrt_n.size() * sizeof(uint64_t);
         
         for (auto& vec : fp_smpl_tree) {
             size += vec.size() * sizeof(uint64_t);

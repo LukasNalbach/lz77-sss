@@ -40,7 +40,8 @@ class semi_dynamic_square_grid : public dynamic_range<pos_t> {
 
     semi_dynamic_square_grid(
         const std::vector<point_t>& points,
-        pos_t pos_max, double s = 1.0
+        pos_t pos_max, uint16_t p = 1,
+        double s = 1.0
     ) : pos_max(pos_max) {
         win_size = std::ceil(std::sqrt(pos_max) / std::sqrt(s));
         grid_width = std::ceil(pos_max / (double) win_size);
@@ -48,8 +49,10 @@ class semi_dynamic_square_grid : public dynamic_range<pos_t> {
         grid.resize(num_win, {.len = 0});
         pos_t p_idx = 0;
 
-        for (const point_t& p : points) {
-            grid[window_index(p)].len++;
+        #pragma omp parallel for num_threads(p)
+        for (uint64_t i = 0; i < points.size(); i++) {
+            #pragma omp atomic
+            grid[window_index(points[i])].len++;
         }
 
         for (window& w : grid) {

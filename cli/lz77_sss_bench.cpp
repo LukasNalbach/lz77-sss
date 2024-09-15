@@ -8,6 +8,7 @@ std::string result_file_path;
 #include <lz77/lpf_factorizer.hpp>
 #include <lz77/gzip9_factorizer.hpp>
 
+uint16_t p = 0;
 std::string T;
 uint64_t n;
 
@@ -41,12 +42,14 @@ template <
 
     if (n <= std::numeric_limits<uint32_t>::max()) {
         lz77_sss<uint32_t>::factorize_approximate<
-            fact_mode, phr_mode>(T, fact_sss_file, true);
+            fact_mode, phr_mode>(T, fact_sss_file,
+            {.num_threads = p, .log = true});
         fact_sss_file.close();
         check_correctness<uint32_t>(file_name);
     } else {
         lz77_sss<uint64_t>::factorize_approximate<
-            fact_mode, phr_mode>(T, fact_sss_file, true);
+            fact_mode, phr_mode>(T, fact_sss_file,
+            {.num_threads = p, .log = true});
         fact_sss_file.close();
         check_correctness<uint64_t>(file_name);
     }
@@ -64,13 +67,13 @@ void run_sss_exact(std::string file_name) {
     if (n <= std::numeric_limits<uint32_t>::max()) {
         lz77_sss<uint32_t>::factorize_exact<
             fact_mode, phr_mode, transf_mode, range_ds_t>(
-            T, fact_sss_file, true);
+            T, fact_sss_file, {.num_threads = p, .log = true});
         fact_sss_file.close();
         check_correctness<uint32_t>(file_name);
     } else {
         lz77_sss<uint64_t>::factorize_exact<
             fact_mode, phr_mode, transf_mode, range_ds_t>(
-            T, fact_sss_file, true);
+            T, fact_sss_file, {.num_threads = p, .log = true});
         fact_sss_file.close();
         check_correctness<uint64_t>(file_name);
     }
@@ -106,9 +109,9 @@ void log_algorithm(
 }
 
 int main(int argc, char** argv) {
-    if (!(argc == 2 || argc == 3)) {
-        std::cout << "usage: lz77_sss_bench <file> <result_file>";
-        std::cout << "       the second parameter is optional";
+    if (!(2 <= argc && argc <= 4)) {
+        std::cout << "usage: lz77_sss_bench <file> <threads> <result_file>";
+        std::cout << "       the last two parameters are optional";
         exit(-1);
     }
 
@@ -120,10 +123,19 @@ int main(int argc, char** argv) {
         exit(-1);
     }
 
-    if (argc == 3) {
+    if (argc >= 3) {
+        p = atoi(argv[2]);
+
+        if (p == 0 || p > omp_get_max_threads()) {
+            std::cout << "error: invalid number of threads";
+            exit(-1);
+        }
+    }
+
+    if (argc == 4) {
         text_name = file_path.substr(
             file_path.find_last_of("/\\") + 1);
-        result_file_path = argv[2];
+        result_file_path = argv[3];
     }
 
     input_file.seekg(0, std::ios::end);
@@ -152,12 +164,12 @@ int main(int argc, char** argv) {
     run_sss_exact<greedy, lpf_all_external, naive,
         static_weighted_square_grid>("fact_sss_exact");
     std::filesystem::remove("fact_sss_exact");
-
+    
     std::cout << std::endl << "running LZ77 SSS exact algorithm (with samples):" << std::endl;
     run_sss_exact<greedy, lpf_all_external, with_samples,
         decomposed_static_weighted_square_grid>("fact_sss_exact");
     std::filesystem::remove("fact_sss_exact");
-    
+
     std::cout << std::endl << "running LZ77 SSS exact algorithm (without samples):" << std::endl;
     run_sss_exact<greedy, lpf_all_external, without_samples,
         decomposed_static_weighted_square_grid>("fact_sss_exact");
