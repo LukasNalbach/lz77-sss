@@ -343,7 +343,7 @@ template <
                 std::cout << "building rabin karp substring data structure" << std::flush;
             }
 
-            uint64_t sampling_rate = max_lce_l < 256 ? n : max_lce_l;
+            uint64_t sampling_rate = max_lce_l < 256 ? n : fingerprint_sample_rate;
             rks = rk61_substring(T, sampling_rate, 0, p);
 
             if (log) {
