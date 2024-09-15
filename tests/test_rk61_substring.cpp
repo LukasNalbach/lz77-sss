@@ -22,7 +22,7 @@ TEST(test_rk_substr, fuzzy_test) {
             0, input.size() - window - 1);
 
         // build the data structure
-        rk61_substring rks(input, sampl_rate_distrib(gen), window);
+        rk61_substring rks(input, sampl_rate_distrib(gen), window, omp_get_max_threads());
 
         // check if rolling fingerprints work
         for (uint64_t i = 0; i < 1000; i++) {

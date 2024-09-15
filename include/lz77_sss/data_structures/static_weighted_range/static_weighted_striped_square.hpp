@@ -23,10 +23,11 @@ class static_weighted_striped_square : public static_weighted_range<pos_t> {
 
     static_weighted_striped_square(
         std::vector<point_t>& points,
-        pos_t pos_max, pos_t seg_size = 128
+        pos_t pos_max, uint16_t p = 1,
+        pos_t seg_size = 128
     ) : num_points(points.size()), seg_size(seg_size) {
         // this can also be done in O(n) time, but requires more space
-        ips4o::sort(points.begin(), points.end(),
+        ips4o::parallel::sort(points.begin(), points.end(),
             [&](const point_t& p1, const point_t& p2){
                 pos_t x1_s = p1.x / seg_size;
                 pos_t x2_s = p2.x / seg_size;

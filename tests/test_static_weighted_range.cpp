@@ -67,7 +67,7 @@ void test() {
     }
 
     // build the range data structure
-    range_ds_t ds(input, input_size);
+    range_ds_t ds(input, input_size, omp_get_max_threads());
 
     // verify that all queries are answered correctly
     for (query& q : queries) {

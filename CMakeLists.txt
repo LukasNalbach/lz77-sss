@@ -18,9 +18,11 @@ set(CMAKE_CXX_FLAGS_MINSIZEREL      "${lz77_sss_release_flags} -Os")
 set(CMAKE_CXX_FLAGS_RELWITHDEBINFO  "${lz77_sss_debug_flags} -Ofast")
 
 option(LZ77_SSS_BUILD_CLI "Build the cli programs" ON)
-option(LZ77_SSS_BUILD_BENCH_CLI "Build the benchmark cli program" ON)
+option(LZ77_SSS_BUILD_BENCH_CLI "Build the benchmark cli programs" ON)
 option(LZ77_SSS_BUILD_EXAMPLES "Build the example programs" ON)
 option(LZ77_SSS_BUILD_TESTS "Build tests" ON)
+
+find_package(OpenMP REQUIRED)
 
 add_subdirectory("${CMAKE_SOURCE_DIR}/external/lz77/")
 add_subdirectory("${CMAKE_SOURCE_DIR}/external/alx/")
@@ -38,7 +40,10 @@ set_target_properties(
 # lz77_sss
 add_library(lz77_sss INTERFACE)
 target_include_directories(lz77_sss INTERFACE "${CMAKE_SOURCE_DIR}/include/")
-target_link_libraries(lz77_sss INTERFACE malloc_count alx_rolling_hash alx_lce lz77 fp sparse_map gtl)
+target_link_libraries(lz77_sss INTERFACE
+  malloc_count alx_rolling_hash alx_lce
+  lz77 fp sparse_map gtl OpenMP::OpenMP_CXX
+)
 
 if(LZ77_SSS_BUILD_CLI)
   add_executable(lz77_sss_3-aprx "${CMAKE_SOURCE_DIR}/cli/lz77_sss_3-aprx.cpp")

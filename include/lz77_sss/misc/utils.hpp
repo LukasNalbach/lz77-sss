@@ -10,6 +10,7 @@
 #include <functional>
 #include <unistd.h>
 
+#include <omp.h>
 #include <malloc_count/malloc_count.h>
 #include <rolling_hash/rolling_hash.hpp>
 
@@ -347,12 +348,12 @@ std::string random_alphanumeric_string(uint64_t length) {
 enum direction {LEFT, RIGHT};
 
 template <typename val_t, typename pos_t, direction search_dir>
-pos_t exp_search_max_geq(val_t value, pos_t left, pos_t right, pos_t initial_step_size, std::function<val_t(pos_t)> value_at) {
+pos_t exp_search_max_geq(val_t value, pos_t left, pos_t right, std::function<val_t(pos_t)> value_at) {
     if (right == left) {
         return left;
     }
 
-    pos_t cur_step_size = std::min<pos_t>(initial_step_size, right - left);
+    pos_t cur_step_size = 1;
 
     if constexpr (search_dir == LEFT) {
         right -= cur_step_size;
@@ -485,4 +486,11 @@ inline static uint_t log2_clz_up(const uint_t val) {
 template <typename uint_t>
 inline static uint_t div_ceil(const uint_t x, const uint_t y) {
     return x == 0 ? 0 : (1 + (x - 1) / y);
+}
+
+template <typename T>
+T sum(std::vector<T> vec) {
+    T sum = 0;
+    for (T& v : vec) sum += v;
+    return sum;
 }

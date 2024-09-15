@@ -106,9 +106,9 @@ void lz77_sss<pos_t>::factorizer<tau>::factorize_greedy(out_it_t& out_it, std::f
         num_phr++;
         i += lpf.len;
 
-        do {
+        while (p.end <= i) {
             p = lpf_it();
-        } while (p.end <= i);
+        }
     }
 
     if (log) {

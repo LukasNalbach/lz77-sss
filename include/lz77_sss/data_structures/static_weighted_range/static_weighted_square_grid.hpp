@@ -40,7 +40,8 @@ class static_weighted_square_grid : public static_weighted_range<pos_t> {
 
     static_weighted_square_grid(
         std::vector<point_t>& points,
-        pos_t pos_max, double s = 1.0
+        pos_t pos_max, uint16_t p = 1,
+        double s = 1.0
     ) : pos_max(pos_max) {
         win_size = std::ceil(std::sqrt(pos_max) / std::sqrt(s));
         grid_width = std::ceil(pos_max / (double) win_size);
@@ -49,8 +50,10 @@ class static_weighted_square_grid : public static_weighted_range<pos_t> {
         grid.resize(num_win, {.len = 0});
         pos_t p_idx = 0;
 
-        for (const point_t& p : points) {
-            grid[window_index(p)].len++;
+        #pragma omp parallel for num_threads(p)
+        for (uint64_t i = 0; i < points.size(); i++) {
+            #pragma omp atomic
+            grid[window_index(points[i])].len++;
         }
 
         for (window& w : grid) {
@@ -58,13 +61,13 @@ class static_weighted_square_grid : public static_weighted_range<pos_t> {
             p_idx += w.len;
         }
 
-        this->points = std::move(points);
-
         // this can also be done in O(n) time, but requires more space
-        ips4o::sort(this->points.begin(), this->points.end(),
+        ips4o::parallel::sort(points.begin(), points.end(),
             [&](const point_t& p1, const point_t& p2){
                 return window_index(p1) < window_index(p2);
         });
+
+        this->points = std::move(points);
     }
 
     inline pos_t size() const override {

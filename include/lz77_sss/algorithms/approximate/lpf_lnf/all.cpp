@@ -4,7 +4,7 @@
 
 template <typename pos_t>
 template <uint64_t tau>
-void lz77_sss<pos_t>::factorizer<tau>::build_LPF_all(std::function<void(lpf&&, pos_t)> lpf_it) {
+void lz77_sss<pos_t>::factorizer<tau>::build_LPF_all(std::function<void(uint16_t, pos_t, lpf&&)> lpf_it) {
     build_PSV_NSV_S();
 
     if (log) {
@@ -16,54 +16,67 @@ void lz77_sss<pos_t>::factorizer<tau>::build_LPF_all(std::function<void(lpf&&, p
     const std::vector<uint32_t>& ISSA_S = LCE.get_issa();
     pos_t s = S.size();
 
-    for (uint32_t i = 0; i < s; i++) {
-        if (PSV_S[ISSA_S[i]] > 0) [[likely]] {
-            pos_t src = S[SSA_S[PSV_S[ISSA_S[i]]]];
-            pos_t lce_l = 0;
+    #pragma omp parallel num_threads(p)
+    {
+        uint16_t i_p = omp_get_thread_num();
 
-            if (src != 0 && S[i] != 0) [[likely]] {
-                lce_l = LCE_L(src - 1, S[i] - 1, tau);
+        pos_t b = i_p * (n / p);
+        pos_t e = i_p == p - 1 ? n : ((i_p + 1) * (n / p));
+
+        uint32_t i_min = bin_search_min_geq<pos_t, uint32_t>(
+            true, 0, s, [&](uint32_t i){return i == s || S[i] >= b;});
+        uint32_t i_max = bin_search_min_geq<pos_t, uint32_t>(
+            true, 0, s, [&](uint32_t i){return i == s || S[i] >= e;});
+
+        for (uint32_t i = i_min; i < i_max; i++) {
+            if (PSV_S[ISSA_S[i]] > 0) [[likely]] {
+                pos_t src = S[SSA_S[PSV_S[ISSA_S[i]]]];
+                pos_t lce_l = 0;
+
+                if (src != 0 && S[i] != 0) [[likely]] {
+                    lce_l = LCE_L(src - 1, S[i] - 1, tau);
+                }
+                
+                pos_t end = S[i] + LCE_R(src, S[i]);
+                pos_t beg = S[i] - lce_l;
+                src -= lce_l;
+
+                #ifndef NDEBUG
+                assert(src < beg);
+
+                for (pos_t j = 0; j < end - beg; j++) {
+                    assert(T[src + j] == T[beg + j]);
+                }
+                #endif
+
+                if (end - beg > 1) [[likely]] {
+                    lpf_it(i_p, S[i], lpf {beg, end, src});
+                }
             }
-            
-            pos_t end = S[i] + LCE_R(src, S[i]);
-            pos_t beg = S[i] - lce_l;
-            src -= lce_l;
 
-            #ifndef NDEBUG
-            assert(src < beg);
+            if (NSV_S[ISSA_S[i]] < s) [[likely]] {
+                pos_t src = S[SSA_S[NSV_S[ISSA_S[i]]]];
+                pos_t lce_l = 0;
 
-            for (pos_t j = 0; j < end - beg; j++) {
-                assert(T[src + j] == T[beg + j]);
-            }
-            #endif
+                if (src != 0 && S[i] != 0) [[likely]] {
+                    lce_l = LCE_L(src - 1, S[i] - 1, tau);
+                }
 
-            if (end - beg > 1) [[likely]] {
-                lpf_it(lpf {beg, end, src}, S[i]);
-            }
-        }
+                pos_t end = S[i] + LCE_R(src, S[i]);
+                pos_t beg = S[i] - lce_l;
+                src -= lce_l;
 
-        if (NSV_S[ISSA_S[i]] < s) [[likely]] {
-            pos_t src = S[SSA_S[NSV_S[ISSA_S[i]]]];
-            pos_t lce_l = 0;
+                #ifndef NDEBUG
+                assert(src < beg);
+                
+                for (pos_t j = 0; j < end - beg; j++) {
+                    assert(T[src + j] == T[beg + j]);
+                }
+                #endif
 
-            if (src != 0 && S[i] != 0) [[likely]] {
-                lce_l = LCE_L(src - 1, S[i] - 1, tau);
-            }
-
-            pos_t end = S[i] + LCE_R(src, S[i]);
-            pos_t beg = S[i] - lce_l;
-            src -= lce_l;
-
-            #ifndef NDEBUG
-            assert(src < beg);
-            
-            for (pos_t j = 0; j < end - beg; j++) {
-                assert(T[src + j] == T[beg + j]);
-            }
-            #endif
-
-            if (end - beg > 1) [[likely]] {
-                lpf_it(lpf {beg, end, src}, S[i]);
+                if (end - beg > 1) [[likely]] {
+                    lpf_it(i_p, S[i], lpf {beg, end, src});
+                }
             }
         }
     }
@@ -80,7 +93,7 @@ void lz77_sss<pos_t>::factorizer<tau>::build_LPF_all(std::function<void(lpf&&, p
 
 template <typename pos_t>
 template <uint64_t tau>
-void lz77_sss<pos_t>::factorizer<tau>::build_LNF_all(std::function<void(lpf&&, pos_t)> lpf_it) {
+void lz77_sss<pos_t>::factorizer<tau>::build_LNF_all(std::function<void(uint16_t, pos_t, lpf&&)> lpf_it) {
     build_PGV_NGV_S();
 
     if (log) {
@@ -92,62 +105,75 @@ void lz77_sss<pos_t>::factorizer<tau>::build_LNF_all(std::function<void(lpf&&, p
     const std::vector<uint32_t>& ISSA_S = LCE.get_issa();
     pos_t s = S.size();
 
-    for (uint32_t i = 0; i < s; i++) {
-        if (PGV_S[ISSA_S[i]] > 0) [[likely]] {
-            pos_t src = S[SSA_S[PGV_S[ISSA_S[i]]]];
-            pos_t lce_l = 0;
+    #pragma omp parallel num_threads(p)
+    {
+        uint16_t i_p = omp_get_thread_num();
 
-            if (src != 0 && S[i] != 0) [[likely]] {
-                lce_l = LCE_L(src - 1, S[i] - 1, tau);
+        pos_t b = i_p == p - 1 ? 0 : (n - (i_p + 1) * (n / p));
+        pos_t e = n - i_p * (n / p);
+
+        uint32_t i_min = bin_search_min_geq<pos_t, uint32_t>(
+            true, 0, s, [&](uint32_t i){return i == s || S[i] >= b;});
+        uint32_t i_max = bin_search_min_geq<pos_t, uint32_t>(
+            true, 0, s, [&](uint32_t i){return i == s || S[i] >= e;});
+
+        for (uint32_t i = i_min; i < i_max; i++) {
+            if (PGV_S[ISSA_S[i]] > 0) [[likely]] {
+                pos_t src = S[SSA_S[PGV_S[ISSA_S[i]]]];
+                pos_t lce_l = 0;
+
+                if (src != 0 && S[i] != 0) [[likely]] {
+                    lce_l = LCE_L(src - 1, S[i] - 1, tau);
+                }
+
+                pos_t end = S[i] + LCE_R(src, S[i]);
+                pos_t beg = S[i] - lce_l;
+                src -= lce_l;
+
+                #ifndef NDEBUG
+                assert(src > beg);
+
+                for (pos_t j = 0; j < end - beg; j++) {
+                    assert(T[src + j] == T[beg + j]);
+                }
+                #endif
+
+                if (end - beg > 1) [[likely]] {
+                    lpf_it(i_p, S[i], lpf {
+                        .beg = n - end,
+                        .end = n - beg,
+                        .src = n - (src + (end - beg))
+                    });
+                }
             }
 
-            pos_t end = S[i] + LCE_R(src, S[i]);
-            pos_t beg = S[i] - lce_l;
-            src -= lce_l;
+            if (NGV_S[ISSA_S[i]] < s) [[likely]] {
+                pos_t src = S[SSA_S[NGV_S[ISSA_S[i]]]];
+                pos_t lce_l = 0;
 
-            #ifndef NDEBUG
-            assert(src > beg);
+                if (src != 0 && S[i] != 0) [[likely]] {
+                    lce_l = LCE_L(src - 1, S[i] - 1, tau);
+                }
 
-            for (pos_t j = 0; j < end - beg; j++) {
-                assert(T[src + j] == T[beg + j]);
-            }
-            #endif
+                pos_t end = S[i] + LCE_R(src, S[i]);
+                pos_t beg = S[i] - lce_l;
+                src -= lce_l;
 
-            if (end - beg > 1) [[likely]] {
-                lpf_it(lpf {
-                    .beg = n - end,
-                    .end = n - beg,
-                    .src = n - (src + (end - beg))
-                }, S[i]);
-            }
-        }
+                #ifndef NDEBUG
+                assert(src > beg);
+                
+                for (pos_t j = 0; j < end - beg; j++) {
+                    assert(T[src + j] == T[beg + j]);
+                }
+                #endif
 
-        if (NGV_S[ISSA_S[i]] < s) [[likely]] {
-            pos_t src = S[SSA_S[NGV_S[ISSA_S[i]]]];
-            pos_t lce_l = 0;
-
-            if (src != 0 && S[i] != 0) [[likely]] {
-                lce_l = LCE_L(src - 1, S[i] - 1, tau);
-            }
-
-            pos_t end = S[i] + LCE_R(src, S[i]);
-            pos_t beg = S[i] - lce_l;
-            src -= lce_l;
-
-            #ifndef NDEBUG
-            assert(src > beg);
-            
-            for (pos_t j = 0; j < end - beg; j++) {
-                assert(T[src + j] == T[beg + j]);
-            }
-            #endif
-
-            if (end - beg > 1) [[likely]] {
-                lpf_it(lpf {
-                    .beg = n - end,
-                    .end = n - beg,
-                    .src = n - (src + (end - beg))
-                }, S[i]);
+                if (end - beg > 1) [[likely]] {
+                    lpf_it(i_p, S[i], lpf {
+                        .beg = n - end,
+                        .end = n - beg,
+                        .src = n - (src + (end - beg))
+                    });
+                }
             }
         }
     }

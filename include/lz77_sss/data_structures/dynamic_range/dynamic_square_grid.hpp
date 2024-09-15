@@ -36,7 +36,8 @@ class dynamic_square_grid : public dynamic_range<pos_t> {
 
     dynamic_square_grid(
         std::vector<point_t>& points,
-        pos_t pos_max, double s = 1.0
+        pos_t pos_max, uint16_t p = 1,
+        double s = 1.0
     ) {
         win_size = std::ceil(std::sqrt(pos_max) / std::sqrt(s));
         grid_width = std::ceil(pos_max / (double) win_size);

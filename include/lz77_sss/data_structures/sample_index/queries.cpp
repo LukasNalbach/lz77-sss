@@ -7,7 +7,7 @@ template <direction dir>
 inline std::pair<typename sample_index<pos_t, sidx_t, lce_r_t>::sxa_interval_t, bool>
 sample_index<pos_t, sidx_t, lce_r_t>::sxa_interval(
     pos_t pat_len_idx, pos_t pos_pat, std::size_t hash
-) {
+) const {
     if (pat_len_idx == 0) {
         if (!occurs1(pos_pat)) [[unlikely]] {
             return {{0, 0}, false};
@@ -29,8 +29,7 @@ sample_index<pos_t, sidx_t, lce_r_t>::sxa_interval(
         hash = rks.substring<dir>(pos_pat, pat_len);
     }
 
-    pos_hash = pos_pat;
-    auto it = map.find({s, s}, hash);
+    auto it = map.find(pos_to_interval(pos_pat), hash);
 
     if (it == map.end()) {
         return {{0, 0}, false};
@@ -44,7 +43,7 @@ template <direction dir>
 bool sample_index<pos_t, sidx_t, lce_r_t>::extend(
     const query_context& qc_old, query_context& qc_new,
     pos_t pos_pat, pos_t len, bool use_samples
-) {
+) const {
     if (qc_old.match_length() >= len) {
         if (&qc_old != &qc_new) {
             qc_new = qc_old;

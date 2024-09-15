@@ -38,8 +38,27 @@ template <
 
     protected:
 
+    static sxa_interval_t pos_to_interval(pos_t pos) {
+        sxa_interval_t iv;
+        *reinterpret_cast<uint64_t*>(&iv) = uint64_t{pos} | (uint64_t{1} << 63);
+        return iv;
+    }
+
+    template <direction dir>
+    pos_t pos_from_interval(const sxa_interval_t& iv) const {
+        const uint64_t& iv_u64 = *reinterpret_cast<const uint64_t*>(&iv);
+        pos_t pos;
+
+        if (iv_u64 & (uint64_t{1} << 63)) {
+            pos = iv_u64 & (std::numeric_limits<uint64_t>::max() >> 1);
+        } else {
+            pos = sample(sxa<dir>(iv.b));
+        }
+
+        return pos;
+    }
+
     static constexpr sidx_t no_occ = std::numeric_limits<sidx_t>::max();
-    pos_t pos_hash;
 
     template <direction dir>
     struct sxivx_hash {
@@ -50,8 +69,7 @@ template <
           : idx(idx), len(len), s(idx->num_samples()) {}
 
         inline std::size_t operator()(const sxa_interval_t& iv) const {
-            pos_t pos = iv.e == s ? idx->pos_hash : idx->sample(idx->sxa<dir>(iv.e));
-            return idx->rks.substring<dir>(pos, len);
+            return idx->rks.substring<dir>(idx->pos_from_interval<dir>(iv), len);
         }
     };
 
@@ -64,8 +82,8 @@ template <
           : idx(idx), len(len), s(idx->num_samples()) {}
 
         inline bool operator()(const sxa_interval_t& iv_1, const sxa_interval_t& iv_2) const {
-            pos_t pos_1 = iv_1.e == s ? idx->pos_hash : idx->sample(idx->sxa<dir>(iv_1.e));
-            pos_t pos_2 = iv_2.e == s ? idx->pos_hash : idx->sample(idx->sxa<dir>(iv_2.e));
+            pos_t pos_1 = idx->pos_from_interval<dir>(iv_1);
+            pos_t pos_2 = idx->pos_from_interval<dir>(iv_2);
             return pos_1 == pos_2 || idx->lce<dir>(pos_1, pos_2, len) >= len;
         }
     };
@@ -203,7 +221,7 @@ template <
 
     template <direction dir>
     inline bool cmp_lex(pos_t i, pos_t j, pos_t lce) const {
-        if (i == j) {
+        if (i == j) [[unlikely]] {
             return false;
         }
 
@@ -231,18 +249,21 @@ template <
         return cmp_lex<dir>(S[i], S[j], lce<dir>(S[i], S[j], max_lce_l));
     }
 
+    void build_sxa12_intervals(uint16_t p, bool log);
+
+    template <direction dir>
+    void build_samples(pos_t typ_lce_r, uint16_t p, bool log);
+
     public:
 
     sample_index() = default;
-
-    template <direction dir>
-    void build_samples(pos_t typ_lce_r, bool log);
 
     void build(
         const std::string& T,
         const std::vector<pos_t>& S,
         const lce_r_t& LCE_R,
         bool use_samples = true,
+        uint16_t p = 1,
         bool log = false,
         pos_t max_lce_l = std::numeric_limits<pos_t>::max(),
         pos_t typ_lce_r = std::numeric_limits<pos_t>::max()
@@ -258,7 +279,8 @@ template <
         s = S.size();
 
         #ifndef NDEBUG
-        for (sidx_t i = 1; i < s; i++) {
+        #pragma omp parallel for num_threads(p)
+        for (uint64_t i = 1; i < s; i++) {
             assert(S[i] > S[i - 1]);
         }
         #endif
@@ -267,19 +289,21 @@ template <
             std::cout << "building SPA" << std::flush;
         }
 
-        SPA.reserve(s);
+        no_init_resize(SPA, s);
 
-        for (sidx_t i = 0; i < s; i++) {
-            SPA.emplace_back(i);
+        #pragma omp parallel for num_threads(p)
+        for (uint64_t i = 0; i < s; i++) {
+            SPA[i] = i;
         }
 
-        ips4o::sort(SPA.begin(), SPA.end(),
+        ips4o::parallel::sort(SPA.begin(), SPA.end(),
             [&](sidx_t i, sidx_t j){
                 return cmp_sample_lex<LEFT>(i, j);
         });
 
         #ifndef NDEBUG
-        for (sidx_t i = 1; i < s; i++) {
+        #pragma omp parallel for num_threads(p)
+        for (uint64_t i = 1; i < s; i++) {
             assert(!cmp_sample_lex<LEFT>(SPA[i], SPA[i - 1]));
         }
         #endif
@@ -290,19 +314,21 @@ template <
             std::cout << "building SSA" << std::flush;
         }
 
-        SSA.reserve(s);
-
-        for (sidx_t i = 0; i < s; i++) {
-            SSA.emplace_back(i);
+        no_init_resize(SSA, s);
+    
+        #pragma omp parallel for num_threads(p)
+        for (uint64_t i = 0; i < s; i++) {
+            SSA[i] = i;
         }
 
-        ips4o::sort(SSA.begin(), SSA.end(),
+        ips4o::parallel::sort(SSA.begin(), SSA.end(),
             [&](sidx_t i, sidx_t j){
                 return cmp_sample_lex<RIGHT>(i, j);
         });
 
         #ifndef NDEBUG
-        for (sidx_t i = 1; i < s; i++) {
+        #pragma omp parallel for num_threads(p)
+        for (uint64_t i = 1; i < s; i++) {
             assert(!cmp_sample_lex<RIGHT>(SSA[i], SSA[i - 1]));
         }
         #endif
@@ -317,20 +343,17 @@ template <
                 std::cout << "building rabin karp substring data structure" << std::flush;
             }
 
-            rks = rk61_substring(T, 128);
+            uint64_t sampling_rate = max_lce_l < 256 ? n : max_lce_l;
+            rks = rk61_substring(T, sampling_rate, 0, p);
 
             if (log) {
                 std::cout << " (" << format_size(rks.size_in_bytes()) << ")" << std::flush;
                 time = log_runtime(time);
             }
 
-            for (uint16_t c = 0; c < 256; c++) {
-                SCIV[c].b = no_occ;
-                SCIV[c].e = no_occ;
-            }
-
-            build_samples<LEFT>(typ_lce_r, log);
-            build_samples<RIGHT>(typ_lce_r, log);
+            build_sxa12_intervals(p, log);
+            build_samples<LEFT>(typ_lce_r, p, log);
+            build_samples<RIGHT>(typ_lce_r, p, log);
         }        
 
         byte_size = malloc_count_current() - baseline_memory_alloc;
@@ -426,43 +449,43 @@ template <
     inline std::pair<sxa_interval_t, bool> sxa_interval(
         pos_t pat_len_idx, pos_t pos_pat,
         std::size_t hash = std::numeric_limits<std::size_t>::max()
-    );
+    ) const;
 
     inline std::pair<sxa_interval_t, bool> spa_interval(
         pos_t pat_len_idx, pos_t pos_pat,
         std::size_t hash = std::numeric_limits<std::size_t>::max()
-    ) {
+    ) const {
         return sxa_interval<LEFT>(pat_len_idx, pos_pat, hash);
     }
 
     inline std::pair<sxa_interval_t, bool> ssa_interval(
         pos_t pat_len_idx, pos_t pos_pat,
         std::size_t hash = std::numeric_limits<std::size_t>::max()
-    ) {
+    ) const {
         return sxa_interval<RIGHT>(pat_len_idx, pos_pat, hash);
     }
 
     template <direction dir>
-    bool extend(const query_context& qc_old, query_context& qc_new, pos_t pos_pat, pos_t len, bool use_samples = true);
+    bool extend(const query_context& qc_old, query_context& qc_new, pos_t pos_pat, pos_t len, bool use_samples = true) const;
     
-    bool extend_left(const query_context& qc_old, query_context& qc_new, pos_t pos_pat, pos_t len, bool use_samples = true) {
+    bool extend_left(const query_context& qc_old, query_context& qc_new, pos_t pos_pat, pos_t len, bool use_samples = true) const {
         return extend<LEFT>(qc_old, qc_new, pos_pat, len, use_samples);
     }
     
-    bool extend_right(const query_context& qc_old, query_context& qc_new, pos_t pos_pat, pos_t len, bool use_samples = true) {
+    bool extend_right(const query_context& qc_old, query_context& qc_new, pos_t pos_pat, pos_t len, bool use_samples = true) const {
         return extend<RIGHT>(qc_old, qc_new, pos_pat, len, use_samples);
     }
     
-    bool extend_left(query_context& qc, pos_t pos_pat, pos_t len, bool use_samples = true) {
+    bool extend_left(query_context& qc, pos_t pos_pat, pos_t len, bool use_samples = true) const {
         return extend<LEFT>(qc, qc, pos_pat, len, use_samples);
     }
     
-    bool extend_right(query_context& qc, pos_t pos_pat, pos_t len, bool use_samples = true) {
+    bool extend_right(query_context& qc, pos_t pos_pat, pos_t len, bool use_samples = true) const {
         return extend<RIGHT>(qc, qc, pos_pat, len, use_samples);
     }
 
     template <direction dir>
-    bool extend(query_context& qc, pos_t pos_pat, pos_t len, bool use_samples = true) {
+    bool extend(query_context& qc, pos_t pos_pat, pos_t len, bool use_samples = true) const {
         return extend<dir>(qc, qc, pos_pat, len, use_samples);
     }
 
@@ -478,7 +501,7 @@ template <
     };
 
     template <direction dir>
-    void locate(const query_context& qc, std::vector<pos_t>& Occ) {
+    void locate(const query_context& qc, std::vector<pos_t>& Occ) const {
         Occ.reserve(Occ.size() + qc.e - qc.b + 1);
 
         for (sidx_t i = qc.b; i <= qc.e; i++) {
@@ -487,7 +510,7 @@ template <
     }
 
     template <direction dir>
-    std::vector<pos_t> locate(const query_context& qc) {
+    std::vector<pos_t> locate(const query_context& qc) const {
         std::vector<pos_t> Occ;
         locate(qc, Occ);
         return Occ;

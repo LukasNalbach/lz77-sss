@@ -16,59 +16,72 @@ void lz77_sss<pos_t>::factorizer<tau>::build_LPF_greedy() {
     const std::vector<uint32_t>& ISSA_S = LCE.get_issa();
     pos_t s = S.size();
 
-    for (uint32_t i = 0; i < s;) {
-        pos_t src;
-        pos_t len = 0;
+    #pragma omp parallel num_threads(p)
+    {
+        uint16_t i_p = omp_get_thread_num();
 
-        if (PSV_S[ISSA_S[i]] > 0) {
-            pos_t src_cur = S[SSA_S[PSV_S[ISSA_S[i]]]];
-            pos_t len_cur = LCE_R(src_cur, S[i]);
+        pos_t b = i_p * (n / p);
+        pos_t e = i_p == p - 1 ? n : ((i_p + 1) * (n / p));
 
-            #ifndef NDEBUG
-            assert(src_cur < S[i]);
+        uint32_t i_min = bin_search_min_geq<pos_t, uint32_t>(
+            true, 0, s, [&](uint32_t i){return i == s || S[i] >= b;});
+        uint32_t i_max = bin_search_min_geq<pos_t, uint32_t>(
+            true, 0, s, [&](uint32_t i){return i == s || S[i] >= e;});
 
-            for (pos_t j = 0; j < len_cur; j++) {
-                assert(T[src_cur + j] == T[S[i] + j]);
+        for (uint32_t i = i_min; i < i_max; i++) {
+            pos_t src;
+            pos_t len = 0;
+
+            if (PSV_S[ISSA_S[i]] > 0) {
+                pos_t src_cur = S[SSA_S[PSV_S[ISSA_S[i]]]];
+                pos_t len_cur = LCE_R(src_cur, S[i]);
+
+                #ifndef NDEBUG
+                assert(src_cur < S[i]);
+
+                for (pos_t j = 0; j < len_cur; j++) {
+                    assert(T[src_cur + j] == T[S[i] + j]);
+                }
+                #endif
+
+                if (len_cur > len) {
+                    src = src_cur;
+                    len = len_cur;
+                }
             }
-            #endif
 
-            if (len_cur > len) {
-                src = src_cur;
-                len = len_cur;
+            if (NSV_S[ISSA_S[i]] < s) {
+                pos_t src_cur = S[SSA_S[NSV_S[ISSA_S[i]]]];
+                pos_t len_cur = LCE_R(src_cur, S[i]);
+
+                #ifndef NDEBUG
+                assert(src_cur < S[i]);
+                
+                for (pos_t j = 0; j < len_cur; j++) {
+                    assert(T[src_cur + j] == T[S[i] + j]);
+                }
+                #endif
+
+                if (len_cur > len) {
+                    src = src_cur;
+                    len = len_cur;
+                }
             }
+
+            if (len > 0) {
+                LPF[i_p].emplace_back(lpf {
+                    .beg = S[i],
+                    .end = S[i] + len,
+                    .src = src
+                });
+            }
+
+            pos_t pos = S[i];
+
+            do {
+                i++;
+            } while (i < i_max && S[i] < pos + len);
         }
-
-        if (NSV_S[ISSA_S[i]] < s) {
-            pos_t src_cur = S[SSA_S[NSV_S[ISSA_S[i]]]];
-            pos_t len_cur = LCE_R(src_cur, S[i]);
-
-            #ifndef NDEBUG
-            assert(src_cur < S[i]);
-            
-            for (pos_t j = 0; j < len_cur; j++) {
-                assert(T[src_cur + j] == T[S[i] + j]);
-            }
-            #endif
-
-            if (len_cur > len) {
-                src = src_cur;
-                len = len_cur;
-            }
-        }
-
-        if (len > 0) {
-            LPF.emplace_back(lpf {
-                .beg = S[i],
-                .end = S[i] + len,
-                .src = src
-            });
-        }
-
-        pos_t pos = S[i];
-
-        do {
-            i++;
-        } while (i < s && S[i] < pos + len);
     }
 
     NSV_S.clear();
@@ -94,60 +107,73 @@ void lz77_sss<pos_t>::factorizer<tau>::build_LNF_greedy() {
     const std::vector<uint32_t>& SSA_S = LCE.get_ssa();
     const std::vector<uint32_t>& ISSA_S = LCE.get_issa();
     pos_t s = S.size();
+    
+    #pragma omp parallel num_threads(p)
+    {
+        uint16_t i_p = omp_get_thread_num();
 
-    for (uint32_t i = 0; i < s;) {
-        pos_t src;
-        pos_t len = 0;
+        pos_t b = i_p == p - 1 ? 0 : (n - (i_p + 1) * (n / p));
+        pos_t e = n - i_p * (n / p);
 
-        if (PGV_S[ISSA_S[i]] > 0) {
-            pos_t src_cur = S[SSA_S[PGV_S[ISSA_S[i]]]];
-            pos_t len_cur = LCE_R(src_cur, S[i]);
+        uint32_t i_min = bin_search_min_geq<pos_t, uint32_t>(
+            true, 0, s, [&](uint32_t i){return i == s || S[i] >= b;});
+        uint32_t i_max = bin_search_min_geq<pos_t, uint32_t>(
+            true, 0, s, [&](uint32_t i){return i == s || S[i] >= e;});
 
-            #ifndef NDEBUG
-            assert(src_cur > S[i]);
+        for (uint32_t i = i_min; i < i_max; i++) {
+            pos_t src;
+            pos_t len = 0;
 
-            for (pos_t j = 0; j < len_cur; j++) {
-                assert(T[src_cur + j] == T[S[i] + j]);
+            if (PGV_S[ISSA_S[i]] > 0) {
+                pos_t src_cur = S[SSA_S[PGV_S[ISSA_S[i]]]];
+                pos_t len_cur = LCE_R(src_cur, S[i]);
+
+                #ifndef NDEBUG
+                assert(src_cur > S[i]);
+
+                for (pos_t j = 0; j < len_cur; j++) {
+                    assert(T[src_cur + j] == T[S[i] + j]);
+                }
+                #endif
+
+                if (len_cur > len) {
+                    src = src_cur;
+                    len = len_cur;
+                }
             }
-            #endif
 
-            if (len_cur > len) {
-                src = src_cur;
-                len = len_cur;
+            if (NGV_S[ISSA_S[i]] < s) {
+                pos_t src_cur = S[SSA_S[NGV_S[ISSA_S[i]]]];
+                pos_t len_cur = LCE_R(src_cur, S[i]);
+
+                #ifndef NDEBUG
+                assert(src_cur > S[i]);
+                
+                for (pos_t j = 0; j < len_cur; j++) {
+                    assert(T[src_cur + j] == T[S[i] + j]);
+                }
+                #endif
+
+                if (len_cur > len) {
+                    src = src_cur;
+                    len = len_cur;
+                }
             }
-        }
 
-        if (NGV_S[ISSA_S[i]] < s) {
-            pos_t src_cur = S[SSA_S[NGV_S[ISSA_S[i]]]];
-            pos_t len_cur = LCE_R(src_cur, S[i]);
-
-            #ifndef NDEBUG
-            assert(src_cur > S[i]);
+            if (len > 0) {
+                LPF[i_p].emplace_back(lpf {
+                    .beg = n - S[i] - len,
+                    .end = n - S[i],
+                    .src = n - src - len
+                });
+            }
             
-            for (pos_t j = 0; j < len_cur; j++) {
-                assert(T[src_cur + j] == T[S[i] + j]);
-            }
-            #endif
+            pos_t pos = S[i];
 
-            if (len_cur > len) {
-                src = src_cur;
-                len = len_cur;
-            }
+            do {
+                i++;
+            } while (i < i_max && S[i] < pos + len);
         }
-
-        if (len > 0) {
-            LPF.emplace_back(lpf {
-                .beg = n - S[i] - len,
-                .end = n - S[i],
-                .src = n - src - len
-            });
-        }
-        
-        pos_t pos = S[i];
-
-        do {
-            i++;
-        } while (i < s && S[i] < pos + len);
     }
 
     PGV_S.clear();
