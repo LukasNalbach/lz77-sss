@@ -4,9 +4,9 @@
 
 template <typename pos_t>
 template <uint64_t tau>
-template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t, typename out_it_t>
-void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, range_ds_t, out_it_t>::
-transform_to_exact_naive(out_it_t& out_it) {
+template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t>
+void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::
+transform_to_exact_naive(std::function<void(factor)> out_it) {
     if (log) {
         std::cout << "computing the exact factorization" << std::flush;
     }
@@ -68,7 +68,7 @@ transform_to_exact_naive(out_it_t& out_it) {
             }
             #endif
 
-            if (p == 1) *out_it++ = f;
+            if (p == 1) out_it(f);
             else *fact_it++ = f;
             i += std::max<pos_t>(1, f.len);
             num_phr_thr++;

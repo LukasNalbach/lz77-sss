@@ -35,8 +35,8 @@ inline lz77_sss<pos_t>::factor lz77_sss<pos_t>::factorizer<tau>::longest_prev_oc
 
 template <typename pos_t>
 template <uint64_t tau>
-template <factorize_mode fact_mode, typename out_it_t>
-void lz77_sss<pos_t>::factorizer<tau>::factorize_internal(out_it_t& out_it) {
+template <factorize_mode fact_mode>
+void lz77_sss<pos_t>::factorizer<tau>::factorize_internal(std::function<void(factor)> out_it) {
     uint16_t i_p = 0;
     uint32_t i = 0;
     while(LPF[i_p].empty()) i_p++;
@@ -69,8 +69,8 @@ void lz77_sss<pos_t>::factorizer<tau>::factorize_internal(out_it_t& out_it) {
 
 template <typename pos_t>
 template <uint64_t tau>
-template <factorize_mode fact_mode, typename out_it_t>
-void lz77_sss<pos_t>::factorizer<tau>::factorize_external(out_it_t& out_it) {
+template <factorize_mode fact_mode>
+void lz77_sss<pos_t>::factorizer<tau>::factorize_external(std::function<void(factor)> out_it) {
     uint16_t i_p = 0;
     while (sel_lpf_file_size(i_p) == 0) i_p++;
     std::ifstream lpf_ifile;

@@ -29,7 +29,8 @@ enum phrase_mode {
 enum factorize_mode {
     greedy,
     greedy_naive,
-    blockwise_all
+    blockwise_all,
+    skip_phrases
 };
 
 enum transform_mode {
@@ -79,11 +80,20 @@ class lz77_sss {
     template <
         factorize_mode                  fact_mode   = default_fact_mode,
         phrase_mode                     phr_mode    = default_phr_mode,
+        uint64_t                        tau         = default_tau
+    >
+    static void factorize_approximate(std::string& input, std::function<void(factor)> out_it, parameters params = {}) {
+        factorizer<tau>(input, params).template factorize<approximate, fact_mode, phr_mode>(out_it);
+    }
+
+    template <
+        factorize_mode                  fact_mode   = default_fact_mode,
+        phrase_mode                     phr_mode    = default_phr_mode,
         uint64_t                        tau         = default_tau,
         std::output_iterator<factor>    out_it_t
     >
     static void factorize_approximate(std::string& input, out_it_t out_it, parameters params = {}) {
-        factorizer<tau>(input, params).template factorize<approximate, fact_mode, phr_mode>(out_it);
+        factorize_approximate<fact_mode, phr_mode, tau>(input, [&](factor f){*out_it++ = f;}, params);
     }
 
     template <
@@ -111,11 +121,22 @@ class lz77_sss {
         phrase_mode                     phr_mode        = default_phr_mode,
         transform_mode                  transf_mode     = default_transf_mode,
         template <typename> typename    range_ds_t      = default_range_ds_t,
+        uint64_t                        tau             = default_tau
+    >
+    static void factorize_exact(std::string& input, std::function<void(factor)> out_it, parameters params = {}) {
+        factorizer<tau>(input, params).template factorize<exact, fact_mode, phr_mode, transf_mode, range_ds_t>(out_it);
+    }
+
+    template <
+        factorize_mode                  fact_mode       = default_fact_mode,
+        phrase_mode                     phr_mode        = default_phr_mode,
+        transform_mode                  transf_mode     = default_transf_mode,
+        template <typename> typename    range_ds_t      = default_range_ds_t,
         uint64_t                        tau             = default_tau,
         std::output_iterator<factor>    out_it_t
     >
     static void factorize_exact(std::string& input, out_it_t out_it, parameters params = {}) {
-        factorizer<tau>(input, params).template factorize<exact, fact_mode, phr_mode, transf_mode, range_ds_t>(out_it);
+        factorize_exact<fact_mode, phr_mode, transf_mode, range_ds_t, tau>(input, [&](factor f){*out_it++ = f;}, params);
     }
 
     template <
@@ -229,10 +250,9 @@ class lz77_sss {
             factorize_mode                  fact_mode       = default_fact_mode,
             phrase_mode                     phr_mode        = default_phr_mode,
             transform_mode                  transf_mode     = default_transf_mode,
-            template <typename> typename    range_ds_t      = default_range_ds_t,
-            typename                        out_it_t
+            template <typename> typename    range_ds_t      = default_range_ds_t
         >
-        void factorize(out_it_t& out_it) {
+        void factorize(std::function<void(factor)> out_it) {
             if (log) {
                 time = now();
                 time_start = time;
@@ -249,27 +269,29 @@ class lz77_sss {
             omp_set_num_threads(p);
 
             if constexpr (qual_mode == exact) {
+                static_assert(fact_mode != skip_phrases);
                 std::string file_aprx_name = std::filesystem::temp_directory_path().string()
                     + "/aprx_" + random_alphanumeric_string(10);
                 std::ofstream ofile_aprx(file_aprx_name);
                 std::ostream_iterator<factor> ofile_aprx_it(ofile_aprx, "");
-                compute_approximation<fact_mode, phr_mode>(ofile_aprx_it);
+                std::function<void(factor)> aprx_out_it = [&](factor f){*ofile_aprx_it++ = f;};
+                compute_approximation<fact_mode, phr_mode>(aprx_out_it);
                 ofile_aprx.close();
                 std::ifstream ifile_aprx(file_aprx_name);
                 std::istream_iterator<factor> ifile_aprx_it(ifile_aprx);
                 pos_t delta = std::min<pos_t>(n / num_phr, delta_max);
 
                 if constexpr (std::is_same_v<pos_t, uint32_t>) {
-                    exact_factorizer<uint32_t, transf_mode, range_ds_t, out_it_t>(
+                    exact_factorizer<uint32_t, transf_mode, range_ds_t>(
                         T, LCE, delta, num_phr, p, log).transform_to_exact(ifile_aprx_it, out_it);
                 } else {
                     pos_t max_num_samples = num_phr + n / delta;
 
                     if (max_num_samples <= std::numeric_limits<uint32_t>::max()) {
-                        exact_factorizer<uint32_t, transf_mode, range_ds_t, out_it_t>(
+                        exact_factorizer<uint32_t, transf_mode, range_ds_t>(
                             T, LCE, delta, num_phr, p, log).transform_to_exact(ifile_aprx_it, out_it);
                     } else {
-                        exact_factorizer<uint64_t, transf_mode, range_ds_t, out_it_t>(
+                        exact_factorizer<uint64_t, transf_mode, range_ds_t>(
                             T, LCE, delta, num_phr, p, log).transform_to_exact(ifile_aprx_it, out_it);
                     }
                 }
@@ -280,7 +302,7 @@ class lz77_sss {
                 compute_approximation<fact_mode, phr_mode>(out_it);
             }
 
-            if (log) {
+            if (log && fact_mode != skip_phrases) {
                 uint64_t time_total = time_diff_ns(time_start, now());
                 uint64_t mem_peak = malloc_count_peak() - baseline_memory_alloc;
                 double comp_ratio = n / (double) num_phr;
@@ -317,10 +339,9 @@ class lz77_sss {
 
         template <
             factorize_mode  fact_mode   = default_fact_mode,
-            phrase_mode     phr_mode    = default_phr_mode,
-            typename        out_it_t
+            phrase_mode     phr_mode    = default_phr_mode
         >
-        void compute_approximation(out_it_t& out_it) {
+        void compute_approximation(std::function<void(factor)> out_it) {
             lpf_file_name = std::filesystem::temp_directory_path().string()
                 + "/lpf_" + random_alphanumeric_string(10);
             sel_lpf_file_name = std::filesystem::temp_directory_path().string()
@@ -375,97 +396,85 @@ class lz77_sss {
                     time = log_runtime(time);
                 }
             }
-
-            if (log) std::cout << "computing LPF statistics" << std::flush;
             
-            #pragma omp parallel num_threads(p)
-            {
-                uint16_t i_p = omp_get_thread_num();
+            if constexpr (fact_mode == skip_phrases) {
+                append_end_phrase<phr_mode>();
+            } else {
+                if (log) std::cout << "computing LPF statistics" << std::flush;
+                
+                #pragma omp parallel num_threads(p)
+                {
+                    uint16_t i_p = omp_get_thread_num();
 
-                if constexpr (phr_mode == lpf_all_external) {
-                    get_phrase_info_external();
-                } else {
-                    get_phrase_info();
+                    if constexpr (phr_mode == lpf_all_external) {
+                        get_phrase_info_external();
+                    } else {
+                        get_phrase_info();
 
-                    if (i_p != p - 1) {
-                        LPF[i_p].shrink_to_fit();
+                        if (i_p != p - 1) {
+                            LPF[i_p].shrink_to_fit();
+                        }
                     }
                 }
+                
+                append_end_phrase<phr_mode>();
+
+                len_gaps = n - len_lpf_phr;
+                double lpf_phr_per_sync = num_lpf / (double) size_sss;
+                double rel_len_gaps = len_gaps / (double) n;
+                double gaps_per_lpf_phr = num_gaps / (double) num_lpf;
+                double avg_gap_len = len_gaps / (double) num_gaps;
+                double avg_lpf_phr_len = len_lpf_phr / (double) num_lpf;
+                target_index_size = std::max<uint64_t>(n / 12, (n / 3.0) * rel_len_gaps);
+
+                if (log) {
+                    time = log_runtime(time);
+                    std::cout << "num. of LPF phrases / SSS size = " << lpf_phr_per_sync << std::endl;
+                    std::cout << "gaps length / input length: " << rel_len_gaps << std::endl;
+                    std::cout << "num. of gaps / num. of LPF phrases: " << gaps_per_lpf_phr << std::endl;
+                    std::cout << "avg. gap length: " << avg_gap_len << std::endl;
+                    std::cout << "avg. LPF phrase length: " << avg_lpf_phr_len << std::endl;
+                    std::cout << "peak memory consumption: "
+                        << format_size(malloc_count_peak() - baseline_memory_alloc) << std::endl;
+                    std::cout << "current memory consumption: "
+                        << format_size(malloc_count_current() - baseline_memory_alloc) << std::endl;
+                    std::cout << "target index size: " << format_size(target_index_size) << std::endl;
+                }
+
+                double patt_len_guess = std::min<double>({
+                    avg_gap_len, avg_lpf_phr_len,
+                    8.0 * std::pow(128, 1.0 - rel_len_gaps)});
+                
+                    if (patt_len_guess <= 6)   {patt_lens = {2,3, 4, 5, 6};}
+                else if (patt_len_guess <= 8)   {patt_lens = {2,3, 4, 6, 8};}
+                else if (patt_len_guess <= 12)  {patt_lens = {2,3, 4, 8,12};}
+                else if (patt_len_guess <= 16)  {patt_lens = {2,4, 6, 9,16};}
+                else if (patt_len_guess <= 32)  {patt_lens = {2,4, 6,10,20};}
+                else if (patt_len_guess <= 64)  {patt_lens = {2,4, 7,12,28};}
+                else if (patt_len_guess <= 128) {patt_lens = {2,4, 8,16,36};}
+                else if (patt_len_guess <= 256) {patt_lens = {2,5,10,20,42};}
+                else if (patt_len_guess <= 512) {patt_lens = {2,6,12,24,48};}
+                else                            {patt_lens = {2,8,16,32,64};}
+                
+                if (log) {
+                    std::cout << "pattern lengths for the rolling hash index: ";
+                    for (pos_t i = 0; i < num_patt_lens - 1; i++) std::cout << patt_lens[i] << ", ";
+                    std::cout << patt_lens[num_patt_lens - 1] << std::endl;
+                    std::cout << "initializing rolling hash index" << std::flush;
+                }
+
+                gap_idx = gap_idx_t(T.data(), n, patt_lens, target_index_size);
+
+                if (log) {
+                    std::cout << " (size: " << format_size(gap_idx.size_in_bytes()) << ")";
+                    time = log_runtime(time);
+                }
             }
-
-            if constexpr (phr_mode == lpf_all_external) {
-                std::ofstream lpf_ofile;
-                open_sel_lpf_ofile(lpf_ofile, p - 1, std::ios::app);
-                lpf_ofile << lpf {.beg = n, .end = n + 1};
-            } else {
-                LPF[p - 1].emplace_back(lpf {.beg = n, .end = n + 1});
-                LPF[p - 1].shrink_to_fit();
-            }
-
-            len_gaps = n - len_lpf_phr;
-            double lpf_phr_per_sync = num_lpf / (double) size_sss;
-            double rel_len_gaps = len_gaps / (double) n;
-            double gaps_per_lpf_phr = num_gaps / (double) num_lpf;
-            double avg_gap_len = len_gaps / (double) num_gaps;
-            double avg_lpf_phr_len = len_lpf_phr / (double) num_lpf;
-            target_index_size = std::max<uint64_t>(n / 12, (n / 3.0) * rel_len_gaps);
-
-            if (log) {
-                time = log_runtime(time);
-                std::cout << "num. of LPF phrases / SSS size = " << lpf_phr_per_sync << std::endl;
-                std::cout << "gaps length / input length: " << rel_len_gaps << std::endl;
-                std::cout << "num. of gaps / num. of LPF phrases: " << gaps_per_lpf_phr << std::endl;
-                std::cout << "avg. gap length: " << avg_gap_len << std::endl;
-                std::cout << "avg. LPF phrase length: " << avg_lpf_phr_len << std::endl;
-                std::cout << "peak memory consumption: "
-                    << format_size(malloc_count_peak() - baseline_memory_alloc) << std::endl;
-                std::cout << "current memory consumption: "
-                    << format_size(malloc_count_current() - baseline_memory_alloc) << std::endl;
-                std::cout << "target index size: " << format_size(target_index_size) << std::endl;
-            }
-
-            double patt_len_guess = std::min<double>({
-                avg_gap_len, avg_lpf_phr_len,
-                8.0 * std::pow(128, 1.0 - rel_len_gaps)});
-            
-                 if (patt_len_guess <= 6)   {patt_lens = {2,3, 4, 5, 6};}
-            else if (patt_len_guess <= 8)   {patt_lens = {2,3, 4, 6, 8};}
-            else if (patt_len_guess <= 12)  {patt_lens = {2,3, 4, 8,12};}
-            else if (patt_len_guess <= 16)  {patt_lens = {2,4, 6, 9,16};}
-            else if (patt_len_guess <= 32)  {patt_lens = {2,4, 6,10,20};}
-            else if (patt_len_guess <= 64)  {patt_lens = {2,4, 7,12,28};}
-            else if (patt_len_guess <= 128) {patt_lens = {2,4, 8,16,36};}
-            else if (patt_len_guess <= 256) {patt_lens = {2,5,10,20,42};}
-            else if (patt_len_guess <= 512) {patt_lens = {2,6,12,24,48};}
-            else                            {patt_lens = {2,8,16,32,64};}
-            
-            if (log) {
-                std::cout << "pattern lengths for the rolling hash index: ";
-                for (pos_t i = 0; i < num_patt_lens - 1; i++) std::cout << patt_lens[i] << ", ";
-                std::cout << patt_lens[num_patt_lens - 1] << std::endl;
-                std::cout << "initializing rolling hash index" << std::flush;
-            }
-
-            gap_idx = gap_idx_t(T.data(), n, patt_lens, target_index_size);
-
-            if (log) {
-                std::cout << " (size: " << format_size(gap_idx.size_in_bytes()) << ")";
-                time = log_runtime(time);
-            }
-            
+                
             if constexpr (phr_mode == lpf_all_external) {
                 factorize_external<fact_mode>(out_it);
             } else {
                 factorize_internal<fact_mode>(out_it);
-            }
-
-            if (log) {
-                #ifndef NDEBUG
-                std::cout << "rate of initialized values "
-                    << "in the rolling hash index: "
-                    << gap_idx.rate_init()
-                    << std::endl;
-                #endif
             }
 
             LPF.clear();
@@ -541,6 +550,18 @@ class lz77_sss {
             return phr;
         }
 
+        template <phrase_mode phr_mode>
+        void append_end_phrase() {
+            if constexpr (phr_mode == lpf_all_external) {
+                std::ofstream lpf_ofile;
+                open_sel_lpf_ofile(lpf_ofile, p - 1, std::ios::app);
+                lpf_ofile << lpf {.beg = n, .end = n + 1};
+            } else {
+                LPF[p - 1].emplace_back(lpf {.beg = n, .end = n + 1});
+                LPF[p - 1].shrink_to_fit();
+            }
+        }
+
         static void greedy_phrase_selection(std::vector<lpf>& P);
 
         void greedy_phrase_selection_external();
@@ -567,33 +588,32 @@ class lz77_sss {
 
         inline factor longest_prev_occ(pos_t pos);
 
-        template <factorize_mode fact_mode, typename out_it_t>
-        void factorize_internal(out_it_t& out_it);
+        template <factorize_mode fact_mode>
+        void factorize_internal(std::function<void(factor)> out_it);
 
-        template <factorize_mode fact_mode, typename out_it_t>
-        void factorize_external(out_it_t& out_it);
+        template <factorize_mode fact_mode>
+        void factorize_external(std::function<void(factor)> out_it);
 
-        template <factorize_mode fact_mode, typename out_it_t>
-        void factorize(out_it_t& out_it, std::function<lpf()> lpf_it) {
-            if constexpr (fact_mode == greedy)        {factorize_greedy<       >(out_it, lpf_it);} else
-            if constexpr (fact_mode == greedy_naive)  {factorize_greedy_naive< >(out_it, lpf_it);} else
-            if constexpr (fact_mode == blockwise_all) {factorize_blockwise_all<>(out_it, lpf_it);}
+        template <factorize_mode fact_mode>
+        void factorize(std::function<void(factor)> out_it, std::function<lpf()> lpf_it) {
+            if constexpr (fact_mode == skip_phrases)  {factorize_skip_gaps    (out_it, lpf_it);} else
+            if constexpr (fact_mode == greedy)        {factorize_greedy       (out_it, lpf_it);} else
+            if constexpr (fact_mode == greedy_naive)  {factorize_greedy_naive (out_it, lpf_it);} else
+            if constexpr (fact_mode == blockwise_all) {factorize_blockwise_all(out_it, lpf_it);}
         }
 
-        template <typename out_it_t>
-        void factorize_greedy_naive(out_it_t& out_it, std::function<lpf()> lpf_it);
+        void factorize_skip_gaps(std::function<void(factor)> out_it, std::function<lpf()> lpf_it);
 
-        template <typename out_it_t>
-        void factorize_greedy(out_it_t& out_it, std::function<lpf()> lpf_it);
+        void factorize_greedy_naive(std::function<void(factor)> out_it, std::function<lpf()> lpf_it);
 
-        template <typename out_it_t>
-        void factorize_blockwise_all(out_it_t& out_it, std::function<lpf()> lpf_it);
+        void factorize_greedy(std::function<void(factor)> out_it, std::function<lpf()> lpf_it);
+
+        void factorize_blockwise_all(std::function<void(factor)> out_it, std::function<lpf()> lpf_it);
 
         template <
             typename sidx_t,
             transform_mode transf_mode,
-            template <typename> typename range_ds_t,
-            typename out_it_t
+            template <typename> typename range_ds_t
         >
         class exact_factorizer {
             public:
@@ -632,7 +652,7 @@ class lz77_sss {
             exact_factorizer(std::string& T, const lce_t& LCE, pos_t delta, pos_t& num_phr, uint16_t p, bool log)
                 : log(log), p(p), T(T), LCE(LCE), n(T.size()), delta(delta), num_phr(num_phr) {}
 
-            void transform_to_exact(std::istream_iterator<factor>& ifile_aprx_it, out_it_t& out_it) {
+            void transform_to_exact(std::istream_iterator<factor>& ifile_aprx_it, std::function<void(factor)> out_it) {
                 if (log) {
                     time = now();
                     time_start = time;
@@ -710,18 +730,18 @@ class lz77_sss {
                 pos_t i, pos_t j, pos_t lce_l, pos_t lce_r, sidx_t& x_c, factor& f
             );
 
-            void transform_to_exact_naive(out_it_t& out_it);
+            void transform_to_exact_naive(std::function<void(factor)> out_it);
 
-            void transform_to_exact_without_samples(out_it_t& out_it);
+            void transform_to_exact_without_samples(std::function<void(factor)> out_it);
 
             void extend_right_with_samples(
                 const sxa_interval_t& spa_iv,
                 pos_t i, pos_t j, pos_t e, sidx_t& x_c, factor& f
             );
 
-            void transform_to_exact_with_samples(out_it_t& out_it);
+            void transform_to_exact_with_samples(std::function<void(factor)> out_it);
 
-            void combine_factorizations(out_it_t& out_it);
+            void combine_factorizations(std::function<void(factor)> out_it);
         };
     };
 };
@@ -737,6 +757,7 @@ class lz77_sss {
 #include "algorithms/approximate/factorize/greedy.cpp"
 #include "algorithms/approximate/factorize/greedy_naive.cpp"
 #include "algorithms/approximate/factorize/blockwise_all.cpp"
+#include "algorithms/approximate/factorize/skip_gaps.cpp"
 
 #include "algorithms/transform_to_exact/common.cpp"
 #include "algorithms/transform_to_exact/naive.cpp"
