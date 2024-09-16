@@ -4,8 +4,7 @@
 
 template <typename pos_t>
 template <uint64_t tau>
-template <typename out_it_t>
-void lz77_sss<pos_t>::factorizer<tau>::factorize_greedy(out_it_t& out_it, std::function<lpf()> lpf_it) {
+void lz77_sss<pos_t>::factorizer<tau>::factorize_greedy(std::function<void(factor)> out_it, std::function<lpf()> lpf_it) {
     if (log) {
         std::cout << "factorizing" << std::flush;
     }
@@ -66,7 +65,7 @@ void lz77_sss<pos_t>::factorizer<tau>::factorize_greedy(out_it_t& out_it, std::f
                 }
                 #endif
 
-                *out_it++ = f;
+                out_it(f);
                 num_phr++;
 
                 while (gap_idx.pos() < i) {
@@ -102,7 +101,7 @@ void lz77_sss<pos_t>::factorizer<tau>::factorize_greedy(out_it_t& out_it, std::f
         }
         #endif
 
-        *out_it++ = lpf;
+        out_it(lpf);
         num_phr++;
         i += lpf.len;
 

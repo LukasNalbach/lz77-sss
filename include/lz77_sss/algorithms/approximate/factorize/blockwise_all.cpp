@@ -4,8 +4,7 @@
 
 template <typename pos_t>
 template <uint64_t tau>
-template <typename out_it_t>
-void lz77_sss<pos_t>::factorizer<tau>::factorize_blockwise_all(out_it_t& out_it, std::function<lpf()> lpf_it) {
+void lz77_sss<pos_t>::factorizer<tau>::factorize_blockwise_all(std::function<void(factor)> out_it, std::function<lpf()> lpf_it) {
     if (log) {
         std::cout << "factorizing" << std::flush;
     }
@@ -66,15 +65,15 @@ void lz77_sss<pos_t>::factorizer<tau>::factorize_blockwise_all(out_it_t& out_it,
 
         for (lpf phr : P) {
             while (pos < phr.beg) {
-                *out_it++ = factor{char_to_uchar(T[pos]),0};
+                out_it({char_to_uchar(T[pos]),0});
                 num_phr++;
                 pos++;
             }
 
-            *out_it++ = factor{
+            out_it({
                 .src = phr.src,
                 .len = phr.end - phr.beg
-            };
+            });
 
             #ifndef NDEBUG
             assert(phr.src < pos);
@@ -89,7 +88,7 @@ void lz77_sss<pos_t>::factorizer<tau>::factorize_blockwise_all(out_it_t& out_it,
         }
 
         while (pos < blk_end) {
-            *out_it++ = factor{char_to_uchar(T[pos]),0};
+            out_it({char_to_uchar(T[pos]),0});
             num_phr++;
             pos++;
         }

@@ -140,6 +140,24 @@ void log_message(std::string message) {
     std::cout << message << std::flush;
 }
 
+void copy_buffered(
+    std::fstream& input_stream, std::fstream& output_stream,
+    std::string& buffer, uint64_t from, uint64_t to, uint64_t length
+) {
+    uint64_t block_size = 1024 * 1024;
+    if (&input_stream == &output_stream) block_size = std::min(block_size, to - from);
+    buffer.resize(block_size);
+
+    for (uint64_t offset = 0; offset < length;) {
+        uint64_t bytes_to_copy = std::min<uint64_t>(length - offset, block_size);
+        input_stream.seekg(from + offset, std::ios::beg);
+        input_stream.read(buffer.data(), bytes_to_copy);
+        output_stream.seekp(to + offset, std::ios::beg);
+        output_stream.write(buffer.data(), bytes_to_copy);
+        offset += bytes_to_copy;
+    }
+}
+
 void read_from_file(std::istream& in, const char* data, uint64_t size) {
     uint64_t size_left = size;
     uint64_t bytes_to_read;
