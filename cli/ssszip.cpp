@@ -1,6 +1,9 @@
 #include <fstream>
 #include <lz77_sss/lz77_sss.hpp>
 
+using time_point_t = std::chrono::steady_clock::time_point;
+
+time_point_t t1, t2, t3;
 int arg_idx = 1;
 bool decompress = false;
 uint64_t bytes_input;
@@ -8,29 +11,48 @@ std::string input;
 std::string input_file_path;
 std::string output_file_path;
 std::string tmp_file_path;
+std::string log_file_path;
 std::ifstream input_file;
 std::string encoder = "xz";
 std::string decoder;
 uint32_t encoding_quality = 2;
 uint64_t bytes_compressed;
 uint16_t num_threads;
+uint8_t logs = 1;
+uint64_t gaps_length = 0;
+bool keep_input_file = false;
 
 void help(std::string message) {
-    if (message != "") std::cout << message << std::endl;
-    std::cout << "usage: ssszip [...] <input_file>" << std::endl;
-    std::cout << " -d                decompress <input_file> (with extension .ssszip.<encoder>)" << std::endl;
-    std::cout << " -o <output_file>  output file path (default: <input_file>.ssszip.<encoder>)" << std::endl;
-    std::cout << " -t <threads>      number of threads to use (default: all)" << std::endl;
-    std::cout << " -e <encoder>      name of the encoder binary (default: xz)" << std::endl;
-    std::cout << " -1 .. -9          encoding quality (default: 2)" << std::endl;
-    std::cout << " -h                show help" << std::endl;
+    if (logs >= 1) {
+        if (message != "") std::cout << message << std::endl;
+        std::cout << "usage: ssszip [...] <input_file>" << std::endl;
+        std::cout << " -d                decompress <input_file> (with extension .ssszip.<encoder>)" << std::endl;
+        std::cout << " -o <output_file>  output file path (default: <input_file>.ssszip.<encoder>)" << std::endl;
+        std::cout << " -t <threads>      number of threads to use (default: all)" << std::endl;
+        std::cout << " -e <encoder>      name of the encoder binary (default: xz)" << std::endl;
+        std::cout << " -1 .. -9          encoding quality (default: 2)" << std::endl;
+        std::cout << " -k                keep (don't delete) <input file>" << std::endl;
+        std::cout << " -q                quiet mode (disables all logs)" << std::endl;
+        std::cout << " -v                shows verbose information" << std::endl;
+        std::cout << " -h                show help" << std::endl;
+    }
     exit(-1);
 }
 
 void parse_args(char** argv, int argc) {
     std::string arg = argv[arg_idx++];
 
-    if (arg == "-d") {
+    if (arg == "-k") {
+        keep_input_file = true;
+    } else if (arg == "-q") {
+        if (logs != 1)
+            help("error: -q and -v cannot be combined");
+        logs = 0;
+    } else if (arg == "-v") {
+        if (logs != 1)
+            help("error: -q and -v cannot be combined");
+        logs = 2;
+    } else if (arg == "-d") {
         decompress = true;
     } else if (arg == "-o") {
         if (arg_idx >= argc - 1)
@@ -65,68 +87,120 @@ void encode_gapped() {
     tmp_ofile.write((char*)&is_64_bit, 1);
     tmp_ofile.write((char*)&bytes_input, 8);
     pos_t i = 0;
+    bool gap = false;
+    pos_t gap_beg = 0;
+    factor gap_lst {.src = 0, .len = 0};
 
     std::function<void(factor)> out_it = [&](factor f){
-        tmp_ofile << f;
-
         if (f.len == 0) {
-            tmp_ofile.write(&input[i], f.src);
+            if (gap) {
+                gap_lst.src += f.src;
+            } else {
+                gap_lst = f;
+                gap_beg = i;
+            }
+
             i += f.src;
-        } else {
+            gap = true;
+        } else if (gap && f.len <= sizeof(factor)) {
+            gap_lst.src += f.len;
             i += f.len;
+            gap = true;
+        } else {
+            if (gap) {
+                tmp_ofile << gap_lst;
+                tmp_ofile.write(&input[gap_beg], gap_lst.src);
+                gaps_length += gap_lst.src;
+            }
+
+            tmp_ofile << f;
+            i += f.len;
+            gap = false;
         }
     };
 
     lz77_sss<pos_t>::template factorize_approximate<
         skip_phrases, lpf_all_external>(input, out_it,
-        {.num_threads = num_threads, .log = true});
+        {.num_threads = num_threads, .log = logs == 2});
+    
+    if (gap) {
+        tmp_ofile << gap_lst;
+        tmp_ofile.write(&input[gap_beg], gap_lst.src);
+        gaps_length += gap_lst.src;
+    }
+}
+
+uint64_t peak_memory_usage() {
+    std::ifstream log_file(log_file_path);
+    std::string log_file_str;
+    uint64_t log_file_length = std::filesystem::file_size(log_file_path);
+    no_init_resize(log_file_str, log_file_length);
+    log_file.read(log_file_str.data(), log_file_length);
+    log_file.close();
+    std::string str_to_find = "Maximum resident set size (kbytes): ";
+    uint64_t beg = log_file_str.find(str_to_find) + str_to_find.length();
+    uint64_t len = log_file_str.find("\n", beg) - beg;
+    return atol(log_file_str.substr(beg, len).c_str());
 }
 
 void encode() {
-    auto t1 = now();
+    t1 = now();
     input_file.open(input_file_path);
-    if (!input_file.good()) {
-        std::cout << "error: could not read <input_file>";
-        exit(-1);}
+    if (!input_file.good())
+        help("error: could not read <input_file>");
     if (output_file_path == "")
         output_file_path = input_file_path;
     output_file_path += ".ssszip." + encoder;
+    if (std::filesystem::exists(output_file_path))
+        help("error: <output_file> already exists");
     input_file.seekg(0, std::ios::end);
     bytes_input = input_file.tellg();
     input_file.seekg(0, std::ios::beg);
-    auto t0 = now();
-    std::cout << "reading input (" << format_size(bytes_input)
-        << ")" << std::flush;
+    if (logs == 2) std::cout << "reading input (" <<
+        format_size(bytes_input) << ")" << std::flush;
     no_init_resize(input, bytes_input);
     read_from_file(input_file, input.data(), bytes_input);
     input_file.close();
-    log_runtime(t0);
+    if (logs == 2) log_runtime(t1);
     if (bytes_input <= std::numeric_limits<uint32_t>::max())
          encode_gapped<uint32_t>();
     else encode_gapped<uint64_t>();
-    if (std::filesystem::exists(output_file_path))
-        std::filesystem::remove(output_file_path);
-    std::cout << "compressing gapped factorization" << std::flush;
-    auto t2 = now();
-    std::string cmd = encoder + " -q -c" +
+    input.clear();
+    input.shrink_to_fit();
+    if (logs == 2) {
+        uint64_t bytes_gapped = std::filesystem::file_size(tmp_file_path);
+        std::cout << "size: " << format_size(bytes_gapped);
+        std::cout << ", relative length of the gaps: " << 100.0 *
+            (gaps_length / (double) bytes_input) << " %" << std::endl;
+        std::cout << "compressing gapped factorization" << std::flush;
+    }
+    t2 = now();
+    std::string cmd = "(/usr/bin/time -v " + encoder + " -c" +
+        (logs <= 1 ? " -q" : " -v") +
         " -" + std::to_string(encoding_quality) +
         (encoder == "xz" ? " -T " + std::to_string(num_threads) : "") +
-        " " + tmp_file_path + " > " + output_file_path;
+        " " + tmp_file_path + " > " + output_file_path + ") 2> " + log_file_path;
     system(cmd.c_str());
-    auto t3 = now();
-    log_runtime(t2, t3);
-    uint64_t time_total = time_diff_ns(t1, t3);
-    uint64_t bytes_compressed = std::filesystem::file_size(output_file_path);
-    std::cout << "total time: " << format_time(time_total) << std::endl;
-    std::cout << "throughput: " << format_throughput(bytes_input, time_total) << std::endl;
-    std::cout << "peak memory consumption: " << format_size(malloc_count_peak()) << std::endl;
-    std::cout << "output file size: " << format_size(bytes_compressed) << std::endl;
-    std::cout << "compression ratio: " << bytes_input / (double) bytes_compressed << std::endl;
+    t3 = now();
+    if (logs == 2) {
+        uint64_t encoding_peak = peak_memory_usage() * 1000;
+        uint64_t memory_peak = std::max(encoding_peak, malloc_count_peak());
+        uint64_t time_total = time_diff_ns(t1, t3);
+        uint64_t bytes_compressed = std::filesystem::file_size(output_file_path);
+        std::cout << ", in " << format_time(time_diff_ns(t2, t3)) << std::endl;
+        std::cout << "peak memory usage: " << format_size(encoding_peak) << std::endl;
+        std::cout << "total time: " << format_time(time_total) << std::endl;
+        std::cout << "total throughput: " << format_throughput(bytes_input, time_total) << std::endl;
+        std::cout << "total peak memory consumption: " << format_size(memory_peak) << std::endl;
+        std::cout << "output file size: " << format_size(bytes_compressed) << std::endl;
+        std::cout << "compression ratio: " << bytes_input / (double) bytes_compressed << std::endl;
+    }
+    std::filesystem::remove(log_file_path);
 }
 
 template <typename pos_t>
 void decode_gapped(std::fstream& tmp_input_file) {
-    auto t1 = now();
+    t2 = now();
     using factor = lz77_sss<pos_t>::factor;
     std::fstream output_file(output_file_path,
         std::ios::in | std::ios::out | std::ios::app);
@@ -135,8 +209,9 @@ void decode_gapped(std::fstream& tmp_input_file) {
     pos_t pos_input = 9;
     pos_t pos_output = 0;
     tmp_input_file.read((char*)&bytes_input, 8);
-    std::cout << "decompressing input (" <<
-        format_size(bytes_compressed) << ")" << std::flush;
+    uint64_t bytes_gapped = std::filesystem::file_size(tmp_file_path);
+    if (logs == 2) std::cout << "reverting gapped factorization (" <<
+        format_size(bytes_gapped) << ")" << std::flush;
     
     while (pos_output < bytes_input) {
         tmp_input_file >> f;
@@ -156,26 +231,36 @@ void decode_gapped(std::fstream& tmp_input_file) {
         }
     }
 
-    uint64_t time_total = time_diff_ns(t1, now());
-    std::cout << std::endl;
-    std::cout << "total time: " << format_time(time_total) << std::endl;
-    std::cout << "throughput: " << format_throughput(bytes_input, time_total) << std::endl;
-    std::cout << "peak memory consumption: " << format_size(malloc_count_peak()) << std::endl;
-    std::cout << "output file size: " << format_size(bytes_input) << std::endl;
-    std::cout << "compression ratio: " << bytes_input / (double) bytes_compressed << std::endl;
+    if (logs == 2) {
+        log_runtime(t2);
+        uint64_t time_total = time_diff_ns(t1, now());
+        uint64_t decoding_peak = peak_memory_usage() * 1000;
+        uint64_t memory_peak = std::max(decoding_peak, malloc_count_peak());
+        std::cout << "total time: " << format_time(time_total) << std::endl;
+        std::cout << "throughput: " << format_throughput(bytes_input, time_total) << std::endl;
+        std::cout << "peak memory consumption: " << format_size(memory_peak) << std::endl;
+        std::cout << "output file size: " << format_size(bytes_input) << std::endl;
+        std::cout << "compression ratio: " << bytes_input / (double) bytes_compressed << std::endl;
+    }
 }
 
 void decode() {
-    bytes_compressed = std::filesystem::file_size(input_file_path);
-    encoder = input_file_path.substr(input_file_path.find_last_of(".") + 1);
-    if (input_file_path.substr(input_file_path.length() - encoder.length() - 8, 7) != ".ssszip")
-        help("error: <input_file> does not have extension .ssszip.<encoder>");
-    system((encoder + " -d -c -q " + input_file_path + " > " + tmp_file_path).c_str());
+    t1 = now();
     if (output_file_path == "")
         output_file_path = input_file_path.substr(
         0, input_file_path.length() - encoder.length() - 8);
     if (std::filesystem::exists(output_file_path))
-        std::filesystem::remove(output_file_path);
+        help("error: <output_file> already exists");
+    bytes_compressed = std::filesystem::file_size(input_file_path);
+    encoder = input_file_path.substr(input_file_path.find_last_of(".") + 1);
+    if (input_file_path.substr(input_file_path.length() - encoder.length() - 8, 7) != ".ssszip")
+        help("error: <input_file> does not have extension .ssszip.<encoder>");
+    if (logs == 2) std::cout << "decompressing gapped factorization (" <<
+        format_size(bytes_compressed) << ")" << std::flush;
+    std::string cmd = "(/usr/bin/time -v " + encoder + " -d -c -q " +
+        input_file_path + " > " + tmp_file_path + ") 2> " + log_file_path;
+    system(cmd.c_str());
+    if (logs == 2) log_runtime(t1);
     std::fstream tmp_input_file(tmp_file_path, std::ios::in);
     bool is_64_bit;
     tmp_input_file.read((char*)&is_64_bit, 1);
@@ -189,7 +274,11 @@ int main(int argc, char** argv) {
     num_threads = omp_get_max_threads();
     while (arg_idx < argc - 1) parse_args(argv, argc);
     input_file_path = argv[arg_idx];
+    if (!std::filesystem::exists(input_file_path)) help("error: <input_file> does not exist");
     tmp_file_path = std::filesystem::temp_directory_path().string()
         + "/tmp_" + random_alphanumeric_string(10);
+    log_file_path = std::filesystem::temp_directory_path().string()
+        + "/log_" + random_alphanumeric_string(10);
     if (decompress) decode(); else encode();
+    if (!keep_input_file) std::filesystem::remove(input_file_path);
 }
