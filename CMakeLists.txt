@@ -49,6 +49,9 @@ if(LZ77_SSS_BUILD_CLI)
   add_executable(ssszip "${CMAKE_SOURCE_DIR}/cli/ssszip.cpp")
   target_link_libraries(ssszip PRIVATE lz77_sss)
 
+  add_executable(zip-bench "${CMAKE_SOURCE_DIR}/cli/zip-bench.cpp")
+  target_link_libraries(zip-bench PRIVATE lz77_sss)
+
   add_executable(lz77_sss_3-aprx "${CMAKE_SOURCE_DIR}/cli/lz77_sss_3-aprx.cpp")
   target_link_libraries(lz77_sss_3-aprx PRIVATE lz77_sss)
 
