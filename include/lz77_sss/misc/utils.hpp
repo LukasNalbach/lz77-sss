@@ -144,7 +144,7 @@ void copy_buffered(
     std::fstream& input_stream, std::fstream& output_stream,
     std::string& buffer, uint64_t from, uint64_t to, uint64_t length
 ) {
-    uint64_t block_size = 4 * 1024 * 1024;
+    uint64_t block_size = 32 * 1024;
     if (&input_stream == &output_stream) block_size = std::min(block_size, to - from);
     buffer.resize(block_size);
 

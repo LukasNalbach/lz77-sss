@@ -7,15 +7,17 @@ time_point_t t1, t2, t3;
 int arg_idx = 1;
 bool decompress = false;
 uint64_t bytes_input;
+std::string text_name;
 std::string input;
 std::string input_file_path;
 std::string output_file_path;
+std::string result_file_path;
 std::string tmp_file_path;
 std::string log_file_path;
 std::ifstream input_file;
-std::string encoder = "xz";
-std::string decoder;
-uint32_t encoding_quality = 2;
+std::ofstream result_file;
+std::string encoder = "zstd";
+uint32_t encoding_quality = 4;
 uint64_t bytes_compressed;
 uint16_t num_threads;
 uint8_t logs = 1;
@@ -29,11 +31,12 @@ void help(std::string message) {
         std::cout << " -d                decompress <input_file> (with extension .ssszip.<encoder>)" << std::endl;
         std::cout << " -o <output_file>  output file path (default: <input_file>.ssszip.<encoder>)" << std::endl;
         std::cout << " -t <threads>      number of threads to use (default: all)" << std::endl;
-        std::cout << " -e <encoder>      name of the encoder binary (default: xz)" << std::endl;
-        std::cout << " -1 .. -9          encoding quality (default: 2)" << std::endl;
+        std::cout << " -e <encoder>      name of the encoder binary (default: zstd)" << std::endl;
+        std::cout << " -0/-1/-2/...      encoding quality (default: 4)" << std::endl;
         std::cout << " -k                keep (don't delete) <input file>" << std::endl;
         std::cout << " -q                quiet mode (disables all logs)" << std::endl;
         std::cout << " -v                shows verbose information" << std::endl;
+        std::cout << " -r <result_file>  write results to <result_file>" << std::endl;
         std::cout << " -h                show help" << std::endl;
     }
     exit(-1);
@@ -58,6 +61,10 @@ void parse_args(char** argv, int argc) {
         if (arg_idx >= argc - 1)
             help("error: missing parameter after -o option");
         output_file_path = argv[arg_idx++];
+    } else if (arg == "-r") {
+        if (arg_idx >= argc - 1)
+            help("error: missing parameter after -r option");
+        result_file_path = argv[arg_idx++];
     } else if (arg == "-t") {
         if (arg_idx >= argc - 1)
             help("error: missing parameter after -t option");
@@ -70,10 +77,12 @@ void parse_args(char** argv, int argc) {
         encoder = argv[arg_idx++];
     } else if (arg == "-h") {
         help("");
-    } else if (arg.length() == 2 && arg[0] == '-') {
+    } else if (2 <= arg.length() && arg.length() <= 3 && arg[0] == '-' &&
+        ('0' <= arg[1] && arg[1] <= '9') && (arg.length() == 2 || ('0' <= arg[2] && arg[2] <= '9'))
+    ) {
         encoding_quality = arg[1] - '0';
-        if (encoding_quality > 9)
-            help("error: invalid encoding quality");
+        if (arg.length() == 3)
+            encoding_quality = 10 * encoding_quality + arg[2] - '0';
     } else {
         help("error: unrecognized '" + arg + "' option");
     }
@@ -179,23 +188,44 @@ void encode() {
         (logs <= 1 ? " -q" : " -v") +
         " -" + std::to_string(encoding_quality) +
         (encoder == "xz" ? " -T " + std::to_string(num_threads) : "") +
+        (encoder == "zstd" ? " -T" + std::to_string(num_threads) : "") +
         " " + tmp_file_path + " > " + output_file_path + ") 2> " + log_file_path;
     system(cmd.c_str());
     t3 = now();
+    uint64_t encoding_peak = peak_memory_usage() * 1000;
+    uint64_t memory_peak = std::max(encoding_peak, malloc_count_peak());
+    uint64_t time_total = time_diff_ns(t1, t3);
+    uint64_t bytes_compressed = std::filesystem::file_size(output_file_path);
+    double compression_ratio = bytes_input / (double) bytes_compressed;
+    std::filesystem::remove(log_file_path);
+    
     if (logs == 2) {
-        uint64_t encoding_peak = peak_memory_usage() * 1000;
-        uint64_t memory_peak = std::max(encoding_peak, malloc_count_peak());
-        uint64_t time_total = time_diff_ns(t1, t3);
-        uint64_t bytes_compressed = std::filesystem::file_size(output_file_path);
         std::cout << ", in " << format_time(time_diff_ns(t2, t3)) << std::endl;
         std::cout << "peak memory usage: " << format_size(encoding_peak) << std::endl;
         std::cout << "total time: " << format_time(time_total) << std::endl;
         std::cout << "total throughput: " << format_throughput(bytes_input, time_total) << std::endl;
         std::cout << "total peak memory consumption: " << format_size(memory_peak) << std::endl;
         std::cout << "output file size: " << format_size(bytes_compressed) << std::endl;
-        std::cout << "compression ratio: " << bytes_input / (double) bytes_compressed << std::endl;
+        std::cout << "compression ratio: " << compression_ratio << std::endl;
     }
-    std::filesystem::remove(log_file_path);
+
+    if (result_file_path != "") {
+        result_file.open(result_file_path, std::ios_base::app);
+        text_name = input_file_path.substr(input_file_path.find_last_of("/\\") + 1);
+
+        result_file << "RESULT"
+            << " text_name=" << text_name
+            << " type=compress"
+            << " num_threads=" << num_threads
+            << " n=" << bytes_input
+            << " encoder=ssszip_" << encoder
+            << " time=" << time_total
+            << " throughput=" << throughput(bytes_input, time_total)
+            << " mem_peak=" << memory_peak
+            << " bytes_comp=" << bytes_compressed
+            << " comp_ratio=" << compression_ratio
+            << std::endl;
+    }
 }
 
 template <typename pos_t>
@@ -231,16 +261,35 @@ void decode_gapped(std::fstream& tmp_input_file) {
         }
     }
 
+    uint64_t time_total = time_diff_ns(t1, now());
+    uint64_t decoding_peak = peak_memory_usage() * 1000;
+    uint64_t memory_peak = std::max(decoding_peak, malloc_count_peak());
+    uint64_t compression_ratio = bytes_input / (double) bytes_compressed;
+
     if (logs == 2) {
         log_runtime(t2);
-        uint64_t time_total = time_diff_ns(t1, now());
-        uint64_t decoding_peak = peak_memory_usage() * 1000;
-        uint64_t memory_peak = std::max(decoding_peak, malloc_count_peak());
         std::cout << "total time: " << format_time(time_total) << std::endl;
         std::cout << "throughput: " << format_throughput(bytes_input, time_total) << std::endl;
         std::cout << "peak memory consumption: " << format_size(memory_peak) << std::endl;
         std::cout << "output file size: " << format_size(bytes_input) << std::endl;
-        std::cout << "compression ratio: " << bytes_input / (double) bytes_compressed << std::endl;
+        std::cout << "compression ratio: " << compression_ratio << std::endl;
+    }
+
+    if (result_file_path != "") {
+        result_file.open(result_file_path, std::ios_base::app);
+        text_name = output_file_path.substr(output_file_path.find_last_of("/\\") + 1);
+
+        result_file << "RESULT"
+            << " text_name=" << text_name
+            << " type=decompress"
+            << " n=" << bytes_input
+            << " encoder=ssszip_" << encoder
+            << " time=" << time_total
+            << " throughput=" << throughput(bytes_input, time_total)
+            << " mem_peak=" << memory_peak
+            << " bytes_comp=" << bytes_compressed
+            << " comp_ratio=" << compression_ratio
+            << std::endl;
     }
 }
 
