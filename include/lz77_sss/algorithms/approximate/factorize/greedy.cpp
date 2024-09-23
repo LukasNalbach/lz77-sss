@@ -4,19 +4,18 @@
 
 template <typename pos_t>
 template <uint64_t tau>
-void lz77_sss<pos_t>::factorizer<tau>::factorize_greedy(std::function<void(factor)> out_it, std::function<lpf()> lpf_it) {
+template <typename lpf_it_t>
+void lz77_sss<pos_t>::factorizer<tau>::factorize_greedy(
+    output_it_t& output,
+    std::function<lpf_it_t()>& lpf_beg,
+    std::function<lpf(lpf_it_t&)>& next_lpf
+) {
     if (log) {
         std::cout << "factorizing" << std::flush;
     }
     
-    pos_t roll_threshold = 0;
-    lpf p = lpf_it();
-
-    for_constexpr<0, num_patt_lens, 1>([&](auto j){
-        roll_threshold += patt_lens[j];
-    });
-
-    roll_threshold /= num_patt_lens;
+    lpf_it_t lpf_it = lpf_beg();
+    lpf p = next_lpf(lpf_it);
     
     for (pos_t i = 0; true;) {
         pos_t gap_end = p.beg;
@@ -42,7 +41,7 @@ void lz77_sss<pos_t>::factorizer<tau>::factorize_greedy(std::function<void(facto
                         i = gap_end;
                     } else {
                         do {
-                            p = lpf_it();
+                            p = next_lpf(lpf_it);
                         } while (p.end <= i);
 
                         while (gap_idx.pos() < gap_end) {
@@ -65,7 +64,7 @@ void lz77_sss<pos_t>::factorizer<tau>::factorize_greedy(std::function<void(facto
                 }
                 #endif
 
-                out_it(f);
+                output(f);
                 num_phr++;
 
                 while (gap_idx.pos() < i) {
@@ -101,12 +100,12 @@ void lz77_sss<pos_t>::factorizer<tau>::factorize_greedy(std::function<void(facto
         }
         #endif
 
-        out_it(lpf);
+        output(lpf);
         num_phr++;
         i += lpf.len;
 
         while (p.end <= i) {
-            p = lpf_it();
+            p = next_lpf(lpf_it);
         }
     }
 

@@ -269,14 +269,14 @@ template <typename pos_t>
 template <uint64_t tau>
 template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t>
 void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::
-combine_factorizations(std::function<void(factor)> out_it) {
+combine_factorizations(output_it_t& output) {
     for (uint16_t i_p = 0; i_p < p; i_p++) {
         std::string fact_file_name_thr = fact_file_name + "_" + std::to_string(i_p);
         std::ifstream fact_ifile(fact_file_name_thr);
         std::istream_iterator<factor> fact_it(fact_ifile);
 
         while (fact_it != std::istream_iterator<factor>()) {
-            out_it(*fact_it++);
+            output(*fact_it++);
         }
 
         fact_ifile.close();

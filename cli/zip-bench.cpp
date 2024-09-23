@@ -32,13 +32,20 @@ uint64_t peak_memory_usage() {
 }
 
 void bench(std::string encoder, bool use_multiple_threads) {
+    uint32_t min_threads_local = use_multiple_threads ? min_threads : 1;
     uint32_t max_threads_local = use_multiple_threads ? max_threads : 1;
 
-    for (uint16_t num_threads = 1; num_threads <= max_threads_local; num_threads *= 2) {
+    for (uint16_t num_threads = min_threads_local; num_threads <= max_threads_local; num_threads *= 2) {
         std::cout << "benchmarking " << encoder << " using " << num_threads << " threads" << std::flush;
         std::string output_file_path = input_file_path + ".compressed";
         std::filesystem::remove(output_file_path);
-        std::string cmd = "(/usr/bin/time -v " + encoder +
+        std::string cpu_list;
+        for (uint32_t i = 0; i < num_threads; i++)
+            if (num_threads == omp_get_max_threads())
+                 cpu_list += std::to_string(    i) + ",";
+            else cpu_list += std::to_string(2 * i) + ",";
+        cpu_list.resize(cpu_list.length() - 1);
+        std::string cmd = "(/usr/bin/time -v taskset -c " + cpu_list + " " + encoder +
             (encoder == "7z" ? (
                 " a -m0=lzma2 -mmt" + std::to_string(num_threads) + " " +
                 output_file_path + " " + input_file_path + " > /dev/null"
@@ -62,25 +69,6 @@ void bench(std::string encoder, bool use_multiple_threads) {
         std::cout << "peak memory consumption: " << format_size(memory_peak_compress) << std::endl;
         std::cout << "output file size: " << format_size(bytes_compressed) << std::endl;
         std::cout << "compression ratio: " << compression_ratio << std::endl;
-        std::cout << "decompressing" << std::flush;
-
-        std::string cmd2 = "(/usr/bin/time -v " + encoder +
-            (encoder == "7z" ?
-                (" e -o/tmp/ " + output_file_path + " " + text_name + " > /dev/null") :
-                (" -c -d -q " + output_file_path + " > " + tmp_file_path))
-            + ") 2> " + log_file_path;
-        t1 = now();
-        system(cmd2.c_str());
-        t2 = now();
-
-        std::filesystem::remove(tmp_file_path);
-        std::filesystem::remove(output_file_path);
-        uint64_t memory_peak_decompress = peak_memory_usage() * 1000;
-        uint64_t time_decompress = time_diff_ns(t1, t2);
-        std::cout << std::endl;
-        std::cout << "time: " << format_time(time_decompress) << std::endl;
-        std::cout << "throughput: " << format_throughput(bytes_input, time_decompress) << std::endl;
-        std::cout << "peak memory consumption: " << format_size(memory_peak_decompress) << std::endl;
         std::cout << std::endl;
 
         if (result_file_path != "") {
@@ -99,6 +87,31 @@ void bench(std::string encoder, bool use_multiple_threads) {
                 << " bytes_comp=" << bytes_compressed
                 << " comp_ratio=" << compression_ratio
                 << std::endl;
+        }
+
+        if (num_threads != 1) continue;
+        std::cout << "decompressing" << std::flush;
+        std::string cmd2 = "(/usr/bin/time -v " + encoder +
+            (encoder == "7z" ?
+                (" e -o/tmp/ " + output_file_path + " " + text_name + " > /dev/null") :
+                (" -c -d -q " + output_file_path + " > " + tmp_file_path))
+            + ") 2> " + log_file_path;
+        t1 = now();
+        system(cmd2.c_str());
+        t2 = now();
+
+        std::filesystem::remove(tmp_file_path);
+        std::filesystem::remove(output_file_path);
+        uint64_t memory_peak_decompress = peak_memory_usage() * 1000;
+        uint64_t time_decompress = time_diff_ns(t1, t2);
+        std::cout << "time: " << format_time(time_decompress) << std::endl;
+        std::cout << "throughput: " << format_throughput(bytes_input, time_decompress) << std::endl;
+        std::cout << "peak memory consumption: " << format_size(memory_peak_decompress) << std::endl;
+        std::cout << std::endl;
+
+        if (result_file_path != "") {
+            std::ofstream result_file(
+                result_file_path, std::ofstream::app);
 
             result_file << "RESULT"
                 << " text_name=" << text_name

@@ -16,57 +16,6 @@
 
 using uint128_t = alx::rolling_hash::uint128_t;
 
-std::string random_repetitive_string(uint32_t min_size, uint32_t max_size) {
-    std::random_device rd;
-    std::mt19937 mt(rd());
-    std::uniform_real_distribution<double> prob_distrib(0.0, 1.0);
-    std::uniform_int_distribution<char> char_distrib(
-        std::numeric_limits<char>::min(),
-        std::numeric_limits<char>::max());
-    std::uniform_int_distribution<uint32_t> input_size_distrib(min_size, max_size);
-    uint32_t target_input_size = input_size_distrib(mt);
-    enum string_construction_operation {new_character = 0, repetition = 1, run = 2};
-    double repetition_repetitiveness = prob_distrib(mt);
-    double run_repetitiveness = prob_distrib(mt);
-    std::uniform_int_distribution<uint32_t> repetition_length_distrib(
-        1, (repetition_repetitiveness * target_input_size) / 100);
-    std::uniform_int_distribution<uint32_t> run_length_distrib(
-        1, (run_repetitiveness * target_input_size) / 200);
-    std::discrete_distribution<uint8_t> next_operation_distrib({
-        2 - (repetition_repetitiveness + run_repetitiveness),
-        repetition_repetitiveness,
-        run_repetitiveness
-    });
-
-    std::string input;
-    input.reserve(target_input_size);
-    input.push_back(char_distrib(mt));
-
-    while (input.size() < target_input_size) {
-        switch (next_operation_distrib(mt)) {
-            case new_character: input.push_back(char_distrib(mt)); break;
-            case repetition: {
-                uint32_t repetition_length = std::min<uint32_t>(
-                    target_input_size - input.size(), repetition_length_distrib(mt));
-                uint32_t repstition_source = std::rand()%input.size();
-                for (uint32_t i = 0; i < repetition_length; i++)
-                    input.push_back(input[repstition_source + i]);
-                break;
-            }
-            case run: {
-                uint32_t run_length = std::min<uint32_t>(
-                    target_input_size - input.size(), run_length_distrib(mt));
-                char run_char = char_distrib(mt);
-                for (uint32_t i = 0; i < run_length; i++)
-                    input.push_back(run_char);
-                break;
-            }
-        }
-    }
-
-    return input;
-}
-
 std::chrono::steady_clock::time_point now() {
     return std::chrono::steady_clock::now();
 }
@@ -142,14 +91,13 @@ void log_message(std::string message) {
 
 void copy_buffered(
     std::fstream& input_stream, std::fstream& output_stream,
-    std::string& buffer, uint64_t from, uint64_t to, uint64_t length
+    std::string& buffer, uint64_t from, uint64_t to, uint64_t length, uint64_t buffer_size
 ) {
-    uint64_t block_size = 32 * 1024;
-    if (&input_stream == &output_stream) block_size = std::min(block_size, to - from);
-    buffer.resize(block_size);
+    if (&input_stream == &output_stream) buffer_size = std::min(buffer_size, to - from);
+    buffer.resize(buffer_size);
 
     for (uint64_t offset = 0; offset < length;) {
-        uint64_t bytes_to_copy = std::min<uint64_t>(length - offset, block_size);
+        uint64_t bytes_to_copy = std::min<uint64_t>(length - offset, buffer_size);
         input_stream.seekg(from + offset, std::ios::beg);
         input_stream.read(buffer.data(), bytes_to_copy);
         output_stream.seekp(to + offset, std::ios::beg);
@@ -234,6 +182,14 @@ void no_init_resize(std::vector<std::pair<T1,T2>>& vec, size_t size) {
 template <typename T>
 void no_init_resize(std::vector<std::tuple<T,T,T>>& vec, size_t size) {
     (*reinterpret_cast<std::vector<std::tuple<no_init<T>,no_init<T>,no_init<T>>>*>(&vec)).resize(size);
+}
+
+void no_init_resize_with_exess(std::string& str, size_t size, size_t excess) {
+    str.reserve(size + excess);
+    no_init_resize(str, size);
+    str.resize(size + excess);
+    std::fill(str.end() - excess, str.end(), 0);
+    str.resize(size);
 }
 
 template <int64_t start, int64_t end, int64_t inc, class T>
@@ -511,4 +467,56 @@ T sum(std::vector<T> vec) {
     T sum = 0;
     for (T& v : vec) sum += v;
     return sum;
+}
+
+std::string random_repetitive_string(uint32_t min_size, uint32_t max_size) {
+    std::random_device rd;
+    std::mt19937 mt(rd());
+    std::uniform_real_distribution<double> prob_distrib(0.0, 1.0);
+    std::uniform_int_distribution<char> char_distrib(
+        std::numeric_limits<char>::min(),
+        std::numeric_limits<char>::max());
+    std::uniform_int_distribution<uint32_t> input_size_distrib(min_size, max_size);
+    uint32_t target_input_size = input_size_distrib(mt);
+    enum string_construction_operation {new_character = 0, repetition = 1, run = 2};
+    double repetition_repetitiveness = prob_distrib(mt);
+    double run_repetitiveness = prob_distrib(mt);
+    std::uniform_int_distribution<uint32_t> repetition_length_distrib(
+        1, (repetition_repetitiveness * target_input_size) / 100);
+    std::uniform_int_distribution<uint32_t> run_length_distrib(
+        1, (run_repetitiveness * target_input_size) / 200);
+    std::discrete_distribution<uint8_t> next_operation_distrib({
+        2 - (repetition_repetitiveness + run_repetitiveness),
+        repetition_repetitiveness,
+        run_repetitiveness
+    });
+
+    std::string input;
+    no_init_resize_with_exess(input, target_input_size, 4 * 4096);
+    input.clear();
+    input.push_back(char_distrib(mt));
+
+    while (input.size() < target_input_size) {
+        switch (next_operation_distrib(mt)) {
+            case new_character: input.push_back(char_distrib(mt)); break;
+            case repetition: {
+                uint32_t repetition_length = std::min<uint32_t>(
+                    target_input_size - input.size(), repetition_length_distrib(mt));
+                uint32_t repstition_source = std::rand()%input.size();
+                for (uint32_t i = 0; i < repetition_length; i++)
+                    input.push_back(input[repstition_source + i]);
+                break;
+            }
+            case run: {
+                uint32_t run_length = std::min<uint32_t>(
+                    target_input_size - input.size(), run_length_distrib(mt));
+                char run_char = char_distrib(mt);
+                for (uint32_t i = 0; i < run_length; i++)
+                    input.push_back(run_char);
+                break;
+            }
+        }
+    }
+
+    return input;
 }
