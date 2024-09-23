@@ -100,7 +100,7 @@ void encode_gapped() {
     pos_t gap_beg = 0;
     factor gap_lst {.src = 0, .len = 0};
 
-    std::function<void(factor)> out_it = [&](factor f){
+    std::function<void(factor)> output = [&](factor f){
         if (f.len == 0) {
             if (gap) {
                 gap_lst.src += f.src;
@@ -129,7 +129,7 @@ void encode_gapped() {
     };
 
     lz77_sss<pos_t>::template factorize_approximate<
-        skip_phrases, lpf_all_external>(input, out_it,
+        skip_phrases, lpf_all_external>(input, output,
         {.num_threads = num_threads, .log = logs == 2});
     
     if (gap) {
@@ -167,7 +167,7 @@ void encode() {
     input_file.seekg(0, std::ios::beg);
     if (logs == 2) std::cout << "reading input (" <<
         format_size(bytes_input) << ")" << std::flush;
-    no_init_resize(input, bytes_input);
+    no_init_resize_with_exess(input, bytes_input, 4 * lz77_sss<>::default_tau);
     read_from_file(input_file, input.data(), bytes_input);
     input_file.close();
     if (logs == 2) log_runtime(t1);
@@ -238,6 +238,7 @@ void decode_gapped(std::fstream& tmp_input_file) {
     factor f;
     pos_t pos_input = 9;
     pos_t pos_output = 0;
+    uint64_t buff_size = std::max<uint64_t>(32 * 1024, bytes_input / 1000);
     tmp_input_file.read((char*)&bytes_input, 8);
     uint64_t bytes_gapped = std::filesystem::file_size(tmp_file_path);
     if (logs == 2) std::cout << "reverting gapped factorization (" <<
@@ -250,13 +251,13 @@ void decode_gapped(std::fstream& tmp_input_file) {
         if (f.len == 0) {
             copy_buffered(
                 tmp_input_file, output_file,
-                buff, pos_input, pos_output, f.src);
+                buff, pos_input, pos_output, f.src, buff_size);
             pos_input += f.src;
             pos_output += f.src;
         } else {
             copy_buffered(
                 output_file, output_file,
-                buff, f.src, pos_output, f.len);
+                buff, f.src, pos_output, f.len, buff_size);
             pos_output += f.len;
         }
     }
@@ -264,7 +265,7 @@ void decode_gapped(std::fstream& tmp_input_file) {
     uint64_t time_total = time_diff_ns(t1, now());
     uint64_t decoding_peak = peak_memory_usage() * 1000;
     uint64_t memory_peak = std::max(decoding_peak, malloc_count_peak());
-    uint64_t compression_ratio = bytes_input / (double) bytes_compressed;
+    double compression_ratio = bytes_input / (double) bytes_compressed;
 
     if (logs == 2) {
         log_runtime(t2);

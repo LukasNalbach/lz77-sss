@@ -40,14 +40,14 @@ template <
 
     protected:
 
-    static sxa_interval_t pos_to_interval(pos_t pos) {
+    inline static sxa_interval_t pos_to_interval(pos_t pos) {
         sxa_interval_t iv;
         *reinterpret_cast<uint64_t*>(&iv) = uint64_t{pos} | (uint64_t{1} << 63);
         return iv;
     }
 
     template <direction dir>
-    pos_t pos_from_interval(const sxa_interval_t& iv) const {
+    inline pos_t pos_from_interval(const sxa_interval_t& iv) const {
         const uint64_t& iv_u64 = *reinterpret_cast<const uint64_t*>(&iv);
         pos_t pos;
 
@@ -145,7 +145,7 @@ template <
     }
 
     template<direction dir>
-    bool is_pos_in_T(pos_t p, pos_t offs) const {
+    inline bool is_pos_in_T(pos_t p, pos_t offs) const {
         if constexpr (dir == LEFT) {
             return p >= offs;
         } else {
@@ -154,7 +154,7 @@ template <
     }
 
     template<typename T1, direction dir, pos_t offs, typename T2>
-    static T1 val_offs(const T2* ptr, pos_t p) {
+    inline static T1 val_offs(const T2* ptr, pos_t p) {
         if constexpr (dir == LEFT) {
             static constexpr pos_t offs_l = (sizeof(T1) - 1) + offs;
             return *reinterpret_cast<const T1*>(
@@ -361,7 +361,7 @@ template <
         byte_size = malloc_count_current() - baseline_memory_alloc;
     }
 
-    const rk61_substring& rabin_karp_substring() const {
+    inline const rk61_substring& rabin_karp_substring() const {
         return rks;
     }
 
@@ -394,7 +394,7 @@ template <
         return SSA[i];
     }
 
-    query_context query() const {
+    inline query_context query() const {
         return {
             .b = 0,
             .e = s - 1,

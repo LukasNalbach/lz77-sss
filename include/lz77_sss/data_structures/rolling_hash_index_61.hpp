@@ -5,17 +5,18 @@
 
 template <typename pos_t, uint8_t num_patt_lens>
 class rolling_hash_index_61 {
-    protected:
+    public:
+    using fp_t = uint64_t;
 
+    protected:
     using rolling_hash_t = fp::RabinKarp61;
-    using fingerprint_t = uint64_t;
     const char* input = nullptr;
     pos_t input_size = 0;
     const std::array<pos_t, num_patt_lens> patt_lens;
     rolling_hash_t* rolling_hash[num_patt_lens] = {nullptr};
-    fingerprint_t fingerprints[num_patt_lens] = {};
+    fp_t fingerprints[num_patt_lens] = {};
     std::vector<pos_t> H;
-    fingerprint_t h_mod_mask = 0;
+    fp_t h_mod_mask = 0;
     pos_t cur_pos = 0;
 
     public:
@@ -29,7 +30,7 @@ class rolling_hash_index_61 {
         uint64_t target_size_h = std::max<int64_t>(
             input_size / (sizeof(pos_t) * 10),
             (int64_t{target_size_in_bytes} - int64_t{sizeof(rolling_hash_t) *
-            num_patt_lens}) /int64_t{sizeof(pos_t)});
+            num_patt_lens}) / int64_t{sizeof(pos_t)});
         uint8_t log2_size_h = std::round(std::log2(target_size_h));
         pos_t size_h = 1 << log2_size_h;
         h_mod_mask = size_h - 1;
@@ -86,7 +87,7 @@ class rolling_hash_index_61 {
 
     template <pos_t i>
     inline void advance() {
-        if (cur_pos + patt_lens[i] < input_size) {
+        if (cur_pos + patt_lens[i] < input_size) [[likely]] {
             H[fingerprints[i] & h_mod_mask] = cur_pos;
             roll<i>();
         }
@@ -102,11 +103,11 @@ class rolling_hash_index_61 {
 
     template <pos_t i>
     inline pos_t advance_and_get_occ() {
-        fingerprint_t h_pos = fingerprints[i] & h_mod_mask;
+        fp_t h_pos = fingerprints[i] & h_mod_mask;
         pos_t occ = H[h_pos];
         H[h_pos] = cur_pos;
 
-        if (cur_pos + patt_lens[i] < input_size) {
+        if (cur_pos + patt_lens[i] < input_size) [[likely]] {
             roll<i>();
         }
 
@@ -121,18 +122,6 @@ class rolling_hash_index_61 {
     inline uint64_t size_in_bytes() const {
         return sizeof(pos_t) * H.size() + sizeof(this) +
             sizeof(rolling_hash_t) * num_patt_lens;
-    }
-
-    double rate_init() const {
-        pos_t num_init = 0;
-
-        for (pos_t i = 0; i < H.size(); i++) {
-            if (H[i] < input_size) {
-                num_init++;
-            }
-        }
-
-        return num_init / (double) H.size();
     }
 
     inline pos_t pos() const {

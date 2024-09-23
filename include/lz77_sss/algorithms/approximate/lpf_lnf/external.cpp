@@ -74,7 +74,7 @@ void lz77_sss<pos_t>::factorizer<tau>::greedy_phrase_selection_external() {
 
     std::ifstream lpf_ifile;
     std::istream_iterator<lpf> lpf_it_i, lpf_it_x;
-    std::ostream_iterator<lpf> lpf_out_it;
+    std::ostream_iterator<lpf> lpf_out_it(lpf_ofile);
     open_lpf_ifile(lpf_ifile, i_p);
     set_lpf_iterator(lpf_ifile, lpf_it_i);
     set_lpf_iterator(lpf_ofile, lpf_out_it);

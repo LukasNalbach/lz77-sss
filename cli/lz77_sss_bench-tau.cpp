@@ -40,7 +40,7 @@ int main(int argc, char** argv) {
     auto t0 = now();
     std::cout << "reading T (" << format_size(n) << ")" << std::flush;
     std::string T;
-    no_init_resize(T, n);
+    no_init_resize_with_exess(T, n, 4 * 4096);
     read_from_file(input_file, T.data(), n);
     input_file.close();
     log_runtime(t0);
@@ -55,11 +55,11 @@ int main(int argc, char** argv) {
             if (n <= std::numeric_limits<uint32_t>::max()) {
                 lz77_sss<uint32_t>::factorize_approximate<
                     greedy, lpf_all_external, tau>(T,
-                    fact_sss_file, {.log = true});
+                    fact_sss_file, {.num_threads = 1, .log = true});
             } else {
                 lz77_sss<uint64_t>::factorize_approximate<
                     greedy, lpf_all_external, tau>(T,
-                    fact_sss_file, {.log = true});
+                    fact_sss_file, {.num_threads = 1, .log = true});
             }
 
             fact_sss_file.close();

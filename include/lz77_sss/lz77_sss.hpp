@@ -12,6 +12,7 @@
 #include <lz77_sss/misc/utils.hpp>
 #include <lz77_sss/data_structures/rolling_hash_index_61.hpp>
 #include <lz77_sss/data_structures/rolling_hash_index_107.hpp>
+#include <lz77_sss/data_structures/parallel_rolling_hash_index_107.hpp>
 #include <lz77_sss/data_structures/sample_index/sample_index.hpp>
 #include <lz77_sss/data_structures/dynamic_range/dynamic_square_grid.hpp>
 #include <lz77_sss/data_structures/dynamic_range/semi_dynamic_square_grid.hpp>
@@ -77,13 +78,15 @@ class lz77_sss {
         }
     };
 
+    using output_it_t = std::function<void(factor)>;
+
     template <
         factorize_mode                  fact_mode   = default_fact_mode,
         phrase_mode                     phr_mode    = default_phr_mode,
         uint64_t                        tau         = default_tau
     >
-    static void factorize_approximate(std::string& input, std::function<void(factor)> out_it, parameters params = {}) {
-        factorizer<tau>(input, params).template factorize<approximate, fact_mode, phr_mode>(out_it);
+    static void factorize_approximate(std::string& input, output_it_t output, parameters params = {}) {
+        factorizer<tau>(input, params).template factorize<approximate, fact_mode, phr_mode>(output);
     }
 
     template <
@@ -92,8 +95,8 @@ class lz77_sss {
         uint64_t                        tau         = default_tau,
         std::output_iterator<factor>    out_it_t
     >
-    static void factorize_approximate(std::string& input, out_it_t out_it, parameters params = {}) {
-        factorize_approximate<fact_mode, phr_mode, tau>(input, [&](factor f){*out_it++ = f;}, params);
+    static void factorize_approximate(std::string& input, out_it_t output, parameters params = {}) {
+        factorize_approximate<fact_mode, phr_mode, tau>(input, [&](factor f){*output++ = f;}, params);
     }
 
     template <
@@ -123,8 +126,8 @@ class lz77_sss {
         template <typename> typename    range_ds_t      = default_range_ds_t,
         uint64_t                        tau             = default_tau
     >
-    static void factorize_exact(std::string& input, std::function<void(factor)> out_it, parameters params = {}) {
-        factorizer<tau>(input, params).template factorize<exact, fact_mode, phr_mode, transf_mode, range_ds_t>(out_it);
+    static void factorize_exact(std::string& input, output_it_t output, parameters params = {}) {
+        factorizer<tau>(input, params).template factorize<exact, fact_mode, phr_mode, transf_mode, range_ds_t>(output);
     }
 
     template <
@@ -135,8 +138,8 @@ class lz77_sss {
         uint64_t                        tau             = default_tau,
         std::output_iterator<factor>    out_it_t
     >
-    static void factorize_exact(std::string& input, out_it_t out_it, parameters params = {}) {
-        factorize_exact<fact_mode, phr_mode, transf_mode, range_ds_t, tau>(input, [&](factor f){*out_it++ = f;}, params);
+    static void factorize_exact(std::string& input, out_it_t output, parameters params = {}) {
+        factorize_exact<fact_mode, phr_mode, transf_mode, range_ds_t, tau>(input, [&](factor f){*output++ = f;}, params);
     }
 
     template <
@@ -216,13 +219,16 @@ class lz77_sss {
 
         using lce_t = alx::lce::lce_sss<char, tau, pos_t, false>;
         using gap_idx_t = rolling_hash_index_107<pos_t, num_patt_lens>;
+        using par_gap_idx_t = parallel_rolling_hash_index_107<pos_t, num_patt_lens>;
+        using fp_arr_t = par_gap_idx_t::fp_arr_t;
         std::chrono::steady_clock::time_point time_start, time, time_end;
         uint64_t baseline_memory_alloc = 0;
         uint64_t target_index_size = 0;
         bool log = false;
         uint16_t p = 0;
+        pos_t roll_threshold = 0;
         std::string lpf_file_name, sel_lpf_file_name;
-        
+
         std::string& T;
         pos_t n = 0;
         pos_t size_sss = 0;
@@ -236,11 +242,20 @@ class lz77_sss {
         std::vector<std::vector<lpf>> LPF;
         std::array<pos_t, num_patt_lens> patt_lens;
         gap_idx_t gap_idx;
+        par_gap_idx_t par_gap_idx;
 
         std::vector<uint32_t> PSV_S;
         std::vector<uint32_t> NSV_S;
         std::vector<uint32_t> PGV_S;
         std::vector<uint32_t> NGV_S;
+        std::vector<std::ifstream> lpf_ifiles;
+
+        struct lpf_arr_it_t {uint16_t i_p; uint32_t i;};
+        struct lpf_file_it_t {uint16_t i_p; uint32_t i; lpf phr_nxt;};
+        struct block_info_t {uint16_t i_p; uint32_t i; pos_t beg;};
+
+        std::vector<block_info_t> blk_info;
+        std::vector<std::vector<factor>> factors;
 
         factorizer(std::string& input, parameters params)
          : log(params.log), p(params.num_threads), T(input), n(input.size()) {}
@@ -252,7 +267,7 @@ class lz77_sss {
             transform_mode                  transf_mode     = default_transf_mode,
             template <typename> typename    range_ds_t      = default_range_ds_t
         >
-        void factorize(std::function<void(factor)> out_it) {
+        void factorize(output_it_t& output) {
             if (log) {
                 time = now();
                 time_start = time;
@@ -270,36 +285,36 @@ class lz77_sss {
 
             if constexpr (qual_mode == exact) {
                 static_assert(fact_mode != skip_phrases);
-                std::string file_aprx_name = std::filesystem::temp_directory_path().string()
+                std::string aprx_file_name = std::filesystem::temp_directory_path().string()
                     + "/aprx_" + random_alphanumeric_string(10);
-                std::ofstream ofile_aprx(file_aprx_name);
+                std::ofstream ofile_aprx(aprx_file_name);
                 std::ostream_iterator<factor> ofile_aprx_it(ofile_aprx, "");
-                std::function<void(factor)> aprx_out_it = [&](factor f){*ofile_aprx_it++ = f;};
+                output_it_t aprx_out_it = [&](factor f){*ofile_aprx_it++ = f;};
                 compute_approximation<fact_mode, phr_mode>(aprx_out_it);
                 ofile_aprx.close();
-                std::ifstream ifile_aprx(file_aprx_name);
+                std::ifstream ifile_aprx(aprx_file_name);
                 std::istream_iterator<factor> ifile_aprx_it(ifile_aprx);
                 pos_t delta = std::min<pos_t>(n / num_phr, delta_max);
 
                 if constexpr (std::is_same_v<pos_t, uint32_t>) {
                     exact_factorizer<uint32_t, transf_mode, range_ds_t>(
-                        T, LCE, delta, num_phr, p, log).transform_to_exact(ifile_aprx_it, out_it);
+                        T, LCE, delta, num_phr, p, log).transform_to_exact(ifile_aprx_it, output);
                 } else {
                     pos_t max_num_samples = num_phr + n / delta;
 
                     if (max_num_samples <= std::numeric_limits<uint32_t>::max()) {
                         exact_factorizer<uint32_t, transf_mode, range_ds_t>(
-                            T, LCE, delta, num_phr, p, log).transform_to_exact(ifile_aprx_it, out_it);
+                            T, LCE, delta, num_phr, p, log).transform_to_exact(ifile_aprx_it, output);
                     } else {
                         exact_factorizer<uint64_t, transf_mode, range_ds_t>(
-                            T, LCE, delta, num_phr, p, log).transform_to_exact(ifile_aprx_it, out_it);
+                            T, LCE, delta, num_phr, p, log).transform_to_exact(ifile_aprx_it, output);
                     }
                 }
 
                 ifile_aprx.close();
-                std::filesystem::remove(file_aprx_name);
+                std::filesystem::remove(aprx_file_name);
             } else {
-                compute_approximation<fact_mode, phr_mode>(out_it);
+                compute_approximation<fact_mode, phr_mode>(output);
             }
 
             if (log && fact_mode != skip_phrases) {
@@ -341,7 +356,7 @@ class lz77_sss {
             factorize_mode  fact_mode   = default_fact_mode,
             phrase_mode     phr_mode    = default_phr_mode
         >
-        void compute_approximation(std::function<void(factor)> out_it) {
+        void compute_approximation(output_it_t& output) {
             lpf_file_name = std::filesystem::temp_directory_path().string()
                 + "/lpf_" + random_alphanumeric_string(10);
             sel_lpf_file_name = std::filesystem::temp_directory_path().string()
@@ -455,6 +470,12 @@ class lz77_sss {
                 else if (patt_len_guess <= 256) {patt_lens = {2,5,10,20,42};}
                 else if (patt_len_guess <= 512) {patt_lens = {2,6,12,24,48};}
                 else                            {patt_lens = {2,8,16,32,64};}
+
+                for_constexpr<0, num_patt_lens, 1>([&](auto j){
+                    roll_threshold += patt_lens[j];
+                });
+
+                roll_threshold /= num_patt_lens;
                 
                 if (log) {
                     std::cout << "pattern lengths for the rolling hash index: ";
@@ -463,23 +484,29 @@ class lz77_sss {
                     std::cout << "initializing rolling hash index" << std::flush;
                 }
 
-                gap_idx = gap_idx_t(T.data(), n, patt_lens, target_index_size);
+                if (fact_mode == greedy && rel_len_gaps > 0.15 && p >= 2) {
+                    par_gap_idx = par_gap_idx_t(T.data(), n, patt_lens, target_index_size, p);
+                    if (log) std::cout << " (size: " << format_size(par_gap_idx.size_in_bytes()) << ")";
+                } else {
+                    gap_idx = gap_idx_t(T.data(), n, patt_lens, target_index_size);
+                    if (log) std::cout << " (size: " << format_size(gap_idx.size_in_bytes()) << ")";
+                }
 
                 if (log) {
-                    std::cout << " (size: " << format_size(gap_idx.size_in_bytes()) << ")";
                     time = log_runtime(time);
                 }
             }
-                
+            
             if constexpr (phr_mode == lpf_all_external) {
-                factorize_external<fact_mode>(out_it);
+                factorize_external<fact_mode>(output);
             } else {
-                factorize_internal<fact_mode>(out_it);
+                factorize_internal<fact_mode>(output);
             }
 
             LPF.clear();
             LPF.shrink_to_fit();
             gap_idx = gap_idx_t();
+            par_gap_idx = par_gap_idx_t();
         }
 
         inline pos_t LCE_R(pos_t i, pos_t j) {
@@ -488,6 +515,10 @@ class lz77_sss {
 
         inline pos_t LCE_L(pos_t i, pos_t j, pos_t max_lce) {
             return lce_l_128<pos_t>(T.data(), i, j, max_lce);
+        }
+
+        inline std::ifstream& lpf_ifile() {
+            return lpf_ifiles[omp_get_thread_num()];
         }
 
         std::string get_lpf_file_name(uint16_t i_p) {
@@ -499,10 +530,12 @@ class lz77_sss {
         }
 
         void open_lpf_ifile(std::ifstream& ifile, uint16_t i_p) {
+            ifile.close();
             return ifile.open(get_lpf_file_name(i_p));
         }
 
         void open_sel_lpf_ifile(std::ifstream& ifile, uint16_t i_p) {
+            ifile.close();
             return ifile.open(get_sel_lpf_file_name(i_p));
         }
 
@@ -514,14 +547,16 @@ class lz77_sss {
             return std::filesystem::file_size(get_sel_lpf_file_name(i_p)) / sizeof(lpf);
         }
 
-        void open_lpf_ofile(std::ofstream& file, uint16_t i_p,
+        void open_lpf_ofile(std::ofstream& ofile, uint16_t i_p,
             std::ios_base::openmode mode = std::ios::out) {
-            return file.open(get_lpf_file_name(i_p), mode);
+            ofile.close();
+            return ofile.open(get_lpf_file_name(i_p), mode);
         }
 
-        void open_sel_lpf_ofile(std::ofstream& file, uint16_t i_p,
+        void open_sel_lpf_ofile(std::ofstream& ofile, uint16_t i_p,
             std::ios_base::openmode mode = std::ios::out) {
-            return file.open(get_sel_lpf_file_name(i_p), mode);
+            ofile.close();
+            return ofile.open(get_sel_lpf_file_name(i_p), mode);
         }
 
         void set_lpf_iterator(std::ifstream& file, std::istream_iterator<lpf>& it) {
@@ -588,27 +623,41 @@ class lz77_sss {
 
         inline factor longest_prev_occ(pos_t pos);
 
-        template <factorize_mode fact_mode>
-        void factorize_internal(std::function<void(factor)> out_it);
+        template <bool first_block>
+        inline factor longest_prev_occ_par(
+            fp_arr_t& fps, uint16_t i_p, pos_t pos, pos_t blk_end);
+
+        template <bool first_block, typename lpf_it_t>
+        void factorize_block(std::function<lpf(lpf_it_t&)>& next_lpf, pos_t blk_beg, pos_t blk_end);
 
         template <factorize_mode fact_mode>
-        void factorize_external(std::function<void(factor)> out_it);
+        void factorize_internal(output_it_t& output);
 
         template <factorize_mode fact_mode>
-        void factorize(std::function<void(factor)> out_it, std::function<lpf()> lpf_it) {
-            if constexpr (fact_mode == skip_phrases)  {factorize_skip_gaps    (out_it, lpf_it);} else
-            if constexpr (fact_mode == greedy)        {factorize_greedy       (out_it, lpf_it);} else
-            if constexpr (fact_mode == greedy_naive)  {factorize_greedy_naive (out_it, lpf_it);} else
-            if constexpr (fact_mode == blockwise_all) {factorize_blockwise_all(out_it, lpf_it);}
+        void factorize_external(output_it_t& output);
+
+        template <factorize_mode fact_mode, typename lpf_it_t>
+        void factorize_sequential(output_it_t& output, std::function<lpf_it_t()>& lpf_beg, std::function<lpf(lpf_it_t&)>& next_lpf) {
+            if constexpr (fact_mode == skip_phrases)  {factorize_skip_gaps    (output, lpf_beg, next_lpf);} else
+            if constexpr (fact_mode == greedy)        {factorize_greedy       (output, lpf_beg, next_lpf);} else
+            if constexpr (fact_mode == greedy_naive)  {factorize_greedy_naive (output, lpf_beg, next_lpf);} else
+            if constexpr (fact_mode == blockwise_all) {factorize_blockwise_all(output, lpf_beg, next_lpf);}
         }
 
-        void factorize_skip_gaps(std::function<void(factor)> out_it, std::function<lpf()> lpf_it);
+        template <typename lpf_it_t>
+        void factorize_skip_gaps(output_it_t& output, std::function<lpf_it_t()>& lpf_beg, std::function<lpf(lpf_it_t&)>& next_lpf);
 
-        void factorize_greedy_naive(std::function<void(factor)> out_it, std::function<lpf()> lpf_it);
+        template <typename lpf_it_t>
+        void factorize_greedy_naive(output_it_t& output, std::function<lpf_it_t()>& lpf_beg, std::function<lpf(lpf_it_t&)>& next_lpf);
 
-        void factorize_greedy(std::function<void(factor)> out_it, std::function<lpf()> lpf_it);
+        template <typename lpf_it_t>
+        void factorize_greedy(output_it_t& output, std::function<lpf_it_t()>& lpf_beg, std::function<lpf(lpf_it_t&)>& next_lpf);
 
-        void factorize_blockwise_all(std::function<void(factor)> out_it, std::function<lpf()> lpf_it);
+        template <typename lpf_it_t>
+        void factorize_blockwise_all(output_it_t& output, std::function<lpf_it_t()>& lpf_beg, std::function<lpf(lpf_it_t&)>& next_lpf);
+
+        template <typename lpf_it_t>
+        void factorize_greedy_parallel(output_it_t& output, std::function<lpf_it_t()>& lpf_beg, std::function<lpf(lpf_it_t&)>& next_lpf);
 
         template <
             typename sidx_t,
@@ -652,7 +701,7 @@ class lz77_sss {
             exact_factorizer(std::string& T, const lce_t& LCE, pos_t delta, pos_t& num_phr, uint16_t p, bool log)
                 : log(log), p(p), T(T), LCE(LCE), n(T.size()), delta(delta), num_phr(num_phr) {}
 
-            void transform_to_exact(std::istream_iterator<factor>& ifile_aprx_it, std::function<void(factor)> out_it) {
+            void transform_to_exact(std::istream_iterator<factor>& ifile_aprx_it, output_it_t& output) {
                 if (log) {
                     time = now();
                     time_start = time;
@@ -698,11 +747,11 @@ class lz77_sss {
                 }
 
                 if constexpr (transf_mode == naive) {
-                    transform_to_exact_naive(out_it);
+                    transform_to_exact_naive(output);
                 } else if constexpr (transf_mode == with_samples) {
-                    transform_to_exact_with_samples(out_it);
+                    transform_to_exact_with_samples(output);
                 } else if constexpr (transf_mode == without_samples) {
-                    transform_to_exact_without_samples(out_it);
+                    transform_to_exact_without_samples(output);
                 }
 
                 if (log && range_ds_t<sidx_t>::is_dynamic()) {
@@ -730,18 +779,18 @@ class lz77_sss {
                 pos_t i, pos_t j, pos_t lce_l, pos_t lce_r, sidx_t& x_c, factor& f
             );
 
-            void transform_to_exact_naive(std::function<void(factor)> out_it);
+            void transform_to_exact_naive(output_it_t& output);
 
-            void transform_to_exact_without_samples(std::function<void(factor)> out_it);
+            void transform_to_exact_without_samples(output_it_t& output);
 
             void extend_right_with_samples(
                 const sxa_interval_t& spa_iv,
                 pos_t i, pos_t j, pos_t e, sidx_t& x_c, factor& f
             );
 
-            void transform_to_exact_with_samples(std::function<void(factor)> out_it);
+            void transform_to_exact_with_samples(output_it_t& output);
 
-            void combine_factorizations(std::function<void(factor)> out_it);
+            void combine_factorizations(output_it_t& output);
         };
     };
 };
@@ -755,6 +804,7 @@ class lz77_sss {
 #include "algorithms/approximate/lpf_lnf/external.cpp"
 #include "algorithms/approximate/factorize/common.cpp"
 #include "algorithms/approximate/factorize/greedy.cpp"
+#include "algorithms/approximate/factorize/greedy_parallel.cpp"
 #include "algorithms/approximate/factorize/greedy_naive.cpp"
 #include "algorithms/approximate/factorize/blockwise_all.cpp"
 #include "algorithms/approximate/factorize/skip_gaps.cpp"

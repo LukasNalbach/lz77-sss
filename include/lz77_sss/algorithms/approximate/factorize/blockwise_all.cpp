@@ -4,7 +4,12 @@
 
 template <typename pos_t>
 template <uint64_t tau>
-void lz77_sss<pos_t>::factorizer<tau>::factorize_blockwise_all(std::function<void(factor)> out_it, std::function<lpf()> lpf_it) {
+template <typename lpf_it_t>
+void lz77_sss<pos_t>::factorizer<tau>::factorize_blockwise_all(
+    output_it_t& output,
+    std::function<lpf_it_t()>& lpf_beg,
+    std::function<lpf(lpf_it_t&)>& next_lpf
+) {
     if (log) {
         std::cout << "factorizing" << std::flush;
     }
@@ -13,12 +18,13 @@ void lz77_sss<pos_t>::factorizer<tau>::factorize_blockwise_all(std::function<voi
     pos_t blk_beg = 0;
     pos_t blk_end = blk_size;
     std::vector<lpf> P;
-    lpf p = lpf_it();
+    lpf_it_t lpf_it = lpf_beg();
+    lpf p = next_lpf(lpf_it);
 
     while (blk_beg < n) {
         while (p.beg < blk_end) {
             P.emplace_back(p);
-            p = lpf_it();
+            p = next_lpf(lpf_it);
         }
 
         if (!P.empty() && P.back().end > blk_end) {
@@ -65,12 +71,12 @@ void lz77_sss<pos_t>::factorizer<tau>::factorize_blockwise_all(std::function<voi
 
         for (lpf phr : P) {
             while (pos < phr.beg) {
-                out_it({char_to_uchar(T[pos]),0});
+                output({char_to_uchar(T[pos]),0});
                 num_phr++;
                 pos++;
             }
 
-            out_it({
+            output({
                 .src = phr.src,
                 .len = phr.end - phr.beg
             });
@@ -88,7 +94,7 @@ void lz77_sss<pos_t>::factorizer<tau>::factorize_blockwise_all(std::function<voi
         }
 
         while (pos < blk_end) {
-            out_it({char_to_uchar(T[pos]),0});
+            output({char_to_uchar(T[pos]),0});
             num_phr++;
             pos++;
         }

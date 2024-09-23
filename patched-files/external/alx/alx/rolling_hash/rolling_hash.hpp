@@ -50,8 +50,30 @@ class rk_prime {
 
   // Roll the window by specifying the character that is rolled out of the
   // window and the character that is rolled in the window.
+  inline uint128_t roll_in(uint128_t fp, unsigned char in) const {
+    return roll(fp, 0, in);
+  }
+
+
+  // Roll the window by specifying the character that is rolled out of the
+  // window and the character that is rolled in the window.
   inline uint128_t roll_out(unsigned char out) {
     return roll(out, 0);
+  }
+
+
+  // Roll the window by specifying the character that is rolled out of the
+  // window and the character that is rolled in the window.
+  inline uint128_t roll_out(uint128_t fp, unsigned char out) const {
+    return roll(fp, out, 0);
+  }
+
+  // Roll the window by specifying the character that is rolled out of the
+  // window and the character that is rolled in the window.
+  inline uint128_t roll(uint128_t fp, unsigned char out, unsigned char in) const {
+    fp *= m_base;
+    fp = mersenne::mod<uint128_t, m_prime>(fp + m_char_influence[out][in]);
+    return fp;
   }
 
   // Roll the window by specifying the character that is rolled out of the
