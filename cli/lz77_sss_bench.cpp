@@ -17,7 +17,7 @@ template <
     phrase_mode phr_mode
 > void run_sss_approximate(std::string file_name, uint16_t max_threads) {
 
-    for (uint16_t num_threads = 1; num_threads < max_threads; num_threads *= 2) {
+    for (uint16_t num_threads = 1; num_threads <= max_threads; num_threads *= 2) {
         std::ofstream fact_sss_file(file_name);
 
         if (n <= std::numeric_limits<uint32_t>::max()) {
@@ -40,7 +40,7 @@ template <
 >
 void run_sss_exact(std::string file_name, uint16_t max_threads) {
 
-    for (uint16_t num_threads = 1; num_threads < max_threads; num_threads *= 2) {
+    for (uint16_t num_threads = 1; num_threads <= max_threads; num_threads *= 2) {
         std::ofstream fact_sss_file(file_name);
 
         if (n <= std::numeric_limits<uint32_t>::max()) {
