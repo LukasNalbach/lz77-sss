@@ -61,7 +61,7 @@ class parallel_rolling_hash_index_107 {
         return reinterpret_cast<uint128_t*>(H_new.data());
     }
 
-    inline void reinit(fp_arr_t& fps, uint16_t i_p, pos_t pos) {
+    inline void reinit(fp_arr_t& fps, pos_t pos) {
         for_constexpr<0, num_patt_lens, 1>([&](auto i) {
             fps[i] = 0;
 
@@ -75,7 +75,7 @@ class parallel_rolling_hash_index_107 {
     }
 
     template <pos_t i>
-    inline void roll(fp_arr_t& fps, uint16_t i_p, pos_t pos) {
+    inline void roll(fp_arr_t& fps, pos_t pos) {
         fps[i] = rolling_hash[i]->roll(
             fps[i],
             char_to_uchar(input[pos]),
@@ -83,33 +83,33 @@ class parallel_rolling_hash_index_107 {
         );
     }
 
-    inline void roll(fp_arr_t& fps, uint16_t i_p, pos_t pos) {
+    inline void roll(fp_arr_t& fps, pos_t pos) {
         for_constexpr<0, num_patt_lens, 1>([&](auto i) {
-            roll<i>(fps, i_p, pos);
+            roll<i>(fps, pos);
         });
     }
 
     template <pos_t i>
-    inline void advance(fp_arr_t& fps, uint16_t i_p, pos_t pos) {
+    inline void advance(fp_arr_t& fps, pos_t pos) {
         if (pos + patt_lens[i] < input_size) [[likely]] {
             H_new[fps[i] & h_mod_mask] = pos;
-            roll<i>(fps, i_p, pos);
+            roll<i>(fps, pos);
         }
     }
 
-    inline void advance(fp_arr_t& fps, uint16_t i_p, pos_t pos) {
+    inline void advance(fp_arr_t& fps, pos_t pos) {
         for_constexpr<0, num_patt_lens, 1>([&](auto i) {
-            advance<i>(fps, i_p, pos);
+            advance<i>(fps, pos);
         });
     }
 
     template <pos_t i, bool ret_new = false>
-    inline pos_t advance_and_get_occ(fp_arr_t& fps, uint16_t i_p, pos_t pos) {
+    inline pos_t advance_and_get_occ(fp_arr_t& fps, pos_t pos) {
         fp_t h_pos = fps[i] & h_mod_mask;
         H_new[h_pos] = pos;
 
         if (pos + patt_lens[i] < input_size) [[likely]] {
-            roll<i>(fps, i_p, pos);
+            roll<i>(fps, pos);
         }
 
         if constexpr (ret_new) {
@@ -120,7 +120,7 @@ class parallel_rolling_hash_index_107 {
     }
 
     template <pos_t i>
-    inline pos_t get_occ(fp_arr_t& fps, uint16_t i_p) const {
+    inline pos_t get_occ(fp_arr_t& fps) const {
         return H_old[fps[i] & h_mod_mask];
     }
 

@@ -180,6 +180,11 @@ bool sample_index<pos_t, sidx_t, lce_r_t>::extend(
             )) {
                 l = m;
                 lce_l = lce_m;
+
+                if (m > e_min) {
+                    e_min = m;
+                    lce_e_min = lce_m;
+                }
             } else {
                 r = m;
                 lce_r = lce_m;

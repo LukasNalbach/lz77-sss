@@ -275,8 +275,6 @@ class lz77_sss {
 
             if (p == 0) {
                 p = omp_get_max_threads();
-            } else {
-                p = std::min<uint16_t>(p, omp_get_max_threads());
             }
 
             baseline_memory_alloc = malloc_count_current();
@@ -460,7 +458,7 @@ class lz77_sss {
                     avg_gap_len, avg_lpf_phr_len,
                     8.0 * std::pow(128, 1.0 - rel_len_gaps)});
                 
-                    if (patt_len_guess <= 6)   {patt_lens = {2,3, 4, 5, 6};}
+                     if (patt_len_guess <= 6)   {patt_lens = {2,3, 4, 5, 6};}
                 else if (patt_len_guess <= 8)   {patt_lens = {2,3, 4, 6, 8};}
                 else if (patt_len_guess <= 12)  {patt_lens = {2,3, 4, 8,12};}
                 else if (patt_len_guess <= 16)  {patt_lens = {2,4, 6, 9,16};}
@@ -624,8 +622,7 @@ class lz77_sss {
         inline factor longest_prev_occ(pos_t pos);
 
         template <bool first_block>
-        inline factor longest_prev_occ_par(
-            fp_arr_t& fps, uint16_t i_p, pos_t pos, pos_t blk_end);
+        inline factor longest_prev_occ_par(fp_arr_t& fps, pos_t pos, pos_t blk_end);
 
         template <bool first_block, typename lpf_it_t>
         void factorize_block(std::function<lpf(lpf_it_t&)>& next_lpf, pos_t blk_beg, pos_t blk_end);

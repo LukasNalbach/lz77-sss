@@ -64,7 +64,7 @@ extend_right_with_samples(
     assert(x_res < 0 || qc_right.match_length() >= smpl_lens_right[x_res]);
     pos_t lce_r_max = lce_r_nxt == 0 ? e - j : (lce_r_nxt - 1);
 
-    exp_search_max_geq<bool, pos_t, RIGHT>(true, lce_r, lce_r_max, [&](pos_t lce_r_tmp){
+    auto fnc = [&](pos_t lce_r_tmp){
         query_context_t qc_right_tmp;
         bool result = true;
         
@@ -88,7 +88,13 @@ extend_right_with_samples(
         }
 
         return false;
-    });
+    };
+
+    if (qc_right_nxt.match_length() == 0) {
+        exp_search_max_geq<bool, pos_t, RIGHT>(true, lce_r, lce_r_max, fnc);
+    } else {
+        bin_search_max_geq<bool, pos_t>(true, lce_r, lce_r_max, fnc);
+    }
 }
 
 template <typename pos_t>
