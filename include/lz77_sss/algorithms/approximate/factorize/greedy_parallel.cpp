@@ -5,14 +5,12 @@
 template <typename pos_t>
 template <uint64_t tau>
 template <bool first_block>
-inline lz77_sss<pos_t>::factor lz77_sss<pos_t>::factorizer<tau>::longest_prev_occ_par(
-    fp_arr_t& fps, uint16_t i_p, pos_t pos, pos_t end
-) {
+inline lz77_sss<pos_t>::factor lz77_sss<pos_t>::factorizer<tau>::longest_prev_occ_par(fp_arr_t& fps, pos_t pos, pos_t end) {
     factor f{.src = char_to_uchar(T[pos]), .len = 0};
 
     for_constexpr<num_patt_lens - 1, - 1, - 1>([&](auto x) {
         if (f.len == 0) {
-            pos_t src = par_gap_idx.template advance_and_get_occ<x, first_block>(fps, i_p, pos);
+            pos_t src = par_gap_idx.template advance_and_get_occ<x, first_block>(fps, pos);
 
             if (src < pos && T[src] == T[pos]) {
                 f.len = LCE_R(src, pos);
@@ -27,7 +25,7 @@ inline lz77_sss<pos_t>::factor lz77_sss<pos_t>::factorizer<tau>::longest_prev_oc
                 #endif
             }
         } else {
-            par_gap_idx.template advance<x>(fps, i_p, pos);
+            par_gap_idx.template advance<x>(fps, pos);
         }
     });
 
@@ -73,7 +71,7 @@ void lz77_sss<pos_t>::factorizer<tau>::factorize_block(
 
     lpf phr = next_lpf(lpf_it);
     pos_t pos_idx = beg;
-    par_gap_idx.reinit(fps, i_p, beg);
+    par_gap_idx.reinit(fps, beg);
 
     for (pos_t i = beg; true;) {
         pos_t gap_end = std::min<pos_t>(phr.beg, end);
@@ -82,17 +80,17 @@ void lz77_sss<pos_t>::factorizer<tau>::factorize_block(
             if (pos_idx < i) {
                 if (i - pos_idx <= roll_threshold) {
                     do {
-                        par_gap_idx.roll(fps, i_p, pos_idx);
+                        par_gap_idx.roll(fps, pos_idx);
                         pos_idx++;
                     } while (pos_idx < i);
                 } else {
-                    par_gap_idx.reinit(fps, i_p, i);
+                    par_gap_idx.reinit(fps, i);
                     pos_idx = i;
                 }
             }
 
             do {
-                factor f = longest_prev_occ_par<first_block>(fps, i_p, i, end);
+                factor f = longest_prev_occ_par<first_block>(fps, i, end);
                 pos_idx++;
                 i += std::max<pos_t>(1, f.len);
 
@@ -106,7 +104,7 @@ void lz77_sss<pos_t>::factorizer<tau>::factorize_block(
                         } while (phr.end <= i);
 
                         while (pos_idx < gap_end) {
-                            par_gap_idx.advance(fps, i_p, pos_idx);
+                            par_gap_idx.advance(fps, pos_idx);
                             pos_idx++;
                         }
 
@@ -129,7 +127,7 @@ void lz77_sss<pos_t>::factorizer<tau>::factorize_block(
                 factors[i_p].emplace_back(f);
 
                 while (pos_idx < i) {
-                    par_gap_idx.advance(fps, i_p, pos_idx);
+                    par_gap_idx.advance(fps, pos_idx);
                     pos_idx++;
                 }
             } while (i < gap_end);
@@ -147,7 +145,7 @@ void lz77_sss<pos_t>::factorizer<tau>::factorize_block(
         };
         
         if (gap_idx.pos() == i) {
-            factor f = longest_prev_occ_par<first_block>(fps, i_p, i, end);
+            factor f = longest_prev_occ_par<first_block>(fps, i, end);
             pos_idx++;
 
             if (f.len > lpf.len) {

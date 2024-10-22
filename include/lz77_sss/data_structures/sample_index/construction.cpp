@@ -132,17 +132,14 @@ void sample_index<pos_t, sidx_t, lce_r_t>::build_samples(pos_t typ_lce_r, uint16
     double slcx_rng = slcx_rng_max - slcx_rng_min;
     smpl_pat_lens[dir] = {1, 2};
     SXIVX<dir>().resize(2);
-    int16_t num_pat_lens = 2 + std::floor(
-        (max_num_samples - slcx_rng / 2.0) /
-        (double{slcx_rng_min} + slcx_rng / 2.0)
-    );
-
+    if (slcx_rng_min >= slcx_rng_max) return;
+    int16_t num_pat_lens = 2 + std::floor((2.0 * max_num_samples) / double{slcx_rng_min + slcx_rng_max});
     std::vector<sidx_t> pat_len_rank(num_pat_lens, 0);
 
     for (int16_t i = 2; i < num_pat_lens; i++) {
         double rel_slcx_rnk = (double{i} + 1.0) / double{num_pat_lens};
         pos_t slcx_rnk = slcx_rng_min + rel_slcx_rnk * slcx_rng;
-        pos_t len = SLCX_sorted[slcx_rnk];
+        pos_t len = SLCX_sorted[slcx_rnk] - 1;
         while (len <= smpl_pat_lens[dir].back()) len++;
         if (len > max_sampled_len) break;
 

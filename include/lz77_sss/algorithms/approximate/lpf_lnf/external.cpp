@@ -17,7 +17,6 @@ void lz77_sss<pos_t>::factorizer<tau>::build_LPF_all_external() {
     std::vector<std::vector<lpf>> LPF_buf(p);
     std::vector<std::ofstream> lpf_ofiles;
     lpf_ofiles.resize(p);
-    pos_t tau_ = tau;
 
     for (uint16_t i_p = 0; i_p < p; i_p++) {
         open_lpf_ofile(lpf_ofiles[i_p], i_p);
@@ -28,7 +27,7 @@ void lz77_sss<pos_t>::factorizer<tau>::build_LPF_all_external() {
 
         if (T_LPF[i_p].size() > max_buffered_lpf_phrases) {
             auto it = T_LPF[i_p].upper_bound(lpf {
-                .beg = Si - tau_,
+                .beg = Si - tau,
                 .end = n,
                 .src = 0
             });
