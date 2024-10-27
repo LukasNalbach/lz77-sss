@@ -315,7 +315,7 @@ void sample_index<pos_t, sidx_t, lce_r_t>::build_samples(pos_t typ_lce_r, uint16
     #endif
 
     if (log) {
-        std::string phase = dir == LEFT ? "build_spa_samples" : "build_ssa_samples";
+        std::string phase = dir == LEFT ? "spa_samples" : "ssa_samples";
         log_phase(phase, time_diff_ns(time, now()));
         std::cout << " (" << format_size(malloc_count_current() - baseline) << ")";
         time = log_runtime(time);

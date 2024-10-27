@@ -60,13 +60,20 @@ public:
         uint16_t p = 1)
     {
         std::array<std::vector<point_t>, 256> P_c;
+        std::vector<std::vector<pos_t>> C_p(p,
+            std::vector<pos_t>(256, 0));
 
         #pragma omp parallel for num_threads(p)
         for (uint64_t i = 0; i < S.size(); i++) {
-            #pragma omp atomic
-            C[char_to_uchar(T[S[i]])]++;
+            C_p[omp_get_thread_num()][char_to_uchar(T[S[i]])]++;
         }
 
+        for (uint16_t c = 0; c < 256; c++) {
+            for (uint16_t j = 0; j < p; j++) {
+                C[c] += C_p[j][c];
+            }
+        }
+        
         for (uint16_t c = 1; c < 256; c++) C[c] += C[c - 1];
         for (uint16_t c = 256; c > 0; c--) C[c] = C[c - 1];
         C[0] = 0;

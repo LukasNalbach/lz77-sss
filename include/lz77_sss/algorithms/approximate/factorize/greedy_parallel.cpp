@@ -17,13 +17,13 @@ inline lz77_sss<pos_t>::factor lz77_sss<pos_t>::factorizer<tau>::longest_prev_oc
                 f.len = LCE_R(src, pos);
                 f.src = src;
 
-#ifndef NDEBUG
+                #ifndef NDEBUG
                 assert(f.src < pos);
 
                 for (pos_t j = 0; j < f.len; j++) {
                     assert(T[pos + j] == T[f.src + j]);
                 }
-#endif
+                #endif
             }
         } else {
             par_gap_idx.template advance<x>(fps, pos);

@@ -660,6 +660,7 @@ protected:
                 }
 
                 if (log) {
+                    log_phase("range_ds", time_diff_ns(time, now()));
                     std::cout << " (" << format_size(R.size_in_bytes()) << ")";
                     time = log_runtime(time);
                 }
@@ -681,6 +682,10 @@ protected:
                     transform_to_exact_with_samples(output);
                 } else if constexpr (transf_mode == without_samples) {
                     transform_to_exact_without_samples(output);
+                }
+
+                if (log) {
+                    log_phase("compute_exact", time_diff_ns(time, now()));
                 }
 
                 if (log && range_ds_t<sidx_t>::is_dynamic()) {
