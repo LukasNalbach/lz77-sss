@@ -5,27 +5,23 @@ std::random_device rd;
 std::mt19937 gen(rd());
 
 std::vector<lz77_sss<>::factor> run_alg(std::string& input) {
-    switch (std::rand() % 20) {
-        case 0: return lz77_sss<>::factorize_approximate<greedy_naive, lpf_all>(input);
-        case 1: return lz77_sss<>::factorize_approximate<greedy_naive, lpf_all>(input);
-        case 2: return lz77_sss<>::factorize_approximate<greedy_naive, lpf_all_external>(input);
-        case 3: return lz77_sss<>::factorize_approximate<greedy_naive, lpf_lnf_all>(input);
+    switch (std::rand() % 16) {
+        case 0: return lz77_sss<>::factorize_approximate<greedy_naive, lpf_naive>(input);
+        case 1: return lz77_sss<>::factorize_approximate<greedy_naive, lpf_opt>(input);
+        case 2: return lz77_sss<>::factorize_approximate<greedy_naive, lpf_lnf_naive>(input);
+        case 3: return lz77_sss<>::factorize_approximate<greedy_naive, lpf_lnf_opt>(input);
         case 4: return lz77_sss<>::factorize_approximate<greedy, lpf_naive>(input);
-        case 5: return lz77_sss<>::factorize_approximate<greedy, lpf_all>(input);
-        case 6: return lz77_sss<>::factorize_approximate<greedy, lpf_all_external>(input);
-        case 7: return lz77_sss<>::factorize_approximate<greedy, lpf_lnf_all>(input);
-        case 8: return lz77_sss<>::factorize_approximate<blockwise_all, lpf_all>(input);
-        case 9: return lz77_sss<>::factorize_approximate<blockwise_all, lpf_all>(input);
-        case 10: return lz77_sss<>::factorize_approximate<blockwise_all, lpf_all_external>(input);
-        case 11: return lz77_sss<>::factorize_approximate<blockwise_all, lpf_lnf_all>(input);
-        case 12: return lz77_sss<>::factorize_exact<greedy, lpf_all_external, naive, semi_dynamic_square_grid>(input);
-        case 13: return lz77_sss<>::factorize_exact<greedy, lpf_all_external, naive, static_weighted_square_grid>(input);
-        case 14: return lz77_sss<>::factorize_exact<greedy, lpf_all_external, naive, decomposed_semi_dynamic_square_grid>(input);
-        case 15: return lz77_sss<>::factorize_exact<greedy, lpf_all_external, naive, decomposed_static_weighted_square_grid>(input);
-        case 16: return lz77_sss<>::factorize_exact<greedy, lpf_all_external, with_samples, semi_dynamic_square_grid>(input);
-        case 17: return lz77_sss<>::factorize_exact<greedy, lpf_all_external, with_samples, static_weighted_square_grid>(input);
-        case 18: return lz77_sss<>::factorize_exact<greedy, lpf_all_external, without_samples, semi_dynamic_square_grid>(input);
-        case 19: return lz77_sss<>::factorize_exact<greedy, lpf_all_external, without_samples, static_weighted_square_grid>(input);
+        case 5: return lz77_sss<>::factorize_approximate<greedy, lpf_opt>(input);
+        case 6: return lz77_sss<>::factorize_approximate<greedy, lpf_lnf_naive>(input);
+        case 7: return lz77_sss<>::factorize_approximate<greedy, lpf_lnf_opt>(input);
+        case 8: return lz77_sss<>::factorize_exact<greedy, lpf_opt, naive, semi_dynamic_square_grid>(input);
+        case 9: return lz77_sss<>::factorize_exact<greedy, lpf_opt, naive, static_weighted_kd_tree>(input);
+        case 10: return lz77_sss<>::factorize_exact<greedy, lpf_opt, naive, decomposed_semi_dynamic_square_grid>(input);
+        case 11: return lz77_sss<>::factorize_exact<greedy, lpf_opt, naive, decomposed_static_weighted_kd_tree>(input);
+        case 12: return lz77_sss<>::factorize_exact<greedy, lpf_opt, with_samples, decomposed_semi_dynamic_square_grid>(input);
+        case 13: return lz77_sss<>::factorize_exact<greedy, lpf_opt, with_samples, decomposed_static_weighted_kd_tree>(input);
+        case 14: return lz77_sss<>::factorize_exact<greedy, lpf_opt, without_samples, decomposed_semi_dynamic_square_grid>(input);
+        case 15: return lz77_sss<>::factorize_exact<greedy, lpf_opt, without_samples, decomposed_static_weighted_kd_tree>(input);
     }
 }
 

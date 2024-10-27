@@ -1,8 +1,8 @@
 #include <gtest/gtest.h>
 #include <ips4o.hpp>
-#include <lz77_sss/data_structures/sample_index/sample_index.hpp>
 #include <lz77_sss/data_structures/dynamic_range/dynamic_square_grid.hpp>
 #include <lz77_sss/data_structures/dynamic_range/semi_dynamic_square_grid.hpp>
+#include <lz77_sss/data_structures/sample_index/sample_index.hpp>
 #include <lz77_sss/data_structures/static_weighted_range/static_weighted_kd_tree.hpp>
 #include <lz77_sss/data_structures/static_weighted_range/static_weighted_square_grid.hpp>
 #include <lz77_sss/data_structures/static_weighted_range/static_weighted_striped_square.hpp>
@@ -24,7 +24,8 @@ struct query {
 };
 
 template <template <typename> typename range_ds_t>
-void test() {
+void test()
+{
     using point_t = typename range_ds_t<uint32_t>::point_t;
 
     // choose a random input length
@@ -55,9 +56,9 @@ void test() {
 
     for (uint32_t i = 0; i < num_samples; i++) {
         if constexpr (range_ds_t<uint32_t>::is_static()) {
-            points.emplace_back(point_t{.weight = i});
+            points.emplace_back(point_t { .weight = i });
         } else {
-            points.emplace_back(point_t{});
+            points.emplace_back(point_t { });
         }
     }
 
@@ -69,9 +70,8 @@ void test() {
     // generate random queries
     std::vector<query> queries;
     std::uniform_int_distribution<uint8_t> uchar_distrib(0, 255);
-    std::array<std::uniform_int_distribution<uint32_t>,
-        256> query_range_distrib;
-    std::array<uint32_t, 257> c_array = {0};
+    std::array<std::uniform_int_distribution<uint32_t>, 256> query_range_distrib;
+    std::array<uint32_t, 257> c_array = { 0 };
     std::vector<uint8_t> used_uchars;
 
     for (uint32_t sample : sampling) {
@@ -92,11 +92,10 @@ void test() {
         uchar_idx_distrib(0, used_uchars.size() - 1);
 
     for (uint16_t c = 0; c < 256; c++) {
-        query_range_distrib[c] =
-            std::uniform_int_distribution<uint32_t>(
-                c_array[c], c_array[c + 1] - 1);
+        query_range_distrib[c] = std::uniform_int_distribution<uint32_t>(
+            c_array[c], c_array[c + 1] - 1);
     }
-    
+
     for (uint32_t i = 0; i < num_samples; i++) {
         uint8_t uchar = used_uchars[uchar_idx_distrib(gen)];
 
@@ -128,7 +127,8 @@ void test() {
 
     // build the range data structure
     range_ds_t<uint32_t> ds(input, sampling, points);
-    if constexpr (range_ds_t<uint32_t>::is_static()) points.clear();
+    if constexpr (range_ds_t<uint32_t>::is_static())
+        points.clear();
 
     // verify that all queries are answered correctly
     for (uint32_t i = 0; i < num_samples; i++) {
@@ -150,8 +150,7 @@ void test() {
         if (result) {
             EXPECT_TRUE(
                 q.x1 <= p.x && p.x <= q.x2 &&
-                q.y1 <= p.y && p.y <= q.y2
-            );
+                q.y1 <= p.y && p.y <= q.y2);
 
             if constexpr (range_ds_t<uint32_t>::is_static()) {
                 EXPECT_TRUE(p.weight < q.weight);
@@ -164,10 +163,11 @@ void test() {
     input.clear();
 }
 
-TEST(test_static_weighted_range, fuzzy_test) {
+TEST(test_static_weighted_range, fuzzy_test)
+{
     auto start_time = now();
 
-    while (time_diff_min(start_time,now()) < 60) {
+    while (time_diff_min(start_time, now()) < 60) {
         std::string input;
         std::vector<uint32_t> samples;
 

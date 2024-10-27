@@ -20,7 +20,8 @@ std::vector<uint32_t> occurrences;
 std::vector<uint32_t> correct_occurrences;
 
 template <direction dir>
-void test_query(sample_index<>& index) {
+void test_query(sample_index<>& index)
+{
     std::uniform_int_distribution<uint32_t> pattern_pos_distrib(0, input.size() - 1);
     pattern_pos = pattern_pos_distrib(gen);
     query = index.query();
@@ -70,10 +71,11 @@ void test_query(sample_index<>& index) {
     occurrences.clear();
 }
 
-TEST(test_sample_index, fuzzy_test) {
+TEST(test_sample_index, fuzzy_test)
+{
     auto start_time = now();
 
-    while (time_diff_min(start_time,now()) < 60) {
+    while (time_diff_min(start_time, now()) < 60) {
         // generate a random string
         input = random_repetitive_string(1, 100000);
 
@@ -82,7 +84,9 @@ TEST(test_sample_index, fuzzy_test) {
         std::uniform_int_distribution<uint32_t> sample_distance_distrib(1, 2 * avg_sample_rate);
 
         // compute a random sampling of text positions
-        sampling.emplace_back(std::min<uint32_t>(input.size() - 1, sample_distance_distrib(gen)));
+        sampling.emplace_back(std::min<uint32_t>(
+            input.size() - 1, sample_distance_distrib(gen)));
+        
         while (sampling.back() + 2 * avg_sample_rate < input.size()) {
             sampling.emplace_back(sampling.back() + sample_distance_distrib(gen));
         }
@@ -99,7 +103,7 @@ TEST(test_sample_index, fuzzy_test) {
                 test_query<RIGHT>(index);
             }
         }
-        
+
         sampling.clear();
         input.clear();
     }

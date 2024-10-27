@@ -10,10 +10,11 @@ std::uniform_int_distribution<uint64_t> sampl_rate_distrib(1, 10000);
 
 std::string input;
 
-TEST(test_rk_substr, fuzzy_test) {
+TEST(test_rk_substr, fuzzy_test)
+{
     auto start_time = now();
 
-    while (time_diff_min(start_time,now()) < 60) {
+    while (time_diff_min(start_time, now()) < 60) {
         uint64_t window = window_distrib(gen);
 
         // choose a random input
@@ -27,11 +28,9 @@ TEST(test_rk_substr, fuzzy_test) {
         // check if rolling fingerprints work
         for (uint64_t i = 0; i < 1000; i++) {
             uint64_t pos = substr_pos_distrib(gen);
-            uint64_t dist = std::min(roll_dist_distrib(gen),
-                input.size() - (pos + window));
+            uint64_t dist = std::min(roll_dist_distrib(gen), input.size() - (pos + window));
             uint64_t fp = rks.substring<>(pos, window);
-            for (uint64_t d = 0; d < dist; d++) fp = rks.roll(
-                fp, input[pos + d], input[pos + d + window]);
+            for (uint64_t d = 0; d < dist; d++) fp = rks.roll(fp, input[pos + d], input[pos + d + window]);
             uint64_t fp_dest = rks.substring<>(pos + dist, window);
             EXPECT_EQ(fp, fp_dest);
         }

@@ -4,11 +4,12 @@
 
 template <typename pos_t>
 template <uint64_t tau>
-void lz77_sss<pos_t>::factorizer<tau>::build_PSV_NSV_S() {
+void lz77_sss<pos_t>::factorizer<tau>::build_PSV_NSV_S()
+{
     if (log) {
         std::cout << "building NSV_S and PSV_S" << std::flush;
     }
-    
+
     const std::vector<pos_t>& S = LCE.get_sync_set();
     const std::vector<uint32_t>& SSA_S = LCE.get_ssa();
     pos_t s = S.size();
@@ -34,7 +35,7 @@ void lz77_sss<pos_t>::factorizer<tau>::build_PSV_NSV_S() {
 
         PSV_S[i] = j;
         NSV_S[j] = s;
-        
+
         #ifndef NDEBUG
         assert(PSV_S[i] == 0 || S[SSA_S[PSV_S[i]]] < S[SSA_S[i]]);
         #endif
@@ -47,17 +48,19 @@ void lz77_sss<pos_t>::factorizer<tau>::build_PSV_NSV_S() {
     #endif
 
     if (log) {
+        log_phase("nsv_psv", time_diff_ns(time, now()));
         time = log_runtime(time);
     }
 }
 
 template <typename pos_t>
 template <uint64_t tau>
-void lz77_sss<pos_t>::factorizer<tau>::build_PGV_NGV_S() {
+void lz77_sss<pos_t>::factorizer<tau>::build_PGV_NGV_S()
+{
     if (log) {
         std::cout << "building PGV_S and NGV_S" << std::flush;
     }
-    
+
     const std::vector<pos_t>& S = LCE.get_sync_set();
     const std::vector<uint32_t>& SSA_S = LCE.get_ssa();
     const std::vector<uint32_t>& ISSA_S = LCE.get_issa();
@@ -65,7 +68,7 @@ void lz77_sss<pos_t>::factorizer<tau>::build_PGV_NGV_S() {
 
     #ifndef NDEBUG
     for (uint32_t i = 1; i < s; i++) {
-        assert(S[i-1] < S[i]);
+        assert(S[i - 1] < S[i]);
     }
     #endif
 
@@ -84,7 +87,7 @@ void lz77_sss<pos_t>::factorizer<tau>::build_PGV_NGV_S() {
 
         PGV_S[i] = j;
         NGV_S[j] = s;
-        
+
         #ifndef NDEBUG
         assert(PGV_S[i] == 0 || S[SSA_S[PGV_S[i]]] > S[SSA_S[i]]);
         #endif
@@ -97,6 +100,7 @@ void lz77_sss<pos_t>::factorizer<tau>::build_PGV_NGV_S() {
     #endif
 
     if (log) {
+        log_phase("ngv_pgv", time_diff_ns(time, now()));
         time = log_runtime(time);
     }
 }

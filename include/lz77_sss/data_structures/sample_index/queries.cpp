@@ -6,19 +6,19 @@ template <typename pos_t, typename sidx_t, typename lce_r_t>
 template <direction dir>
 inline std::pair<typename sample_index<pos_t, sidx_t, lce_r_t>::sxa_interval_t, bool>
 sample_index<pos_t, sidx_t, lce_r_t>::sxa_interval(
-    pos_t pat_len_idx, pos_t pos_pat, std::size_t hash
-) const {
+    pos_t pat_len_idx, pos_t pos_pat, std::size_t hash) const
+{
     if (pat_len_idx == 0) {
         if (!occurs1(pos_pat)) [[unlikely]] {
-            return {{0, 0}, false};
+            return { { 0, 0 }, false };
         } else {
-            return {sciv(pos_pat), true};
+            return { sciv(pos_pat), true };
         }
     } else if (pat_len_idx == 1) {
         if (!occurs2<dir>(pos_pat)) [[unlikely]] {
-            return {{0, 0}, false};
+            return { { 0, 0 }, false };
         } else {
-            return {sxiv2<dir>(pos_pat), true};
+            return { sxiv2<dir>(pos_pat), true };
         }
     }
 
@@ -32,9 +32,9 @@ sample_index<pos_t, sidx_t, lce_r_t>::sxa_interval(
     auto it = map.find(pos_to_interval(pos_pat), hash);
 
     if (it == map.end()) {
-        return {{0, 0}, false};
+        return { { 0, 0 }, false };
     } else {
-        return {*it, true};
+        return { *it, true };
     }
 }
 
@@ -42,8 +42,8 @@ template <typename pos_t, typename sidx_t, typename lce_r_t>
 template <direction dir>
 bool sample_index<pos_t, sidx_t, lce_r_t>::extend(
     const query_context& qc_old, query_context& qc_new,
-    pos_t pos_pat, pos_t len, bool use_samples
-) const {
+    pos_t pos_pat, pos_t len, bool use_samples) const
+{
     if (qc_old.match_length() >= len) {
         if (&qc_old != &qc_new) {
             qc_new = qc_old;
@@ -63,13 +63,13 @@ bool sample_index<pos_t, sidx_t, lce_r_t>::extend(
 
     if (use_samples) {
         pat_len_idx = bin_search_max_leq<pos_t, pos_t>(
-            len, 0, num_sampled_pattern_lengths<dir>() - 1, [&](pos_t x){
+            len, 0, num_sampled_pattern_lengths<dir>() - 1, [&](pos_t x) {
                 return sampled_pattern_lengths<dir>()[x];
-        });
+            });
 
         len_smpl = sampled_pattern_lengths<dir>()[pat_len_idx];
     }
-    
+
     if (use_samples && std::min<pos_t>(qc_old.lce_b, qc_old.lce_e) < len_smpl) {
         if (pat_len_idx >= 2) {
             fp_smpl = rks.substring<dir>(pos_pat, len_smpl);
@@ -92,15 +92,14 @@ bool sample_index<pos_t, sidx_t, lce_r_t>::extend(
         lce_e = qc_old.lce_e;
     }
 
-    if (lce_b < len) [[likely]] lce_b = lce_offs<dir>(
-        pos_pat, S[SXA<dir>(b)], lce_b, len);
-    
+    if (lce_b < len) [[likely]]
+        lce_b = lce_offs<dir>(pos_pat, S[SXA<dir>(b)], lce_b, len);
+
     if (lce_e < len) [[likely]] {
         if (e == b) {
             lce_e = lce_b;
         } else {
-            lce_e = lce_offs<dir>(
-                pos_pat, S[SXA<dir>(e)], lce_e, len);
+            lce_e = lce_offs<dir>(pos_pat, S[SXA<dir>(e)], lce_e, len);
         }
     }
 
@@ -122,27 +121,25 @@ bool sample_index<pos_t, sidx_t, lce_r_t>::extend(
                         fp_smpl, len_smpl);
                 } else {
                     fp_nxt_smpl = rks.concat(
-                        fp_smpl, rks.substring<RIGHT>(
-                            pos_pat + len_smpl, len_diff),
+                        fp_smpl, rks.substring<RIGHT>(pos_pat + len_smpl, len_diff),
                         len_diff);
                 }
             }
         }
-        
+
         auto [iv2, result2] = sxa_interval<dir>(
             pat_len_idx + 1, pos_pat, fp_nxt_smpl);
-        
+
         if (result2) {
             qc_new = interpolate<dir>(
-                {b, e, lce_b, lce_e},
-                {iv2.b, iv2.e, len_nxt_smpl, len_nxt_smpl},
-                pos_pat, len
-            );
+                { b, e, lce_b, lce_e },
+                { iv2.b, iv2.e, len_nxt_smpl, len_nxt_smpl },
+                pos_pat, len);
 
             return true;
         }
     }
-    
+
     sidx_t e_min = b;
     sidx_t e_max = e;
     pos_t lce_e_min = lce_b;
@@ -164,8 +161,7 @@ bool sample_index<pos_t, sidx_t, lce_r_t>::extend(
             lce_m = lce_offs<dir>(
                 pos_pat, pos_m,
                 std::min<pos_t>(lce_l, lce_r),
-                len
-            );
+                len);
 
             if (lce_m >= len) {
                 r = m;
@@ -175,9 +171,7 @@ bool sample_index<pos_t, sidx_t, lce_r_t>::extend(
                     e_min = m;
                     lce_e_min = lce_m;
                 }
-            } else if (cmp_lex<dir>(
-                pos_m, pos_pat, lce_m
-            )) {
+            } else if (cmp_lex<dir>(pos_m, pos_pat, lce_m)) {
                 l = m;
                 lce_l = lce_m;
 
@@ -228,8 +222,7 @@ bool sample_index<pos_t, sidx_t, lce_r_t>::extend(
             lce_m = lce_offs<dir>(
                 pos_pat, pos_m,
                 std::min<pos_t>(lce_l, lce_r),
-                len
-            );
+                len);
 
             if (lce_m >= len) {
                 l = m;
@@ -261,8 +254,8 @@ sample_index<pos_t, sidx_t, lce_r_t>::query_context
 sample_index<pos_t, sidx_t, lce_r_t>::interpolate(
     const query_context& qc_short,
     const query_context& qc_long,
-    pos_t pos_pat, pos_t len
-) const {
+    pos_t pos_pat, pos_t len) const
+{
     if (qc_short.match_length() >= len) {
         return qc_short;
     }
@@ -281,17 +274,16 @@ sample_index<pos_t, sidx_t, lce_r_t>::interpolate(
     lce_l = lce_offs<dir>(
         pos_pat, S[SXA<dir>(l)],
         lce_l,
-        len
-    );
+        len);
 
     while (r - l > 1) {
         m = l + (r - l) / 2;
         pos_m = S[SXA<dir>(m)];
+
         lce_m = lce_offs<dir>(
             pos_pat, pos_m,
             std::min<pos_t>(lce_l, lce_r),
-            len
-        );
+            len);
 
         if (lce_m < len) {
             l = m;
@@ -327,8 +319,7 @@ sample_index<pos_t, sidx_t, lce_r_t>::interpolate(
         lce_m = lce_offs<dir>(
             pos_pat, pos_m,
             std::min<pos_t>(lce_l, lce_r),
-            len
-        );
+            len);
 
         if (lce_m < len) {
             r = m;

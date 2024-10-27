@@ -1,24 +1,25 @@
 #include <fstream>
 #include <lz77_sss/lz77_sss.hpp>
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv)
+{
     if (!(3 <= argc && argc <= 4)) {
-        std::cout << "usage: lz77_sss_1_5-aprx <input_file> <output_file> <threads>";
-        std::cout << "       the last parameter is optional";
+        std::cout << "usage: lz77_sss_1_5-aprx <input_file> <output_file> <threads>" << std::endl;
+        std::cout << "       the last parameter is optional" << std::endl;
         exit(-1);
     }
 
     std::ifstream input_file(argv[1]);
     std::ofstream output_file(argv[2]);
     uint16_t p = omp_get_max_threads();
-    
+
     if (!input_file.good()) {
-        std::cout << "error: could not read <input_file>";
+        std::cout << "error: could not read <input_file>" << std::endl;
         exit(-1);
     }
-    
+
     if (!output_file.good()) {
-        std::cout << "error: could not write to <output_file>";
+        std::cout << "error: could not write to <output_file>" << std::endl;
         exit(-1);
     }
 
@@ -26,11 +27,11 @@ int main(int argc, char** argv) {
         p = atoi(argv[3]);
 
         if (p == 0 || p > omp_get_max_threads()) {
-            std::cout << "error: invalid number of threads";
+            std::cout << "error: invalid number of threads" << std::endl;
             exit(-1);
         }
     }
-    
+
     input_file.seekg(0, std::ios::end);
     uint64_t n = input_file.tellg();
     input_file.seekg(0, std::ios::beg);
@@ -46,12 +47,12 @@ int main(int argc, char** argv) {
 
     if (n <= std::numeric_limits<uint32_t>::max()) {
         lz77_sss<uint32_t>::factorize_approximate<
-            greedy, lpf_lnf_all>(T, output_file,
-            {.num_threads = p, .log = true});
+            greedy, lpf_lnf_opt>(T, output_file,
+            { .num_threads = p, .log = true });
     } else {
         lz77_sss<uint64_t>::factorize_approximate<
-            greedy, lpf_lnf_all>(T, output_file,
-            {.num_threads = p,.log = true});
+            greedy, lpf_lnf_opt>(T, output_file,
+            { .num_threads = p, .log = true });
     }
 
     output_file.close();
