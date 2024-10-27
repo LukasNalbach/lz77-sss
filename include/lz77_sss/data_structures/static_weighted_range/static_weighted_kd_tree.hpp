@@ -18,8 +18,15 @@ public:
         std::vector<point_t>& points,
         pos_t pos_max, uint16_t p = 1)
     {
-        nodes.reserve(points.size());
-        build<true>(points, 0, points.size());
+        nodes.resize(points.size(), {});
+        int32_t max_level = std::ceil(std::log2(p));
+
+        #pragma omp parallel num_threads(p)
+        {
+            #pragma omp single
+            build<true>(points, 0, points.size(), 0, max_level);
+        }
+        
         points.clear();
         points.shrink_to_fit();
     }
@@ -49,7 +56,7 @@ protected:
     std::vector<node_t> nodes;
 
     template <bool vertical>
-    void build(std::vector<point_t>& points, pos_t beg, pos_t end)
+    void build(std::vector<point_t>& points, pos_t beg, pos_t end, pos_t node_idx, int32_t level)
     {
         if (beg >= end) return;
         pos_t mid = beg + (end - beg) / 2;
@@ -59,19 +66,25 @@ protected:
                 return vertical ? a.x < b.x : a.y < b.y;
             });
 
-        pos_t node_idx = nodes.size();
-
-        nodes.emplace_back(node_t {
+        nodes[node_idx] = {
             .point = points[mid],
-            .min_weight = points[mid].weight });
+            .min_weight = points[mid].weight };
 
         node_t& node = nodes[node_idx];
         const pos_t left_child = node_idx + 1;
         const pos_t right_child = left_child + (end - beg) / 2;
         const bool has_left_child = end - beg > 1;
         const bool has_right_child = end - beg > 2;
-        build<!vertical>(points, beg, mid);
-        build<!vertical>(points, mid + 1, end);
+
+        if (level > 0) {
+            #pragma omp task
+            build<!vertical>(points, beg, mid, left_child, level - 1);
+            build<!vertical>(points, mid + 1, end, right_child, level - 1);
+            #pragma omp taskwait
+        } else {
+            build<!vertical>(points, beg, mid, left_child, level - 1);
+            build<!vertical>(points, mid + 1, end, right_child, level - 1);
+        }
 
         if (has_left_child) {
             node.min_weight = std::min(
@@ -99,17 +112,20 @@ public:
         const bool has_left_child = end - beg > 1;
         const bool has_right_child = end - beg > 2;
 
-        if (point.weight < weight && x1 <= point.x && point.x <= x2 && y1 <= point.y && point.y <= y2) {
+        if (point.weight < weight &&
+            x1 <= point.x && point.x <= x2 &&
+            y1 <= point.y && point.y <= y2
+        ) {
             return { point, true };
         }
 
         if (has_left_child && nodes[left_child].min_weight < weight &&
             ((vertical && x1 <= point.x) || (!vertical && y1 <= point.y))
         ) {
-            auto [point_left, lighter_left] = lighter_point_in_range<!vertical>(
+            auto [point_left, result] = lighter_point_in_range<!vertical>(
                 weight, left_child, right_child, x1, x2, y1, y2);
 
-            if (lighter_left) {
+            if (result) {
                 return { point_left, true };
             }
         }
@@ -117,10 +133,10 @@ public:
         if (has_right_child && nodes[right_child].min_weight < weight &&
             ((vertical && point.x <= x2) || (!vertical && point.y <= y2))
         ) {
-            auto [point_right, lighter_right] = lighter_point_in_range<!vertical>(
+            auto [point_right, result] = lighter_point_in_range<!vertical>(
                 weight, right_child, end, x1, x2, y1, y2);
 
-            if (lighter_right) {
+            if (result) {
                 return { point_right, true };
             }
         }
