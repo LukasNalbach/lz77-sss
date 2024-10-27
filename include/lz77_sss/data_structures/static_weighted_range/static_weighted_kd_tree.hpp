@@ -27,7 +27,7 @@ public:
     std::tuple<point_t, bool> lighter_point_in_range(
         pos_t weight, pos_t x1, pos_t x2, pos_t y1, pos_t y2) const override
     {
-        return lighter_point_in_range<true>(weight, 0, x1, x2, y1, y2);
+        return lighter_point_in_range<true>(weight, 0, size(), x1, x2, y1, y2);
     }
 
     inline pos_t size() const override
@@ -43,20 +43,15 @@ public:
 protected:
     struct __attribute__((packed)) node_t {
         point_t point;
-        pos_t left_child;
-        pos_t right_child;
         pos_t min_weight;
     };
 
     std::vector<node_t> nodes;
 
     template <bool vertical>
-    pos_t build(std::vector<point_t>& points, pos_t beg, pos_t end)
+    void build(std::vector<point_t>& points, pos_t beg, pos_t end)
     {
-        if (beg >= end) {
-            return points.size();
-        }
-
+        if (beg >= end) return;
         pos_t mid = beg + (end - beg) / 2;
 
         std::nth_element(points.begin() + beg, points.begin() + mid, points.begin() + end,
@@ -71,57 +66,59 @@ protected:
             .min_weight = points[mid].weight });
 
         node_t& node = nodes[node_idx];
-        node.left_child = build<!vertical>(points, beg, mid);
-        node.right_child = build<!vertical>(points, mid + 1, end);
+        const pos_t left_child = node_idx + 1;
+        const pos_t right_child = left_child + (end - beg) / 2;
+        const bool has_left_child = end - beg > 1;
+        const bool has_right_child = end - beg > 2;
+        build<!vertical>(points, beg, mid);
+        build<!vertical>(points, mid + 1, end);
 
-        if (node.left_child != points.size()) {
+        if (has_left_child) {
             node.min_weight = std::min(
                 node.min_weight,
-                nodes[node.left_child].min_weight);
+                nodes[left_child].min_weight);
         }
 
-        if (node.right_child != points.size()) {
+        if (has_right_child) {
             node.min_weight = std::min(
                 node.min_weight,
-                nodes[node.right_child].min_weight);
+                nodes[right_child].min_weight);
         }
-
-        return node_idx;
     }
 
 public:
     template <bool vertical>
     inline std::tuple<point_t, bool> lighter_point_in_range(
-        pos_t weight, pos_t node_idx,
+        pos_t weight, pos_t beg, pos_t end,
         pos_t x1, pos_t x2, pos_t y1, pos_t y2) const
     {
-        if (node_idx == nodes.size()) {
-            return { { 0, 0, 0 }, false };
-        }
-
-        const node_t& node = nodes[node_idx];
+        const node_t& node = nodes[beg];
         const point_t& point = node.point;
+        const pos_t left_child = beg + 1;
+        const pos_t right_child = left_child + (end - beg) / 2;
+        const bool has_left_child = end - beg > 1;
+        const bool has_right_child = end - beg > 2;
 
         if (point.weight < weight && x1 <= point.x && point.x <= x2 && y1 <= point.y && point.y <= y2) {
             return { point, true };
         }
 
-        if (((vertical && x1 <= point.x) || (!vertical && y1 <= point.y)) &&
-            node.left_child != nodes.size() && nodes[node.left_child].min_weight < weight
+        if (has_left_child && nodes[left_child].min_weight < weight &&
+            ((vertical && x1 <= point.x) || (!vertical && y1 <= point.y))
         ) {
             auto [point_left, lighter_left] = lighter_point_in_range<!vertical>(
-                weight, node.left_child, x1, x2, y1, y2);
+                weight, left_child, right_child, x1, x2, y1, y2);
 
             if (lighter_left) {
                 return { point_left, true };
             }
         }
 
-        if (((vertical && point.x <= x2) || (!vertical && point.y <= y2)) &&
-            node.right_child != nodes.size() && nodes[node.right_child].min_weight < weight
+        if (has_right_child && nodes[right_child].min_weight < weight &&
+            ((vertical && point.x <= x2) || (!vertical && point.y <= y2))
         ) {
             auto [point_right, lighter_right] = lighter_point_in_range<!vertical>(
-                weight, node.right_child, x1, x2, y1, y2);
+                weight, right_child, end, x1, x2, y1, y2);
 
             if (lighter_right) {
                 return { point_right, true };
