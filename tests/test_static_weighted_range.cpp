@@ -22,7 +22,8 @@ std::vector<point_t> input;
 std::vector<query> queries;
 
 template <typename range_ds_t>
-void test() {
+void test()
+{
     // choose a random input length
     input_size = input_size_distrib(gen);
     std::uniform_int_distribution<uint32_t> distrib(0, input_size - 1);
@@ -74,20 +75,20 @@ void test() {
         auto [p, result] = ds.lighter_point_in_range(
             q.weight, q.x1, q.x2, q.y1, q.y2);
         EXPECT_EQ(result, q.result);
-        EXPECT_TRUE(!result || (
-            p.weight < q.weight &&
+        EXPECT_TRUE(!result ||
+            (p.weight < q.weight &&
             q.x1 <= p.x && p.x <= q.x2 &&
-            q.y1 <= p.y && p.y <= q.y2
-        ));
+            q.y1 <= p.y && p.y <= q.y2));
     }
 
     queries.clear();
 }
 
-TEST(test_static_weighted_range, fuzzy_test) {
+TEST(test_static_weighted_range, fuzzy_test)
+{
     auto start_time = now();
 
-    while (time_diff_min(start_time,now()) < 60) {
+    while (time_diff_min(start_time, now()) < 60) {
         switch (std::rand() % 3) {
             case 0: test<static_weighted_kd_tree<>>(); break;
             case 1: test<static_weighted_square_grid<>>(); break;

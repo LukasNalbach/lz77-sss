@@ -6,10 +6,10 @@ template <typename pos_t>
 template <uint64_t tau>
 template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t>
 void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::
-extend_right_with_samples(
-    const sxa_interval_t& spa_iv,
-    pos_t i, pos_t j, pos_t e, sidx_t& x_c, factor& f
-) {
+    extend_right_with_samples(
+        const sxa_interval_t& spa_iv,
+        pos_t i, pos_t j, pos_t e, sidx_t& x_c, factor& f)
+{
     const rk61_substring& rks = idx_C.rabin_karp_substring();
     const std::vector<pos_t>& smpl_lens_right = idx_C.sampled_pattern_lengths_right();
     pos_t num_smpl_lens_right = idx_C.num_sampled_pattern_lengths_right();
@@ -17,22 +17,22 @@ extend_right_with_samples(
     pos_t lce_l = (j - i) + 1;
 
     int16_t x_min = bin_search_max_leq<pos_t, int16_t>(
-        lce_r_min, 0, num_smpl_lens_right - 1, [&](int16_t x){
+        lce_r_min, 0, num_smpl_lens_right - 1, [&](int16_t x) {
             return smpl_lens_right[x];
-    });
+        });
 
     int16_t x_max = bin_search_max_leq<pos_t, int16_t>(
-        e - j, x_min, num_smpl_lens_right - 1, [&](int16_t x){
+        e - j, x_min, num_smpl_lens_right - 1, [&](int16_t x) {
             return smpl_lens_right[x];
-    });
+        });
 
     sxa_interval_t ssa_iv;
-    sxa_interval_t ssa_iv_nxt;
+    sxa_interval_t ssa_iv_nxt { .b = 1, .e = 0 };
     pos_t lce_r = 0;
     pos_t lce_r_nxt = 0;
     uint64_t fp_right = 0;
-    
-    int16_t x_res = exp_search_max_geq<bool, int16_t, RIGHT>(true, x_min - 1, x_max, [&](int16_t x){
+
+    int16_t x_res = exp_search_max_geq<bool, int16_t, RIGHT>(true, x_min - 1, x_max, [&](int16_t x) {
         pos_t lce_r_tmp = smpl_lens_right[x];
         pos_t len_add = lce_r_tmp - lce_r;
         uint64_t fp_add = rks.substring(j + lce_r, len_add);
@@ -47,10 +47,10 @@ extend_right_with_samples(
                 return true;
             } else {
                 ssa_iv_nxt = ssa_iv_tmp;
-                lce_r_nxt = lce_r_tmp;
             }
         }
 
+        lce_r_nxt = lce_r_tmp;
         return false;
     });
 
@@ -59,15 +59,14 @@ extend_right_with_samples(
     }
 
     query_context_t qc_right = idx_C.query_right(ssa_iv, j, lce_r);
-    query_context_t qc_right_nxt = lce_r_nxt == 0 ? idx_C.query() :
-        idx_C.query_right(ssa_iv_nxt, j, lce_r_nxt);
+    query_context_t qc_right_nxt = ssa_iv_nxt.empty() ? idx_C.query() : idx_C.query_right(ssa_iv_nxt, j, lce_r_nxt);
     assert(x_res < 0 || qc_right.match_length() >= smpl_lens_right[x_res]);
     pos_t lce_r_max = lce_r_nxt == 0 ? e - j : (lce_r_nxt - 1);
 
-    auto fnc = [&](pos_t lce_r_tmp){
+    auto fnc = [&](pos_t lce_r_tmp) {
         query_context_t qc_right_tmp;
         bool result = true;
-        
+
         if (qc_right_nxt.match_length() == 0) {
             result = idx_C.extend_right(
                 qc_right, qc_right_tmp, j, lce_r_tmp, false);
@@ -78,8 +77,7 @@ extend_right_with_samples(
 
         if (result) {
             if (intersect(spa_iv, qc_right_tmp.interval(),
-                i, j, lce_l, lce_r_tmp, x_c, f)
-            ) {
+                    i, j, lce_l, lce_r_tmp, x_c, f)) {
                 qc_right = qc_right_tmp;
                 return true;
             } else {
@@ -90,7 +88,7 @@ extend_right_with_samples(
         return false;
     };
 
-    if (qc_right_nxt.match_length() == 0) {
+    if (lce_r_nxt == 0) {
         exp_search_max_geq<bool, pos_t, RIGHT>(true, lce_r, lce_r_max, fnc);
     } else {
         bin_search_max_geq<bool, pos_t>(true, lce_r, lce_r_max, fnc);
@@ -101,11 +99,12 @@ template <typename pos_t>
 template <uint64_t tau>
 template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t>
 void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::
-transform_to_exact_with_samples(output_it_t& output) {
+    transform_to_exact_with_samples(output_it_t& output)
+{
     if (log) {
         std::cout << "computing the exact factorization" << std::flush;
     }
-    
+
     const rk61_substring& rks = idx_C.rabin_karp_substring();
     const std::vector<pos_t>& smpl_lens_left = idx_C.sampled_pattern_lengths_left();
     std::vector<uint8_t> is_smpld_left(delta + 1, 0);
@@ -123,18 +122,17 @@ transform_to_exact_with_samples(output_it_t& output) {
         pos_t e = start_thr[i_p + 1];
 
         sidx_t x_c = bin_search_min_geq<pos_t, sidx_t>(
-            b, 0, c - 1, [&](sidx_t x) {return C[x];});
+            b, 0, c - 1, [&](sidx_t x) { return C[x]; });
         sidx_t x_r = 0;
         pos_t num_phr_thr = 0;
         std::ofstream fact_ofile;
-        if (p > 1) fact_ofile.open(
-            fact_file_name + "_" + std::to_string(i_p));
+        if (p > 1) fact_ofile.open(fact_file_name + "_" + std::to_string(i_p));
         std::ostream_iterator<factor> fact_it(fact_ofile);
 
         std::vector<uint64_t> fp_left(delta);
 
         for (pos_t i = b; i < e;) {
-            factor f {.src = char_to_uchar(T[i]), .len = 0};
+            factor f { .src = char_to_uchar(T[i]), .len = 0 };
             pos_t max_k = std::min<pos_t>(delta, e - i);
             fp_left[0] = char_to_uchar(T[i]);
 
@@ -186,7 +184,9 @@ transform_to_exact_with_samples(output_it_t& output) {
         }
 
         #pragma omp critical
-        {num_phr += num_phr_thr;}
+        {
+            num_phr += num_phr_thr;
+        }
     }
 
     if (p > 1) {

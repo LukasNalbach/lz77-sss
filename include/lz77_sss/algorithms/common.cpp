@@ -4,7 +4,8 @@
 
 template <typename pos_t>
 template <std::input_iterator fact_it_t>
-std::string lz77_sss<pos_t>::decode(fact_it_t fact_it, pos_t output_size) {
+std::string lz77_sss<pos_t>::decode(fact_it_t fact_it, pos_t output_size)
+{
     std::string output;
     output.reserve(output_size);
     factor f;
@@ -30,7 +31,8 @@ std::string lz77_sss<pos_t>::decode(fact_it_t fact_it, pos_t output_size) {
 
 template <typename pos_t>
 template <uint64_t tau>
-void lz77_sss<pos_t>::factorizer<tau>::build_lce() {
+void lz77_sss<pos_t>::factorizer<tau>::build_lce()
+{
     if (log) {
         std::cout << "building LCE data structure" << std::flush;
     }
@@ -42,12 +44,13 @@ void lz77_sss<pos_t>::factorizer<tau>::build_lce() {
     uint64_t bytes_lce = malloc_count_current() - alloc_before - bytes_ssa;
 
     if (log) {
+        std::string phase = LPF[0].empty() ? "lce_t" : "lce_rev_t";
+        log_phase(phase, time_diff_ns(time, now()));
         std::cout << " (" << format_size(bytes_lce) << ")";
         time = log_runtime(time);
         std::cout << "tau = " << tau;
         std::cout << ", SSA size: " << format_size(bytes_ssa) << std::endl;
-        std::cout << "peak memory consumption: " << format_size(
-            malloc_count_peak() - baseline_memory_alloc) << std::endl;
-        std::cout << "input size / SSS size = " << n / (double) size_sss << std::endl;
+        std::cout << "peak memory consumption: " << format_size(malloc_count_peak() - baseline_memory_alloc) << std::endl;
+        std::cout << "input size / SSS size = " << n / (double)size_sss << std::endl;
     }
 }

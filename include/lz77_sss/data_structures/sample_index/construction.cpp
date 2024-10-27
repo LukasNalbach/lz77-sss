@@ -3,7 +3,8 @@
 #include <lz77_sss/data_structures/sample_index/sample_index.hpp>
 
 template <typename pos_t, typename sidx_t, typename lce_r_t>
-void sample_index<pos_t, sidx_t, lce_r_t>::build_sxa12_intervals(uint16_t p, bool log) {
+void sample_index<pos_t, sidx_t, lce_r_t>::build_sxa12_intervals(uint16_t p, bool log)
+{
     auto time = now();
 
     if (log) {
@@ -13,18 +14,18 @@ void sample_index<pos_t, sidx_t, lce_r_t>::build_sxa12_intervals(uint16_t p, boo
     #pragma omp parallel for num_threads(p)
     for (uint16_t c = 0; c < 256; c++) {
         SCIV[c].b = bin_search_min_geq<bool, sidx_t>(
-            true, 0, s, [&](sidx_t i){
+            true, 0, s, [&](sidx_t i) {
                 return i == s || char_to_uchar(T[S[SSA[i]]]) >= c;
-        });
+            });
 
         if (SCIV[c].b == s || char_to_uchar(T[S[SSA[SCIV[c].b]]]) != c) {
             SCIV[c].b = no_occ;
             SCIV[c].e = no_occ;
         } else {
             SCIV[c].e = bin_search_max_lt<bool, sidx_t>(
-                true, SCIV[c].b, s - 1, [&](sidx_t i){
+                true, SCIV[c].b, s - 1, [&](sidx_t i) {
                     return char_to_uchar(T[S[SSA[i]]]) > c;
-            });
+                });
         }
     }
 
@@ -41,33 +42,33 @@ void sample_index<pos_t, sidx_t, lce_r_t>::build_sxa12_intervals(uint16_t p, boo
                 SXIV2[RIGHT][c_r].e = no_occ;
             } else {
                 SXIV2[LEFT][c_l].b = bin_search_min_geq<bool, sidx_t>(
-                    true, SCIV[c1].b, SCIV[c1].e + 1, [&](sidx_t i){
+                    true, SCIV[c1].b, SCIV[c1].e + 1, [&](sidx_t i) {
                         return i == SCIV[c1].e + 1 || (S[SPA[i]] != 0 && char_to_uchar(T[S[SPA[i]] - 1]) >= c2);
-                });
+                    });
 
                 if (SXIV2[LEFT][c_l].b == SCIV[c1].e + 1 || char_to_uchar(T[S[SPA[SXIV2[LEFT][c_l].b]] - 1]) != c2) {
                     SXIV2[LEFT][c_l].b = no_occ;
                     SXIV2[LEFT][c_l].e = no_occ;
                 } else {
                     SXIV2[LEFT][c_l].e = bin_search_max_lt<bool, sidx_t>(
-                        true, SXIV2[LEFT][c_l].b, SCIV[c1].e, [&](sidx_t i){
+                        true, SXIV2[LEFT][c_l].b, SCIV[c1].e, [&](sidx_t i) {
                             return S[SPA[i]] != 0 && char_to_uchar(T[S[SPA[i]] - 1]) > c2;
-                    });
+                        });
                 }
 
                 SXIV2[RIGHT][c_r].b = bin_search_min_geq<bool, sidx_t>(
-                    true, SCIV[c1].b, SCIV[c1].e + 1, [&](sidx_t i){
+                    true, SCIV[c1].b, SCIV[c1].e + 1, [&](sidx_t i) {
                         return i == SCIV[c1].e + 1 || (S[SSA[i]] != n - 1 && char_to_uchar(T[S[SSA[i]] + 1]) >= c2);
-                });
+                    });
 
                 if (SXIV2[RIGHT][c_r].b == SCIV[c1].e + 1 || char_to_uchar(T[S[SSA[SXIV2[RIGHT][c_r].b]] + 1]) != c2) {
                     SXIV2[RIGHT][c_r].b = no_occ;
                     SXIV2[RIGHT][c_r].e = no_occ;
                 } else {
                     SXIV2[RIGHT][c_r].e = bin_search_max_lt<bool, sidx_t>(
-                        true, SXIV2[RIGHT][c_r].b, SCIV[c1].e, [&](sidx_t i){
+                        true, SXIV2[RIGHT][c_r].b, SCIV[c1].e, [&](sidx_t i) {
                             return S[SSA[i]] != n - 1 && char_to_uchar(T[S[SSA[i]] + 1]) > c2;
-                    });
+                        });
                 }
             }
         }
@@ -80,7 +81,8 @@ void sample_index<pos_t, sidx_t, lce_r_t>::build_sxa12_intervals(uint16_t p, boo
 
 template <typename pos_t, typename sidx_t, typename lce_r_t>
 template <direction dir>
-void sample_index<pos_t, sidx_t, lce_r_t>::build_samples(pos_t typ_lce_r, uint16_t p, bool log) {
+void sample_index<pos_t, sidx_t, lce_r_t>::build_samples(pos_t typ_lce_r, uint16_t p, bool log)
+{
     auto time = now();
 
     if (log) {
@@ -97,8 +99,7 @@ void sample_index<pos_t, sidx_t, lce_r_t>::build_samples(pos_t typ_lce_r, uint16
         SLCX[i] = lce<dir>(
             S[SXA<dir>(i - 1)],
             S[SXA<dir>(i)],
-            max_lce_l
-        );
+            max_lce_l);
     }
 
     if (log) {
@@ -115,7 +116,7 @@ void sample_index<pos_t, sidx_t, lce_r_t>::build_samples(pos_t typ_lce_r, uint16
     }
 
     sidx_t slcx_rng_min = bin_search_min_geq<pos_t, sidx_t>(
-        3, 0, s - 1, [&](sidx_t i){return SLCX_sorted[i];});
+        3, 0, s - 1, [&](sidx_t i) { return SLCX_sorted[i]; });
 
     if (typ_lce_r == std::numeric_limits<pos_t>::max()) {
         typ_lce_r = SLCX_sorted[s - 1];
@@ -126,33 +127,35 @@ void sample_index<pos_t, sidx_t, lce_r_t>::build_samples(pos_t typ_lce_r, uint16
         dir == LEFT ? max_lce_l : typ_lce_r);
 
     sidx_t slcx_rng_max = bin_search_min_geq<pos_t, sidx_t>(
-        max_sampled_len, 0, s - 1, [&](sidx_t i){return SLCX_sorted[i];});
+        max_sampled_len, 0, s - 1, [&](sidx_t i) { return SLCX_sorted[i]; });
 
     double max_num_samples = 2.0 * s;
     double slcx_rng = slcx_rng_max - slcx_rng_min;
-    smpl_pat_lens[dir] = {1, 2};
+    smpl_pat_lens[dir] = { 1, 2 };
     SXIVX<dir>().resize(2);
-    if (slcx_rng_min >= slcx_rng_max) return;
-    int16_t num_pat_lens = 2 + std::floor((2.0 * max_num_samples) / double{slcx_rng_min + slcx_rng_max});
+    if (slcx_rng_min >= slcx_rng_max)
+        return;
+    int16_t num_pat_lens = 2 + std::floor((2.0 * max_num_samples) / double { slcx_rng_min + slcx_rng_max });
     std::vector<sidx_t> pat_len_rank(num_pat_lens, 0);
 
     for (int16_t i = 2; i < num_pat_lens; i++) {
-        double rel_slcx_rnk = (double{i} + 1.0) / double{num_pat_lens};
+        double rel_slcx_rnk = (double { i } + 1.0) / double { num_pat_lens };
         pos_t slcx_rnk = slcx_rng_min + rel_slcx_rnk * slcx_rng;
         pos_t len = SLCX_sorted[slcx_rnk] - 1;
-        while (len <= smpl_pat_lens[dir].back()) len++;
-        if (len > max_sampled_len) break;
+        while (len <= smpl_pat_lens[dir].back())
+            len++;
+        if (len > max_sampled_len)
+            break;
 
         smpl_pat_lens[dir].emplace_back(len);
         slcx_rnk = bin_search_min_geq<pos_t, sidx_t>(
-            len, 0, s - 1, [&](sidx_t i){
+            len, 0, s - 1, [&](sidx_t i) {
                 return SLCX_sorted[i];
-        });
+            });
 
         SXIVX<dir>().emplace_back(sxivx_map_t<dir>(0,
             sxivx_hash<dir>(this, len),
-            sxivx_eq<dir>(this, len)
-        ));
+            sxivx_eq<dir>(this, len)));
 
         pat_len_rank[i] = slcx_rnk;
     }
@@ -177,7 +180,7 @@ void sample_index<pos_t, sidx_t, lce_r_t>::build_samples(pos_t typ_lce_r, uint16
     {
         std::array<sidx_t, (1 << 16) + 1> C2;
         C2[0] = 0;
-        
+
         for (uint32_t c = 0; c < (1 << 16); c++) {
             if (SXIV2[dir][c].b == no_occ) {
                 C2[c + 1] = C2[c];
@@ -188,11 +191,11 @@ void sample_index<pos_t, sidx_t, lce_r_t>::build_samples(pos_t typ_lce_r, uint16
 
         for (uint16_t i_p = 1; i_p < p; i_p++) {
             uint16_t c = bin_search_min_geq<sidx_t, uint16_t>(
-                i_p * (s / p), 0, (1 << 16) - 1, [&](uint16_t c){return C2[c];});
+                i_p * (s / p), 0, (1 << 16) - 1, [&](uint16_t c) { return C2[c]; });
             s_p[i_p] = C2[c];
         }
     }
-    
+
     struct __attribute__((packed)) sxa_iv_fp_t {
         sxa_interval_t iv;
         uint64_t fp;
@@ -224,7 +227,7 @@ void sample_index<pos_t, sidx_t, lce_r_t>::build_samples(pos_t typ_lce_r, uint16
             SXIVX_vec[j][i_p].reserve(sxivx_sizes[j]);
         }
     }
-    
+
     #pragma omp parallel num_threads(p)
     {
         uint16_t i_p = omp_get_thread_num();
@@ -238,14 +241,14 @@ void sample_index<pos_t, sidx_t, lce_r_t>::build_samples(pos_t typ_lce_r, uint16
 
             for (int16_t j = num_pat_lens - 1; j >= 2; j--) {
                 pos_t len = smpl_pat_lens[dir][j];
-                if (lcx >= len) break;
+                if (lcx >= len)
+                    break;
                 pos_t pos_im1 = S[SXA<dir>(i - 1)];
 
                 if (is_pos_in_T<dir>(pos_im1, len - 1)) {
                     SXIVX_vec[j][i_p].emplace_back(sxa_iv_fp_t {
-                        .iv = {.b = sxiv_b[j], .e = i - 1},
-                        .fp = rks.substring<dir>(pos_im1, len)
-                    });
+                        .iv = { .b = sxiv_b[j], .e = i - 1 },
+                        .fp = rks.substring<dir>(pos_im1, len) });
                 }
 
                 sxiv_b[j] = i;
@@ -260,9 +263,9 @@ void sample_index<pos_t, sidx_t, lce_r_t>::build_samples(pos_t typ_lce_r, uint16
         for (std::vector<sxa_iv_fp_t>& vec : SXIVX_vec[j]) {
             for (sxa_iv_fp_t& val : vec) {
                 SXIVX<dir>()[j].emplace_with_hash(val.fp,
-                    sxa_interval_t {.b = val.iv.b, .e = val.iv.e});
+                    sxa_interval_t { .b = val.iv.b, .e = val.iv.e });
             }
-            
+
             vec.clear();
             vec.shrink_to_fit();
         }
@@ -276,7 +279,8 @@ void sample_index<pos_t, sidx_t, lce_r_t>::build_samples(pos_t typ_lce_r, uint16
 
         for (int16_t j = num_pat_lens - 1; j >= 2; j--) {
             pos_t len = smpl_pat_lens[dir][j];
-            if (lcx >= len) break;
+            if (lcx >= len)
+                break;
             pos_t pos_im1 = S[SXA<dir>(i - 1)];
 
             if (is_pos_in_T<dir>(pos_im1, len - 1)) {
@@ -285,7 +289,7 @@ void sample_index<pos_t, sidx_t, lce_r_t>::build_samples(pos_t typ_lce_r, uint16
                 assert(it->b == sxiv_b[j]);
                 assert(it->e == i - 1);
             }
-            
+
             sxiv_b[j] = i;
         }
 
@@ -311,6 +315,8 @@ void sample_index<pos_t, sidx_t, lce_r_t>::build_samples(pos_t typ_lce_r, uint16
     #endif
 
     if (log) {
+        std::string phase = dir == LEFT ? "build_spa_samples" : "build_ssa_samples";
+        log_phase(phase, time_diff_ns(time, now()));
         std::cout << " (" << format_size(malloc_count_current() - baseline) << ")";
         time = log_runtime(time);
     }

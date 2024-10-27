@@ -1,14 +1,14 @@
 #pragma once
 
-#include <cstdint>
 #include <algorithm>
+#include <cstdint>
 #include <lz77_sss/misc/utils.hpp>
 
 template <typename pos_t>
 pos_t lce_l_128(
     const char* T, pos_t i, pos_t j,
-    pos_t lce_max = std::numeric_limits<pos_t>::max()
-) {
+    pos_t lce_max = std::numeric_limits<pos_t>::max())
+{
     pos_t min_ij_p1 = std::min<pos_t>(i, j) + 1;
     lce_max = std::min<pos_t>(lce_max, min_ij_p1);
 
@@ -37,11 +37,11 @@ pos_t lce_l_128(
 
     pos_t min__ = i - (lce_max - 1);
     pos_t i__ = reinterpret_cast<const char*>(i_ + 1) - T;
-    
+
     if (i__ <= min__) [[unlikely]] {
         return lce_max;
     }
-    
+
     i__--;
     pos_t j__ = reinterpret_cast<const char*>(j_ + 1) - 1 - T;
 
@@ -53,6 +53,6 @@ pos_t lce_l_128(
         i__--;
         j__--;
     }
-    
+
     return i - i__;
 }

@@ -2,11 +2,12 @@
 
 std::string text_name;
 std::string result_file_path;
+std::ofstream result_file;
 #define LZ77_SSS_BENCH 1
 
-#include <lz77_sss/lz77_sss.hpp>
-#include <lz77/lpf_factorizer.hpp>
 #include <lz77/gzip9_factorizer.hpp>
+#include <lz77/lpf_factorizer.hpp>
+#include <lz77_sss/lz77_sss.hpp>
 
 uint16_t max_threads = 0;
 std::string T;
@@ -14,8 +15,9 @@ uint64_t n;
 
 template <
     factorize_mode fact_mode,
-    phrase_mode phr_mode
-> void run_sss_approximate(std::string file_name, uint16_t max_threads) {
+    phrase_mode phr_mode>
+void run_sss_approximate(std::string file_name, uint16_t max_threads)
+{
 
     for (uint16_t num_threads = 1; num_threads <= max_threads; num_threads *= 2) {
         std::ofstream fact_sss_file(file_name);
@@ -23,11 +25,11 @@ template <
         if (n <= std::numeric_limits<uint32_t>::max()) {
             lz77_sss<uint32_t>::factorize_approximate<
                 fact_mode, phr_mode>(T, fact_sss_file,
-                {.num_threads = num_threads, .log = true});
+                { .num_threads = num_threads, .log = true });
         } else {
             lz77_sss<uint64_t>::factorize_approximate<
                 fact_mode, phr_mode>(T, fact_sss_file,
-                {.num_threads = num_threads, .log = true});
+                { .num_threads = num_threads, .log = true });
         }
     }
 }
@@ -36,9 +38,9 @@ template <
     factorize_mode fact_mode,
     phrase_mode phr_mode,
     transform_mode transf_mode,
-    template <typename> typename range_ds_t
->
-void run_sss_exact(std::string file_name, uint16_t max_threads) {
+    template <typename> typename range_ds_t>
+void run_sss_exact(std::string file_name, uint16_t max_threads)
+{
 
     for (uint16_t num_threads = 1; num_threads <= max_threads; num_threads *= 2) {
         std::ofstream fact_sss_file(file_name);
@@ -46,32 +48,27 @@ void run_sss_exact(std::string file_name, uint16_t max_threads) {
         if (n <= std::numeric_limits<uint32_t>::max()) {
             lz77_sss<uint32_t>::factorize_exact<
                 fact_mode, phr_mode, transf_mode, range_ds_t>(
-                T, fact_sss_file, {.num_threads = num_threads, .log = true});
+                T, fact_sss_file, { .num_threads = num_threads, .log = true });
         } else {
             lz77_sss<uint64_t>::factorize_exact<
                 fact_mode, phr_mode, transf_mode, range_ds_t>(
-                T, fact_sss_file, {.num_threads = num_threads, .log = true});
+                T, fact_sss_file, { .num_threads = num_threads, .log = true });
         }
     }
 }
 
 void log_algorithm(
     std::string alg_name, uint64_t time,
-    uint64_t mem_peak, uint64_t num_factors
-) {
-    double comp_ratio = n / (double) num_factors;
+    uint64_t mem_peak, uint64_t num_factors)
+{
+    double comp_ratio = n / (double)num_factors;
 
     std::cout << ", in ~ " << format_time(time) << std::endl;
-    std::cout << "throughput: "
-        << format_throughput(n, time) << std::endl;
-    std::cout << "peak memory consumption: "
-        << format_size(mem_peak) << std::endl;
+    std::cout << "throughput: " << format_throughput(n, time) << std::endl;
+    std::cout << "peak memory consumption: " << format_size(mem_peak) << std::endl;
     std::cout << "compression ratio: " << comp_ratio << std::endl;
 
     if (result_file_path != "") {
-        std::ofstream result_file(
-            result_file_path, std::ofstream::app);
-
         result_file << "RESULT"
             << " text_name=" << text_name
             << " n=" << n
@@ -84,18 +81,19 @@ void log_algorithm(
     }
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv)
+{
     if (!(2 <= argc && argc <= 4)) {
-        std::cout << "usage: lz77_sss_bench <file> <max_threads> <result_file>";
-        std::cout << "       the last two parameters are optional";
+        std::cout << "usage: lz77_sss_bench <file> <max_threads> <result_file>" << std::endl;
+        std::cout << "       the last two parameters are optional" << std::endl;
         exit(-1);
     }
 
     std::string file_path = argv[1];
     std::ifstream input_file(file_path);
-    
+
     if (!input_file.good()) {
-        std::cout << "error: could not read <file>";
+        std::cout << "error: could not read <file>" << std::endl;
         exit(-1);
     }
 
@@ -103,7 +101,7 @@ int main(int argc, char** argv) {
         max_threads = atoi(argv[2]);
 
         if (max_threads == 0 || max_threads > omp_get_max_threads()) {
-            std::cout << "error: invalid number of threads";
+            std::cout << "error: invalid number of threads" << std::endl;
             exit(-1);
         }
     }
@@ -112,6 +110,7 @@ int main(int argc, char** argv) {
         text_name = file_path.substr(
             file_path.find_last_of("/\\") + 1);
         result_file_path = argv[3];
+        result_file.open(result_file_path, std::ofstream::app);
     }
 
     input_file.seekg(0, std::ios::end);
@@ -129,27 +128,30 @@ int main(int argc, char** argv) {
     std::filesystem::remove("fact_sss_aprx");
 
     std::cout << std::endl << "running LZ77 SSS 3-approximation:" << std::endl;
-    run_sss_approximate<greedy, lpf_all_external>("fact_sss_aprx", max_threads);
+    run_sss_approximate<greedy, lpf_opt>("fact_sss_aprx", max_threads);
+    std::filesystem::remove("fact_sss_aprx");
+    
+    std::cout << std::endl << "running naive LZ77 SSS 1.5-approximation:" << std::endl;
+    run_sss_approximate<greedy, lpf_lnf_naive>("fact_sss_aprx", max_threads);
     std::filesystem::remove("fact_sss_aprx");
     
     std::cout << std::endl << "running LZ77 SSS 1.5-approximation:" << std::endl;
-    run_sss_approximate<greedy, lpf_lnf_all>("fact_sss_aprx", max_threads);
+    run_sss_approximate<greedy, lpf_lnf_opt>("fact_sss_aprx", max_threads);
     std::filesystem::remove("fact_sss_aprx");
     
     std::cout << std::endl << "running naive LZ77 SSS exact algorithm:" << std::endl;
-    run_sss_exact<greedy, lpf_all_external, naive,
+    run_sss_exact<greedy, lpf_opt, naive,
         static_weighted_square_grid>("fact_sss_exact", 1);
     std::filesystem::remove("fact_sss_exact");
     
     std::cout << std::endl << "running LZ77 SSS exact algorithm (with samples):" << std::endl;
-    run_sss_exact<greedy, lpf_all_external, with_samples,
-        decomposed_static_weighted_square_grid>("fact_sss_exact", max_threads);
+    run_sss_exact<greedy, lpf_opt, with_samples,
+        decomposed_static_weighted_kd_tree>("fact_sss_exact", max_threads);
     std::filesystem::remove("fact_sss_exact");
 
     std::cout << std::endl << "running LZ77 SSS exact algorithm (without samples):" << std::endl;
-    std::cout << std::endl << "range data structure: decomposed static weighted square grid" << std::endl;
-    run_sss_exact<greedy, lpf_all_external, without_samples,
-        decomposed_static_weighted_square_grid>("fact_sss_exact", max_threads);
+    run_sss_exact<greedy, lpf_opt, without_samples,
+        decomposed_static_weighted_kd_tree>("fact_sss_exact", max_threads);
     std::filesystem::remove("fact_sss_exact");
 
     std::cout << std::endl << "running LZ77 LPF algorithm" << std::flush;

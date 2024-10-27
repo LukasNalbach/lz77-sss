@@ -23,7 +23,8 @@ std::vector<query> queries;
 uint32_t num_queries;
 
 template <typename range_ds_t>
-void test() {
+void test()
+{
     // choose a random input length
     input_size = input_size_distrib(gen);
 
@@ -33,17 +34,17 @@ void test() {
 
     // generate a random set of input points
     for (uint32_t i = 0; i < input_size; i++) {
-        input.emplace_back(point_t{
+        input.emplace_back(point_t {
             .x = pos_distrib(gen),
-            .y = pos_distrib(gen)
-        });
+            .y = pos_distrib(gen) });
     }
 
     // remove duplicate points
     input.erase(std::unique(input.begin(), input.end(),
-        [](point_t& p1, point_t& p2){
+        [](point_t& p1, point_t& p2) {
             return p1.x == p2.x && p1.y == p2.y;
-    }), input.end());
+        }),
+        input.end());
 
     // generate random queries
     std::vector<query> queries;
@@ -63,8 +64,7 @@ void test() {
         for (uint32_t j = 0; j < i; j++) {
             const point_t& p = input[j];
             if (q.x1 <= p.x && p.x <= q.x2 &&
-                q.y1 <= p.y && p.y <= q.y2
-            ) {
+                q.y1 <= p.y && p.y <= q.y2) {
                 q.result = true;
                 break;
             }
@@ -82,10 +82,9 @@ void test() {
         auto [p, result] = ds.point_in_range(
             q.x1, q.x2, q.y1, q.y2);
         EXPECT_EQ(result, q.result);
-        EXPECT_TRUE(!result || (
-            q.x1 <= p.x && p.x <= q.x2 &&
-            q.y1 <= p.y && p.y <= q.y2
-        ));
+        EXPECT_TRUE(!result ||
+            (q.x1 <= p.x && p.x <= q.x2 &&
+            q.y1 <= p.y && p.y <= q.y2));
         ds.insert(input[i]);
     }
 
@@ -93,10 +92,11 @@ void test() {
     queries.clear();
 }
 
-TEST(test_static_weighted_range, fuzzy_test) {
+TEST(test_static_weighted_range, fuzzy_test)
+{
     auto start_time = now();
 
-    while (time_diff_min(start_time,now()) < 60) {
+    while (time_diff_min(start_time, now()) < 60) {
         switch (std::rand() % 2) {
             case 0: test<dynamic_square_grid<>>(); break;
             case 1: test<semi_dynamic_square_grid<>>(); break;

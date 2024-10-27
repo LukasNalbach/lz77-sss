@@ -11,13 +11,15 @@ std::string text_name;
 uint16_t min_threads;
 uint16_t max_threads;
 
-void help(std::string message) {
+void help(std::string message)
+{
     if (message != "") std::cout << message << std::endl;
     std::cout << "usage: zip-bench <input_file> <min_threads> <max_threads>" << std::endl;
     exit(-1);
 }
 
-uint64_t peak_memory_usage() {
+uint64_t peak_memory_usage()
+{
     std::ifstream log_file(log_file_path);
     std::string log_file_str;
     uint64_t log_file_length = std::filesystem::file_size(log_file_path);
@@ -31,7 +33,8 @@ uint64_t peak_memory_usage() {
     return atol(log_file_str.substr(beg, len).c_str());
 }
 
-void bench(std::string encoder, bool use_multiple_threads) {
+void bench(std::string encoder, bool use_multiple_threads)
+{
     uint32_t min_threads_local = use_multiple_threads ? min_threads : 1;
     uint32_t max_threads_local = use_multiple_threads ? max_threads : 1;
 
@@ -42,8 +45,9 @@ void bench(std::string encoder, bool use_multiple_threads) {
         std::string cpu_list;
         for (uint32_t i = 0; i < num_threads; i++)
             if (num_threads == omp_get_max_threads())
-                 cpu_list += std::to_string(    i) + ",";
-            else cpu_list += std::to_string(2 * i) + ",";
+                cpu_list += std::to_string(i) + ",";
+            else
+                cpu_list += std::to_string(2 * i) + ",";
         cpu_list.resize(cpu_list.length() - 1);
         std::string cmd = "(/usr/bin/time -v taskset -c " + cpu_list + " " + encoder +
             (encoder == "7z" ? (
@@ -62,7 +66,7 @@ void bench(std::string encoder, bool use_multiple_threads) {
         uint64_t memory_peak_compress = peak_memory_usage() * 1000;
         uint64_t time_compress = time_diff_ns(t1, t2);
         uint64_t bytes_compressed = std::filesystem::file_size(output_file_path);
-        double compression_ratio = bytes_input / (double) bytes_compressed;
+        double compression_ratio = bytes_input / (double)bytes_compressed;
         std::cout << std::endl;
         std::cout << "time: " << format_time(time_compress) << std::endl;
         std::cout << "throughput: " << format_throughput(bytes_input, time_compress) << std::endl;
@@ -72,8 +76,7 @@ void bench(std::string encoder, bool use_multiple_threads) {
         std::cout << std::endl;
 
         if (result_file_path != "") {
-            std::ofstream result_file(
-                result_file_path, std::ofstream::app);
+            std::ofstream result_file(result_file_path, std::ofstream::app);
 
             result_file << "RESULT"
                 << " text_name=" << text_name
@@ -110,9 +113,8 @@ void bench(std::string encoder, bool use_multiple_threads) {
         std::cout << std::endl;
 
         if (result_file_path != "") {
-            std::ofstream result_file(
-                result_file_path, std::ofstream::app);
-
+            std::ofstream result_file(result_file_path, std::ofstream::app);
+            
             result_file << "RESULT"
                 << " text_name=" << text_name
                 << " type=decompress"
@@ -128,28 +130,28 @@ void bench(std::string encoder, bool use_multiple_threads) {
     }
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv)
+{
     if (!(4 <= argc && argc <= 5))
         help("error: invalid number of parameters");
 
     input_file_path = argv[1];
     input_file.open(input_file_path);
-    
-    if (!input_file.good()) 
+
+    if (!input_file.good())
         help("error: could not read <file>");
 
     min_threads = atoi(argv[2]);
     max_threads = atoi(argv[3]);
-    
+
     if (min_threads == 0 || max_threads == 0 ||
         min_threads > max_threads ||
         max_threads > omp_get_max_threads()
     ) help("error: invalid number of threads");
 
-    if (argc == 5) {
+    if (argc == 5)
         result_file_path = argv[4];
-    }
-    
+
     bytes_input = std::filesystem::file_size(input_file_path);
     std::cout << "input_file size: " << format_size(bytes_input) << std::endl;
     text_name = input_file_path.substr(input_file_path.find_last_of("/\\") + 1);

@@ -8,15 +8,15 @@ template <typename lpf_it_t>
 void lz77_sss<pos_t>::factorizer<tau>::factorize_greedy(
     output_it_t& output,
     std::function<lpf_it_t()>& lpf_beg,
-    std::function<lpf(lpf_it_t&)>& next_lpf
-) {
+    std::function<lpf(lpf_it_t&)>& next_lpf)
+{
     if (log) {
         std::cout << "factorizing" << std::flush;
     }
-    
+
     lpf_it_t lpf_it = lpf_beg();
     lpf p = next_lpf(lpf_it);
-    
+
     for (pos_t i = 0; true;) {
         pos_t gap_end = p.beg;
 
@@ -55,9 +55,7 @@ void lz77_sss<pos_t>::factorizer<tau>::factorize_greedy(
                 #ifndef NDEBUG
                 pos_t i_ = i - std::max<pos_t>(1, f.len);
 
-                assert(f.len == 0 ?
-                    f.src == char_to_uchar(T[i_]) :
-                    f.src < i_);
+                assert(f.len == 0 ? f.src == char_to_uchar(T[i_]) : f.src < i_);
 
                 for (pos_t j = 0; j < f.len; j++) {
                     assert(T[i_ + j] == T[f.src + j]);
@@ -83,7 +81,7 @@ void lz77_sss<pos_t>::factorizer<tau>::factorize_greedy(
             .src = p.src + exc,
             .len = (p.end - p.beg) - exc
         };
-        
+
         if (gap_idx.pos() == i) {
             factor f = longest_prev_occ(i);
 
@@ -110,6 +108,7 @@ void lz77_sss<pos_t>::factorizer<tau>::factorize_greedy(
     }
 
     if (log) {
+        log_phase("factorize", time_diff_ns(time, now()));
         time = log_runtime(time);
     }
 }

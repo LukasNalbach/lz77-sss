@@ -28,7 +28,6 @@ add_subdirectory("${CMAKE_SOURCE_DIR}/external/lz77/")
 add_subdirectory("${CMAKE_SOURCE_DIR}/external/alx/")
 add_subdirectory("${CMAKE_SOURCE_DIR}/external/fp/")
 add_subdirectory("${CMAKE_SOURCE_DIR}/external/sparse-map/")
-add_subdirectory("${CMAKE_SOURCE_DIR}/external/gtl/")
 
 set_target_properties(
   ips4o_example benchmark_lce benchmark_pred benchmark_ss
@@ -37,17 +36,22 @@ set_target_properties(
   PROPERTIES EXCLUDE_FROM_ALL 1 EXCLUDE_FROM_DEFAULT_BUILD 1
 )
 
-# lz77_sss
 add_library(lz77_sss INTERFACE)
 target_include_directories(lz77_sss INTERFACE "${CMAKE_SOURCE_DIR}/include/")
 target_link_libraries(lz77_sss INTERFACE
   malloc_count alx_rolling_hash alx_lce
-  lz77 fp sparse_map gtl OpenMP::OpenMP_CXX
+  lz77 fp sparse_map OpenMP::OpenMP_CXX
 )
 
 if(LZ77_SSS_BUILD_CLI)
   add_executable(ssszip "${CMAKE_SOURCE_DIR}/cli/ssszip.cpp")
   target_link_libraries(ssszip PRIVATE lz77_sss)
+
+  add_executable(gen_range_queries "${CMAKE_SOURCE_DIR}/cli/gen_range_queries.cpp")
+  target_link_libraries(gen_range_queries PRIVATE lz77_sss)
+
+  add_executable(bench_range_queries "${CMAKE_SOURCE_DIR}/cli/bench_range_queries.cpp")
+  target_link_libraries(bench_range_queries PRIVATE lz77_sss)
 
   add_executable(zip-bench "${CMAKE_SOURCE_DIR}/cli/zip-bench.cpp")
   target_link_libraries(zip-bench PRIVATE lz77_sss)

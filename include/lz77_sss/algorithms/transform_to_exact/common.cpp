@@ -5,7 +5,8 @@
 template <typename pos_t>
 template <uint64_t tau>
 template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t>
-void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::build_c(std::istream_iterator<factor>& ifile_approx_it) {
+void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::build_c(std::istream_iterator<factor>& ifile_approx_it)
+{
     if (log) {
         std::cout << "setting delta = " << delta << std::endl;
         std::cout << "building C" << std::flush;
@@ -23,8 +24,7 @@ void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, ran
     pos_t end_nxt;
 
     for (pos_t i = 1; i < num_phr; i++) {
-        end_nxt = end_lst + std::max<pos_t>(1,
-            ifile_approx_it++->len);
+        end_nxt = end_lst + std::max<pos_t>(1, ifile_approx_it++->len);
 
         while (end_nxt - end_lst > delta) {
             end_lst += delta;
@@ -37,8 +37,7 @@ void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, ran
         if (phr >= phr_nxt) {
             start_thr[i_p] = end_nxt;
             i_p++;
-            phr_nxt = i_p == p ? num_phr
-              : (i_p * (num_phr / p));
+            phr_nxt = i_p == p ? num_phr : (i_p * (num_phr / p));
         }
 
         phr++;
@@ -48,22 +47,24 @@ void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, ran
     c = C.size();
 
     if (log) {
+        log_phase("sample_set", time_diff_ns(time, now()));
         std::cout << " (" << format_size(c * sizeof(pos_t)) << ")";
         time = log_runtime(time);
-        std::cout << "c / num. of phrases = " << c / (double) num_phr << std::endl;
+        std::cout << "c / num. of phrases = " << c / (double)num_phr << std::endl;
     }
 }
 
 template <typename pos_t>
 template <uint64_t tau>
 template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t>
-void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::build_idx_C() {
+void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::build_idx_C()
+{
     if (log) {
         std::cout << "building sample-index for C:" << std::endl;
     }
 
-    double aprx_comp_ratio = n / (double) num_phr;
-    pos_t typ_lce_r = std::round(aprx_comp_ratio * (1.0 + 0.5 * std::exp(- aprx_comp_ratio / 1000.0)));
+    double aprx_comp_ratio = n / (double)num_phr;
+    pos_t typ_lce_r = std::round(aprx_comp_ratio * (1.0 + 0.5 * std::exp(-aprx_comp_ratio / 1000.0)));
 
     idx_C.build(T, C, LCE, transf_mode == with_samples, p, log, delta, typ_lce_r);
 
@@ -76,24 +77,42 @@ void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, ran
 template <typename pos_t>
 template <uint64_t tau>
 template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t>
-void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::build_p() {
+void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::build_p()
+{
     if (log) {
         std::cout << "building P" << std::flush;
     }
 
-    P.resize(c, point_t{});
+    P.resize(c, point_t { });
 
     #pragma omp parallel for num_threads(p)
     for (uint64_t i = 0; i < c; i++) {
         if constexpr (range_ds_t<sidx_t>::is_static()) {
             P[i].weight = i;
         }
-        
+
         P[idx_C.spa(i)].x = i;
         P[idx_C.ssa(i)].y = i;
     }
 
+    #if defined(GEN_RANGE_QUERIES)
+    uint64_t num_points = c;
+    queries_file.write((char*) &num_points, 8);
+
+    for (pos_t s : C) {
+        uint64_t s_out = s;
+        queries_file.write((char*) &s_out, 8);
+    }
+
+    for (point_t p : P) {
+        using pout_t = static_weighted_range<uint64_t>::point_t;
+        pout_t p_out { .x = p.x, .y = p.y, .weight = p.weight };
+        queries_file.write((char*) &p_out, sizeof(pout_t));
+    }
+    #endif
+
     if (log) {
+        log_phase("points", time_diff_ns(time, now()));
         std::cout << " (" << format_size(sizeof(point_t) * c) << ")";
         time = log_runtime(time);
     }
@@ -102,11 +121,12 @@ void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, ran
 template <typename pos_t>
 template <uint64_t tau>
 template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t>
-void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::build_ps_sp() {
+void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::build_ps_sp()
+{
     if (log) {
         std::cout << "building PS and SP" << std::flush;
     }
-    
+
     no_init_resize(PS, c);
     no_init_resize(SP, c);
 
@@ -121,6 +141,7 @@ void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, ran
     }
 
     if (log) {
+        log_phase("ypsilon", time_diff_ns(time, now()));
         std::cout << " (" << format_size(2 * c * sizeof(sidx_t)) << ")";
         time = log_runtime(time);
     }
@@ -129,7 +150,8 @@ void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, ran
 template <typename pos_t>
 template <uint64_t tau>
 template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t>
-inline void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::adjust_xc(sidx_t& idx, pos_t pos) {
+inline void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::adjust_xc(sidx_t& idx, pos_t pos)
+{
     while (idx < c && C[idx] < pos) {
         idx++;
     }
@@ -142,13 +164,34 @@ inline void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mo
 template <typename pos_t>
 template <uint64_t tau>
 template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t>
-void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::insert_points(sidx_t& x_r, pos_t i) {
+void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::insert_points(sidx_t& x_r, pos_t i)
+{
     while (x_r < c && C[x_r] < i) {
+        #if not defined(GEN_RANGE_QUERIES)
         if constexpr (range_ds_t<sidx_t>::is_decomposed()) {
             R.insert(T[C[x_r]], P[x_r]);
         } else {
             R.insert(P[x_r]);
         }
+        #endif
+
+        #if defined(GEN_RANGE_QUERIES)
+        bool is_insert = true;
+        char c = T[C[x_r]];
+        uint64_t weight = 0;
+        uint64_t x_1 = P[x_r].x;
+        uint64_t x_2 = 0;
+        uint64_t y_1 = P[x_r].y;
+        uint64_t y_2 = 0;
+
+        queries_file.write((char*) &is_insert, 1);
+        queries_file.write((char*) &c, 1);
+        queries_file.write((char*) &weight, 8);
+        queries_file.write((char*) &x_1, 8);
+        queries_file.write((char*) &x_2, 8);
+        queries_file.write((char*) &y_1, 8);
+        queries_file.write((char*) &y_2, 8);
+        #endif
 
         x_r++;
     }
@@ -157,12 +200,13 @@ void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, ran
 template <typename pos_t>
 template <uint64_t tau>
 template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t>
-void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::find_close_sources(factor& f, pos_t i, pos_t e) {
+void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::find_close_sources(factor& f, pos_t i, pos_t e)
+{
     pos_t min_j = i <= delta ? 0 : (i - delta);
 
     for (pos_t j = min_j; j < i; j++) {
         pos_t lce = LCE_R(j, i);
-        
+
         if (lce > f.len) [[unlikely]] {
             f.src = j;
             f.len = lce;
@@ -179,8 +223,8 @@ template <uint64_t tau>
 template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t>
 bool lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::intersect(
     const sxa_interval_t& spa_iv, const sxa_interval_t& ssa_iv,
-    pos_t i, pos_t j, pos_t lce_l, pos_t lce_r, sidx_t& x_c, factor& f
-) {
+    pos_t i, pos_t j, pos_t lce_l, pos_t lce_r, sidx_t& x_c, factor& f)
+{
     point_t p;
     bool result = false;
 
@@ -192,9 +236,7 @@ bool lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, ran
 
         if (spa_rng <= ssa_rng) {
             for (sidx_t x = spa_iv.b; x <= spa_iv.e; x++) {
-                if (idx_C.spa(x) < x_c &&
-                    ssa_iv.b <= PS[x] && PS[x] <= ssa_iv.e
-                ) {
+                if (idx_C.spa(x) < x_c && ssa_iv.b <= PS[x] && PS[x] <= ssa_iv.e) {
                     p.x = x;
                     p.y = PS[x];
                     result = true;
@@ -203,9 +245,7 @@ bool lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, ran
             }
         } else {
             for (sidx_t y = ssa_iv.b; y <= ssa_iv.e; y++) {
-                if (idx_C.ssa(y) < x_c &&
-                    spa_iv.b <= SP[y] && SP[y] <= spa_iv.e
-                ) {
+                if (idx_C.ssa(y) < x_c && spa_iv.b <= SP[y] && SP[y] <= spa_iv.e) {
                     p.x = SP[y];
                     p.y = y;
                     result = true;
@@ -215,6 +255,24 @@ bool lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, ran
         }
     } else if constexpr (range_ds_t<sidx_t>::is_static()) {
         adjust_xc(x_c, j);
+
+        #if defined(GEN_RANGE_QUERIES)
+        bool is_insert = false;
+        char c = T[j];
+        uint64_t weight = x_c;
+        uint64_t x_1 = spa_iv.b;
+        uint64_t x_2 = spa_iv.e;
+        uint64_t y_1 = ssa_iv.b;
+        uint64_t y_2 = ssa_iv.e;
+
+        queries_file.write((char*) &is_insert, 1);
+        queries_file.write((char*) &c, 1);
+        queries_file.write((char*) &weight, 8);
+        queries_file.write((char*) &x_1, 8);
+        queries_file.write((char*) &x_2, 8);
+        queries_file.write((char*) &y_1, 8);
+        queries_file.write((char*) &y_2, 8);
+        #endif
 
         if constexpr (range_ds_t<sidx_t>::is_decomposed()) {
             std::tie(p, result) = R.lighter_point_in_range(
@@ -261,7 +319,7 @@ bool lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, ran
             #endif
         }
     }
-        
+
     return result;
 }
 
@@ -269,7 +327,8 @@ template <typename pos_t>
 template <uint64_t tau>
 template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t>
 void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::
-combine_factorizations(output_it_t& output) {
+    combine_factorizations(output_it_t& output)
+{
     for (uint16_t i_p = 0; i_p < p; i_p++) {
         std::string fact_file_name_thr = fact_file_name + "_" + std::to_string(i_p);
         std::ifstream fact_ifile(fact_file_name_thr);
