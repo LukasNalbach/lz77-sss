@@ -106,8 +106,4 @@ void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, ran
     if (p > 1) {
         combine_factorizations(output);
     }
-
-    if (log) {
-        time = log_runtime(time);
-    }
 }

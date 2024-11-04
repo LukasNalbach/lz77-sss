@@ -686,6 +686,7 @@ protected:
 
                 if (log) {
                     log_phase("compute_exact", time_diff_ns(time, now()));
+                    time = log_runtime(time);
                 }
 
                 if (log && range_ds_t<sidx_t>::is_dynamic()) {

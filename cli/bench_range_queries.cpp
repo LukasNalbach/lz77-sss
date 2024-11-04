@@ -36,6 +36,8 @@ std::vector<operation> queries;
 
 std::ofstream results_file;
 std::string text_name;
+uint64_t min_win_size = 1 << 11;
+uint64_t max_win_size = 1 << 16;
 
 template <typename pos_t, typename sidx_t, template <typename> typename range_ds_t>
 void bench(uint64_t win_size, std::string log_name) {
@@ -61,6 +63,7 @@ void bench(uint64_t win_size, std::string log_name) {
 
     while (time_diff_sec(time_start, now()) < 2) {
         num_iterations++;
+        points_local.clear();
         points_local.reserve(points.size());
 
         for (point p : points) {
@@ -154,18 +157,20 @@ void bench(uint64_t win_size, std::string log_name) {
     uint64_t num_points = points.size();
     uint64_t num_operations = operations.size();
     uint64_t num_queries = num_operations - num_points;
-    double operations_per_us = (num_operations * 1000.0) / time_query;
 
-    std::cout << std::endl << "inserts & queries: " << operations_per_us << "/us" << std::endl;
-    std::cout << "memory peak during construction: " << format_size(mem_peak) << std::endl;
-    std::cout << "size: " << format_size(mem_used) << std::endl;
+    std::cout << std::endl;
+    std::cout << "construction time: " << time_build / (1.0 * num_points) << " ns/point" << std::endl;
+    std::cout << "construction memory peak: " << mem_peak / (1.0 * num_points) << " bytes/point" << std::endl;
+    std::cout << (num_operations * 1000.0) / time_query << "inserts & queries/us" << std::endl;
+    std::cout << "size: " << mem_used / (1.0 * num_points) << " bytes/point" << std::endl;
     std::cout << "checksum: " << check_sum << std::endl;
     std::cout << std::endl;
 
     if (results_file.is_open()) {
-        results_file << " RESULT"
+        results_file << "RESULT"
             << " text="  << text_name
             << " ds=" << log_name
+            << " win_size=" << win_size
             << " num_points=" << num_points
             << " num_queries=" << num_queries
             << " num_operations=" << num_operations
@@ -173,16 +178,12 @@ void bench(uint64_t win_size, std::string log_name) {
             << " time_query=" << time_query
             << " mem_peak=" << mem_peak
             << " mem_used=" << mem_used
-            << " operations_per_us=" << operations_per_us
             << std::endl;
     }
 }
 
 template <typename pos_t, typename sidx_t>
 void bench_all() {
-    static constexpr uint64_t min_win_size = 1 << 10;
-    static constexpr uint64_t max_win_size = 1 << 16;
-
     for (uint64_t win_size = min_win_size; win_size <= max_win_size; win_size *= 2) {
         bench<pos_t, sidx_t, dynamic_square_grid>(win_size, "dsg");
     }
@@ -215,9 +216,9 @@ void bench_all() {
 
 int main(int argc, char** argv)
 {
-    if (!(3 <= argc && argc <= 4)) {
-        std::cout << "usage: bench_range_queries <file> <queries_file> <results_file>" << std::endl;
-        std::cout << "       the second parameter is optional" << std::endl;
+    if (!(3 <= argc && argc <= 6)) {
+        std::cout << "usage: bench_range_queries <file> <queries_file> <results_file> <min_win_size> <max_win_size>" << std::endl;
+        std::cout << "       the last three parameters are optional" << std::endl;
         exit(-1);
     }
 
@@ -237,8 +238,8 @@ int main(int argc, char** argv)
         exit(-1);
     }
 
-    if (argc == 4) {
-        results_file.open(argv[3]);
+    if (argc >= 4) {
+        results_file.open(argv[3], std::ios::app);
 
         if (!results_file.good()) {
             std::cout << "error: could not read <results_file>" << std::endl;
@@ -246,6 +247,9 @@ int main(int argc, char** argv)
         }
     }
 
+    if (argc >= 5) min_win_size = 1 << atoi(argv[4]);
+    if (argc >= 6) max_win_size = 1 << atoi(argv[5]);
+    
     input_file.seekg(0, std::ios::end);
     n = input_file.tellg();
     input_file.seekg(0, std::ios::beg);

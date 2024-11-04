@@ -53,11 +53,13 @@ void bench(std::string encoder, bool use_multiple_threads)
             (encoder == "7z" ? (
                 " a -m0=lzma2 -mmt" + std::to_string(num_threads) + " " +
                 output_file_path + " " + input_file_path + " > /dev/null"
+            ) : (encoder == "bsc" ? (
+                " e " + input_file_path + " " + output_file_path + " > /dev/null"
             ) : (
                 " -k -c -q" +
                 (encoder == "xz" ? " -T " + std::to_string(num_threads) : "") +
                 (encoder == "zstd" ? " -T" + std::to_string(num_threads) : "") +
-                " " + input_file_path + " > " + output_file_path))
+                " " + input_file_path + " > " + output_file_path)))
             + ") 2> " + log_file_path;
         auto t1 = now();
         system(cmd.c_str());
@@ -97,7 +99,9 @@ void bench(std::string encoder, bool use_multiple_threads)
         std::string cmd2 = "(/usr/bin/time -v " + encoder +
             (encoder == "7z" ?
                 (" e -o/tmp/ " + output_file_path + " " + text_name + " > /dev/null") :
-                (" -c -d -q " + output_file_path + " > " + tmp_file_path))
+            (encoder == "bsc" ? (
+                (" d " + output_file_path + " " + tmp_file_path + " > /dev/null")
+            ) : (" -c -d -q " + output_file_path + " > " + tmp_file_path)))
             + ") 2> " + log_file_path;
         t1 = now();
         system(cmd2.c_str());
@@ -107,6 +111,7 @@ void bench(std::string encoder, bool use_multiple_threads)
         std::filesystem::remove(output_file_path);
         uint64_t memory_peak_decompress = peak_memory_usage() * 1000;
         uint64_t time_decompress = time_diff_ns(t1, t2);
+        std::cout << std::endl;
         std::cout << "time: " << format_time(time_decompress) << std::endl;
         std::cout << "throughput: " << format_throughput(bytes_input, time_decompress) << std::endl;
         std::cout << "peak memory consumption: " << format_size(memory_peak_decompress) << std::endl;
@@ -159,6 +164,7 @@ int main(int argc, char** argv)
         + "/log_" + random_alphanumeric_string(10);
     tmp_file_path = std::filesystem::temp_directory_path().string() + "/" + text_name;
 
+    bench("bsc", true);
     bench("lz4", false);
     bench("7z", true);
     bench("gzip", false);
