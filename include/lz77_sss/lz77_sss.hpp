@@ -85,7 +85,7 @@ public:
 
     static uint64_t get_target_gap_idx_size(uint64_t n, double rel_len_gaps)
     {
-        return (n / 3.0) * rel_len_gaps;
+        return std::max<uint64_t>(malloc_count_peak() - malloc_count_current(), (n / 3.0) * rel_len_gaps);
     }
 
     struct factor {

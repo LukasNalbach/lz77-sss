@@ -198,16 +198,24 @@ void encode()
     else encode_gapped<uint64_t>();
     input.clear();
     input.shrink_to_fit();
+    double rel_len_gaps = gaps_length / (double) bytes_input;
     if (logs == 2) {
         uint64_t bytes_gapped = std::filesystem::file_size(tmp_file_path);
         std::cout << "size: " << format_size(bytes_gapped);
         std::cout << ", relative length of the gaps: " <<
-            100.0 * (gaps_length / (double)bytes_input) << " %" << std::endl;
+            100.0 * rel_len_gaps << " %" << std::endl;
         std::cout << "compressing gapped factorization" << std::flush;
     }
     t2 = now();
-    std::string cmd = "(/usr/bin/time -v " + encoder + " -c" +
-        (logs <= 1 ? " -q" : " -v") +
+    std::string cpu_list;
+    for (uint32_t i = 0; i < num_threads; i++)
+        if (num_threads == omp_get_max_threads())
+            cpu_list += std::to_string(i) + ",";
+        else
+            cpu_list += std::to_string(2 * i) + ",";
+    cpu_list.resize(cpu_list.length() - 1);
+    std::string cmd = "(/usr/bin/time -v taskset -c " + cpu_list + " " +
+        encoder + " -c" + (logs <= 1 ? " -q" : " -v") +
         " -" + std::to_string(encoding_quality) +
         (encoder == "xz" ? " -T " + std::to_string(num_threads) : "") +
         (encoder == "zstd" ? " -T" + std::to_string(num_threads) : "") +
@@ -238,6 +246,7 @@ void encode()
             << " time_encode=" << time_encode
             << " mem_peak_gapped=" << gapped_peak
             << " mem_peak_encode=" << encoding_peak
+            << " rel_len_gaps=" << rel_len_gaps
             << " time=" << time_total
             << " throughput=" << throughput(bytes_input, time_total)
             << " mem_peak=" << memory_peak
