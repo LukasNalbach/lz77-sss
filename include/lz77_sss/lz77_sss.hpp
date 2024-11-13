@@ -85,7 +85,7 @@ public:
 
     static uint64_t get_target_gap_idx_size(uint64_t n, double rel_len_gaps)
     {
-        return std::max<uint64_t>(malloc_count_peak() - malloc_count_current(), (n / 3.0) * rel_len_gaps);
+        return std::min<uint64_t>(1 << 30, std::max<uint64_t>(malloc_count_peak() - malloc_count_current(), (n / 3.0) * rel_len_gaps));
     }
 
     struct factor {
@@ -94,15 +94,29 @@ public:
 
         friend class lz77_sss;
 
-        friend std::istream& operator>>(std::istream& in, const factor& f)
+        friend std::istream& operator>>(std::istream& in, factor& f)
         {
-            in.read((char*) &f, sizeof(factor));
+            if constexpr (std::is_same_v<pos_t, uint32_t>) {
+                in.read((char*) &f, sizeof(factor));
+            } else {
+                f.src = 0;
+                f.len = 0;
+                in.read((char*) &f.src, 5);
+                in.read((char*) &f.len, 5);
+            }
+
             return in;
         }
 
         friend std::ostream& operator<<(std::ostream& out, const factor& f)
         {
-            out.write((char*) &f, sizeof(factor));
+            if constexpr (std::is_same_v<pos_t, uint32_t>) {
+                out.write((char*) &f, sizeof(factor));
+            } else {
+                out.write((char*) &f.src, 5);
+                out.write((char*) &f.len, 5);
+            }
+
             return out;
         }
     };
@@ -223,18 +237,6 @@ protected:
         pos_t beg;
         pos_t end;
         pos_t src;
-
-        friend std::istream& operator>>(std::istream& in, const lpf& p)
-        {
-            in.read((char*) &p, sizeof(lpf));
-            return in;
-        }
-
-        friend std::ostream& operator<<(std::ostream& out, const lpf& p)
-        {
-            out.write((char*) &p, sizeof(lpf));
-            return out;
-        }
     };
 
     enum quality_mode {

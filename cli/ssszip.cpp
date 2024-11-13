@@ -272,10 +272,11 @@ void decode_gapped(std::fstream& tmp_input_file)
     uint64_t bytes_gapped = std::filesystem::file_size(tmp_file_path);
     if (logs == 2) std::cout << "reverting gapped factorization ("
         << format_size(bytes_gapped) << ")" << std::flush;
+    constexpr uint64_t sizeof_factor = std::is_same_v<pos_t, uint32_t> ? 4 : 5;
 
     while (pos_output < bytes_input) {
         tmp_input_file >> f;
-        pos_input += sizeof(factor);
+        pos_input += sizeof_factor;
 
         if (f.len == 0) {
             copy_buffered(
