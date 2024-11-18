@@ -7,6 +7,7 @@ std::ofstream result_file;
 #include <lz77_sss/lz77_sss.hpp>
 
 using time_point_t = std::chrono::steady_clock::time_point;
+static constexpr uint64_t min_lpf_len = 64;
 
 time_point_t t1, t2, t3;
 int arg_idx = 1;
@@ -117,7 +118,7 @@ void encode_gapped()
 
             i += f.src;
             gap = true;
-        } else if (gap && f.len <= sizeof(factor)) {
+        } else if (gap && f.len < min_lpf_len) {
             gap_lst.src += f.len;
             i += f.len;
             gap = true;
@@ -352,6 +353,7 @@ void decode()
 
 int main(int argc, char** argv)
 {
+    if (argc == 1) help("");
     num_threads = omp_get_max_threads();
     while (arg_idx < argc - 1) parse_args(argv, argc);
     input_file_path = argv[arg_idx];
