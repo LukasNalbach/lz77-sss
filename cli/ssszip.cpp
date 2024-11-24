@@ -129,7 +129,7 @@ void encode_gapped()
                 gaps_length += gap_lst.src;
             }
 
-            tmp_ofile << {
+            tmp_ofile << factor {
                 .src = i - f.src,
                 .len = f.len
             };
