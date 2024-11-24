@@ -33,7 +33,7 @@ uint64_t peak_memory_usage()
     return atol(log_file_str.substr(beg, len).c_str());
 }
 
-void bench(std::string encoder, bool use_multiple_threads)
+void bench(std::string encoder, bool use_multiple_threads, uint32_t bsc_block_size = 0)
 {
     uint32_t min_threads_local = use_multiple_threads ? min_threads : 1;
     uint32_t max_threads_local = use_multiple_threads ? max_threads : 1;
@@ -54,7 +54,8 @@ void bench(std::string encoder, bool use_multiple_threads)
                 " a -m0=lzma2 -mmt" + std::to_string(num_threads) + " " +
                 output_file_path + " " + input_file_path + " > /dev/null"
             ) : (encoder == "bsc" ? (
-                " e " + input_file_path + " " + output_file_path + " > /dev/null"
+                " e " + input_file_path + " " + output_file_path + " -b" +
+                std::to_string(bsc_block_size) + " > /dev/null"
             ) : (
                 " -k -c -q" +
                 (encoder == "xz" ? " -T " + std::to_string(num_threads) : "") +
@@ -69,6 +70,7 @@ void bench(std::string encoder, bool use_multiple_threads)
         uint64_t time_compress = time_diff_ns(t1, t2);
         uint64_t bytes_compressed = std::filesystem::file_size(output_file_path);
         double compression_ratio = bytes_input / (double)bytes_compressed;
+        std::string encoder_log_name = encoder + encoder == "bsc" ? ("_" + std::to_string(bsc_block_size)) : "";
         std::cout << std::endl;
         std::cout << "time: " << format_time(time_compress) << std::endl;
         std::cout << "throughput: " << format_throughput(bytes_input, time_compress) << std::endl;
@@ -85,7 +87,7 @@ void bench(std::string encoder, bool use_multiple_threads)
                 << " type=compress"
                 << " num_threads=" << num_threads
                 << " n=" << bytes_input
-                << " encoder=" << encoder
+                << " encoder=" << encoder_log_name
                 << " time=" << time_compress
                 << " throughput=" << throughput(bytes_input, time_compress)
                 << " mem_peak=" << memory_peak_compress
@@ -124,7 +126,7 @@ void bench(std::string encoder, bool use_multiple_threads)
                 << " text_name=" << text_name
                 << " type=decompress"
                 << " n=" << bytes_input
-                << " encoder=" << encoder
+                << " encoder=" << encoder_log_name
                 << " time=" << time_decompress
                 << " throughput=" << throughput(bytes_input, time_decompress)
                 << " mem_peak=" << memory_peak_decompress
@@ -164,7 +166,10 @@ int main(int argc, char** argv)
         + "/log_" + random_alphanumeric_string(10);
     tmp_file_path = std::filesystem::temp_directory_path().string() + "/" + text_name;
 
-    bench("bsc", true);
+    bench("bsc", true, 25);
+    bench("bsc", true, 12);
+    bench("bsc", true, 6);
+    bench("bsc", true, 3);
     bench("lz4", false);
     bench("7z", true);
     bench("gzip", false);
