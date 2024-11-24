@@ -97,7 +97,7 @@ public:
         friend std::istream& operator>>(std::istream& in, factor& f)
         {
             if constexpr (std::is_same_v<pos_t, uint32_t>) {
-                in.read((char*) &f, sizeof(factor));
+                in.read((char*) &f, 8);
             } else {
                 f.src = 0;
                 f.len = 0;
@@ -111,7 +111,7 @@ public:
         friend std::ostream& operator<<(std::ostream& out, const factor& f)
         {
             if constexpr (std::is_same_v<pos_t, uint32_t>) {
-                out.write((char*) &f, sizeof(factor));
+                out.write((char*) &f, 8);
             } else {
                 out.write((char*) &f.src, 5);
                 out.write((char*) &f.len, 5);
