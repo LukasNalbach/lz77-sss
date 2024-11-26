@@ -70,7 +70,7 @@ void bench(std::string encoder, bool use_multiple_threads, uint32_t bsc_block_si
         uint64_t time_compress = time_diff_ns(t1, t2);
         uint64_t bytes_compressed = std::filesystem::file_size(output_file_path);
         double compression_ratio = bytes_input / (double)bytes_compressed;
-        std::string encoder_log_name = encoder + encoder == "bsc" ? ("_" + std::to_string(bsc_block_size)) : "";
+        std::string encoder_log_name = encoder + (encoder == "bsc" ? ("_" + std::to_string(bsc_block_size)) : "");
         std::cout << std::endl;
         std::cout << "time: " << format_time(time_compress) << std::endl;
         std::cout << "throughput: " << format_throughput(bytes_input, time_compress) << std::endl;
