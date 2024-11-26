@@ -30,7 +30,7 @@ int main(int argc, char** argv)
     if (n <= std::numeric_limits<uint32_t>::max()) {
         T = lz77_sss<uint32_t>::decode(input_file, n);
     } else {
-        T = lz77_sss<uint32_t>::decode(input_file, n);
+        T = lz77_sss<uint64_t>::decode(input_file, n);
     }
 
     input_file.close();
