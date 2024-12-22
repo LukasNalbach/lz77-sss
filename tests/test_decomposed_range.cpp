@@ -46,7 +46,7 @@ void test()
     }
     uint32_t num_samples = sampling.size();
 
-    // build a sample index (SSA and SPA)
+    // build a sample index (SA_S and PA_S)
     sample_index<> index;
     index.build(input, sampling, lce_r_t(input), false);
 
@@ -63,8 +63,8 @@ void test()
     }
 
     for (uint32_t i = 0; i < num_samples; i++) {
-        points[index.spa(i)].x = i;
-        points[index.ssa(i)].y = i;
+        points[index.pa_s(i)].x = i;
+        points[index.sa_s(i)].y = i;
     }
 
     // generate random queries

@@ -21,12 +21,12 @@ public:
 
 protected:
     sidx_t num_points = 0;
-    std::array<sidx_t, 257> C = { 0 };
+    std::array<sidx_t, 257> C_S = { 0 };
     std::array<range_ds_t<sidx_t>, 256> R_c;
 
     void to_internal(uint8_t uc, point_t& p) const
     {
-        sidx_t rnk_c = C[uc];
+        sidx_t rnk_c = C_S[uc];
         p.x -= rnk_c;
         p.y -= rnk_c;
     }
@@ -35,7 +35,7 @@ protected:
         sidx_t& x1, sidx_t& x2,
         sidx_t& y1, sidx_t& y2) const
     {
-        sidx_t rnk_c = C[uc];
+        sidx_t rnk_c = C_S[uc];
         x1 -= rnk_c;
         x2 -= rnk_c;
         y1 -= rnk_c;
@@ -44,7 +44,7 @@ protected:
 
     void to_external(uint8_t uc, point_t& p) const
     {
-        sidx_t rnk_c = C[uc];
+        sidx_t rnk_c = C_S[uc];
         p.x += rnk_c;
         p.y += rnk_c;
     }
@@ -70,17 +70,17 @@ public:
 
         for (uint16_t c = 0; c < 256; c++) {
             for (uint16_t j = 0; j < p; j++) {
-                C[c] += C_p[j][c];
+                C_S[c] += C_p[j][c];
             }
         }
         
-        for (uint16_t c = 1; c < 256; c++) C[c] += C[c - 1];
-        for (uint16_t c = 256; c > 0; c--) C[c] = C[c - 1];
-        C[0] = 0;
+        for (uint16_t c = 1; c < 256; c++) C_S[c] += C_S[c - 1];
+        for (uint16_t c = 256; c > 0; c--) C_S[c] = C_S[c - 1];
+        C_S[0] = 0;
 
         #pragma omp parallel for num_threads(p)
         for (uint16_t c = 0; c < 256; c++) {
-            P_c[c].reserve(C[c + 1] - C[c]);
+            P_c[c].reserve(C_S[c + 1] - C_S[c]);
         }
 
         for (sidx_t i = 0; i < S.size(); i++) {
@@ -91,7 +91,7 @@ public:
         }
 
         for (uint16_t c = 0; c < 256; c++) {
-            sidx_t frq = C[c + 1] - C[c];
+            sidx_t frq = C_S[c + 1] - C_S[c];
             if (frq == 0) continue;
             R_c[c] = range_ds_t<sidx_t>(P_c[c], frq, p);
             P_c[c].clear();

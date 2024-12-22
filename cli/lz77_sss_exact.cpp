@@ -47,11 +47,11 @@ int main(int argc, char** argv)
 
     if (n <= std::numeric_limits<uint32_t>::max()) {
         lz77_sss<uint32_t>::factorize_exact<
-            greedy, lpf_opt, without_samples, decomposed_static_weighted_kd_tree>(T,
+            greedy, lpf_opt, without_samples>(T,
             output_file, { .num_threads = p, .log = true });
     } else {
         lz77_sss<uint64_t>::factorize_exact<
-            greedy, lpf_opt, without_samples, decomposed_static_weighted_kd_tree>(T,
+            greedy, lpf_opt, without_samples>(T,
             output_file, { .num_threads = p, .log = true });
     }
 

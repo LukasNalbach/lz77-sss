@@ -93,13 +93,13 @@ bool sample_index<pos_t, sidx_t, lce_r_t>::extend(
     }
 
     if (lce_b < len) [[likely]]
-        lce_b = lce_offs<dir>(pos_pat, S[SXA<dir>(b)], lce_b, len);
+        lce_b = lce_offs<dir>(pos_pat, S[XA_S<dir>(b)], lce_b, len);
 
     if (lce_e < len) [[likely]] {
         if (e == b) {
             lce_e = lce_b;
         } else {
-            lce_e = lce_offs<dir>(pos_pat, S[SXA<dir>(e)], lce_e, len);
+            lce_e = lce_offs<dir>(pos_pat, S[XA_S<dir>(e)], lce_e, len);
         }
     }
 
@@ -156,7 +156,7 @@ bool sample_index<pos_t, sidx_t, lce_r_t>::extend(
 
         while (r - l > 1) {
             m = l + (r - l) / 2;
-            pos_m = S[SXA<dir>(m)];
+            pos_m = S[XA_S<dir>(m)];
 
             lce_m = lce_offs<dir>(
                 pos_pat, pos_m,
@@ -217,7 +217,7 @@ bool sample_index<pos_t, sidx_t, lce_r_t>::extend(
 
         while (r - l > 1) {
             m = l + (r - l) / 2;
-            pos_m = S[SXA<dir>(m)];
+            pos_m = S[XA_S<dir>(m)];
 
             lce_m = lce_offs<dir>(
                 pos_pat, pos_m,
@@ -272,13 +272,13 @@ sample_index<pos_t, sidx_t, lce_r_t>::interpolate(
     pos_t pos_m;
 
     lce_l = lce_offs<dir>(
-        pos_pat, S[SXA<dir>(l)],
+        pos_pat, S[XA_S<dir>(l)],
         lce_l,
         len);
 
     while (r - l > 1) {
         m = l + (r - l) / 2;
-        pos_m = S[SXA<dir>(m)];
+        pos_m = S[XA_S<dir>(m)];
 
         lce_m = lce_offs<dir>(
             pos_pat, pos_m,
@@ -309,12 +309,12 @@ sample_index<pos_t, sidx_t, lce_r_t>::interpolate(
     lce_r = qc_short.lce_e;
 
     lce_r = lce_offs<dir>(
-        pos_pat, S[SXA<dir>(r)],
+        pos_pat, S[XA_S<dir>(r)],
         lce_r, len);
 
     while (r - l > 1) {
         m = l + (r - l) / 2;
-        pos_m = S[SXA<dir>(m)];
+        pos_m = S[XA_S<dir>(m)];
 
         lce_m = lce_offs<dir>(
             pos_pat, pos_m,

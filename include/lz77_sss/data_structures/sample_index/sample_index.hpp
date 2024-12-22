@@ -53,7 +53,7 @@ protected:
     }
 
     template <direction dir>
-    inline pos_t pos_from_interval(const sxa_interval_t& iv) const
+    inline pos_t interval_to_pos(const sxa_interval_t& iv) const
     {
         const uint64_t& iv_u64 = *reinterpret_cast<const uint64_t*>(&iv);
         pos_t pos;
@@ -61,7 +61,7 @@ protected:
         if (iv_u64 & (uint64_t { 1 } << 63)) {
             pos = iv_u64 & (std::numeric_limits<uint64_t>::max() >> 1);
         } else {
-            pos = sample(sxa<dir>(iv.b));
+            pos = sample(xa_s<dir>(iv.b));
         }
 
         return pos;
@@ -78,7 +78,7 @@ protected:
 
         inline std::size_t operator()(const sxa_interval_t& iv) const
         {
-            return idx->rks.substring<dir>(idx->pos_from_interval<dir>(iv), len);
+            return idx->rks.substring<dir>(idx->interval_to_pos<dir>(iv), len);
         }
     };
 
@@ -91,8 +91,8 @@ protected:
 
         inline bool operator()(const sxa_interval_t& iv_1, const sxa_interval_t& iv_2) const
         {
-            pos_t pos_1 = idx->pos_from_interval<dir>(iv_1);
-            pos_t pos_2 = idx->pos_from_interval<dir>(iv_2);
+            pos_t pos_1 = idx->interval_to_pos<dir>(iv_1);
+            pos_t pos_2 = idx->interval_to_pos<dir>(iv_2);
             return pos_1 == pos_2 || idx->lce<dir>(pos_1, pos_2, len) >= len;
         }
     };
@@ -113,8 +113,8 @@ protected:
     const lce_r_t* LCE_R = nullptr;
     rk61_substring rks;
 
-    std::vector<sidx_t> SPA;
-    std::vector<sidx_t> SSA;
+    std::vector<sidx_t> PA_S;
+    std::vector<sidx_t> SA_S;
 
     sxa_interval_t SCIV[1 << 8];
     sxa_interval_t SXIV2[2][1 << 16];
@@ -144,12 +144,12 @@ protected:
     }
 
     template <direction dir>
-    inline sidx_t SXA(sidx_t i) const
+    inline sidx_t XA_S(sidx_t i) const
     {
         if constexpr (dir == LEFT) {
-            return SPA[i];
+            return PA_S[i];
         } else {
-            return SSA[i];
+            return SA_S[i];
         }
     }
 
@@ -249,7 +249,7 @@ protected:
         return cmp_lex<dir>(S[i], S[j], lce<dir>(S[i], S[j], max_lce_l));
     }
 
-    void build_sxa12_intervals(uint16_t p, bool log);
+    void build_xa_s_1_2_intervals(uint16_t p, bool log);
 
     template <direction dir>
     void build_samples(pos_t typ_lce_r, uint16_t p, bool log);
@@ -285,17 +285,17 @@ public:
         #endif
 
         if (log) {
-            std::cout << "building SPA" << std::flush;
+            std::cout << "building PA_S" << std::flush;
         }
 
-        no_init_resize(SPA, s);
+        no_init_resize(PA_S, s);
 
         #pragma omp parallel for num_threads(p)
         for (uint64_t i = 0; i < s; i++) {
-            SPA[i] = i;
+            PA_S[i] = i;
         }
 
-        ips4o::parallel::sort(SPA.begin(), SPA.end(),
+        ips4o::parallel::sort(PA_S.begin(), PA_S.end(),
             [&](sidx_t i, sidx_t j) {
                 return cmp_sample_lex<LEFT>(i, j);
             });
@@ -303,25 +303,25 @@ public:
         #ifndef NDEBUG
         #pragma omp parallel for num_threads(p)
         for (uint64_t i = 1; i < s; i++) {
-            assert(!cmp_sample_lex<LEFT>(SPA[i], SPA[i - 1]));
+            assert(!cmp_sample_lex<LEFT>(PA_S[i], PA_S[i - 1]));
         }
         #endif
 
         if (log) {
-            log_phase("spa", time_diff_ns(time, now()));
+            log_phase("pa_s", time_diff_ns(time, now()));
             std::cout << " (" << format_size(s * sizeof(sidx_t)) << ")" << std::flush;
             time = log_runtime(time);
-            std::cout << "building SSA" << std::flush;
+            std::cout << "building SA_S" << std::flush;
         }
 
-        no_init_resize(SSA, s);
+        no_init_resize(SA_S, s);
 
         #pragma omp parallel for num_threads(p)
         for (uint64_t i = 0; i < s; i++) {
-            SSA[i] = i;
+            SA_S[i] = i;
         }
 
-        ips4o::parallel::sort(SSA.begin(), SSA.end(),
+        ips4o::parallel::sort(SA_S.begin(), SA_S.end(),
             [&](sidx_t i, sidx_t j) {
                 return cmp_sample_lex<RIGHT>(i, j);
             });
@@ -329,12 +329,12 @@ public:
         #ifndef NDEBUG
         #pragma omp parallel for num_threads(p)
         for (uint64_t i = 1; i < s; i++) {
-            assert(!cmp_sample_lex<RIGHT>(SSA[i], SSA[i - 1]));
+            assert(!cmp_sample_lex<RIGHT>(SA_S[i], SA_S[i - 1]));
         }
         #endif
 
         if (log) {
-            log_phase("ssa", time_diff_ns(time, now()));
+            log_phase("sa_s", time_diff_ns(time, now()));
             std::cout << " (" << format_size(s * sizeof(sidx_t)) << ")" << std::flush;
             time = log_runtime(time);
         }
@@ -353,7 +353,7 @@ public:
                 time = log_runtime(time);
             }
 
-            build_sxa12_intervals(p, log);
+            build_xa_s_1_2_intervals(p, log);
             build_samples<LEFT>(typ_lce_r, p, log);
             build_samples<RIGHT>(typ_lce_r, p, log);
         }
@@ -372,12 +372,12 @@ public:
     }
 
     template <direction dir>
-    inline sidx_t sxa(sidx_t i) const
+    inline sidx_t xa_s(sidx_t i) const
     {
         if constexpr (dir == LEFT) {
-            return SPA[i];
+            return PA_S[i];
         } else {
-            return SSA[i];
+            return SA_S[i];
         }
     }
 
@@ -391,14 +391,14 @@ public:
         return S[i];
     }
 
-    inline sidx_t spa(sidx_t i) const
+    inline sidx_t pa_s(sidx_t i) const
     {
-        return SPA[i];
+        return PA_S[i];
     }
 
-    inline sidx_t ssa(sidx_t i) const
+    inline sidx_t sa_s(sidx_t i) const
     {
-        return SSA[i];
+        return SA_S[i];
     }
 
     inline query_context query() const
@@ -417,8 +417,8 @@ public:
         return {
             .b = sxa_iv.b,
             .e = sxa_iv.e,
-            .lce_b = lce_offs<dir>(pos_pat, S[SXA<dir>(sxa_iv.b)], len, max_lce_l),
-            .lce_e = lce_offs<dir>(pos_pat, S[SXA<dir>(sxa_iv.e)], len, max_lce_l)
+            .lce_b = lce_offs<dir>(pos_pat, S[XA_S<dir>(sxa_iv.b)], len, max_lce_l),
+            .lce_e = lce_offs<dir>(pos_pat, S[XA_S<dir>(sxa_iv.e)], len, max_lce_l)
         };
     }
 
@@ -531,7 +531,7 @@ public:
         Occ.reserve(Occ.size() + qc.e - qc.b + 1);
 
         for (sidx_t i = qc.b; i <= qc.e; i++) {
-            Occ.emplace_back(S[SXA<dir>(i)]);
+            Occ.emplace_back(S[XA_S<dir>(i)]);
         }
     }
 
