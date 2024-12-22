@@ -91,8 +91,8 @@ void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, ran
             P[i].weight = i;
         }
 
-        P[idx_C.spa(i)].x = i;
-        P[idx_C.ssa(i)].y = i;
+        P[idx_C.pa_s(i)].x = i;
+        P[idx_C.sa_s(i)].y = i;
     }
 
     #if defined(GEN_RANGE_QUERIES)
@@ -121,23 +121,23 @@ void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, ran
 template <typename pos_t>
 template <uint64_t tau>
 template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t>
-void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::build_ps_sp()
+void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::build_pi_psi()
 {
     if (log) {
-        std::cout << "building PS and SP" << std::flush;
+        std::cout << "building Pi and Psi" << std::flush;
     }
 
-    no_init_resize(PS, c);
-    no_init_resize(SP, c);
+    no_init_resize(Pi, c);
+    no_init_resize(Psi, c);
 
     #pragma omp parallel for num_threads(p)
     for (uint64_t i = 0; i < c; i++) {
-        PS[i] = P[idx_C.spa(i)].y;
+        Pi[i] = P[idx_C.pa_s(i)].y;
     }
 
     #pragma omp parallel for num_threads(p)
     for (uint64_t i = 0; i < c; i++) {
-        SP[i] = P[idx_C.ssa(i)].x;
+        Psi[i] = P[idx_C.sa_s(i)].x;
     }
 
     if (log) {
@@ -236,17 +236,17 @@ bool lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, ran
 
         if (spa_rng <= ssa_rng) {
             for (sidx_t x = spa_iv.b; x <= spa_iv.e; x++) {
-                if (idx_C.spa(x) < x_c && ssa_iv.b <= PS[x] && PS[x] <= ssa_iv.e) {
+                if (idx_C.pa_s(x) < x_c && ssa_iv.b <= Pi[x] && Pi[x] <= ssa_iv.e) {
                     p.x = x;
-                    p.y = PS[x];
+                    p.y = Pi[x];
                     result = true;
                     break;
                 }
             }
         } else {
             for (sidx_t y = ssa_iv.b; y <= ssa_iv.e; y++) {
-                if (idx_C.ssa(y) < x_c && spa_iv.b <= SP[y] && SP[y] <= spa_iv.e) {
-                    p.x = SP[y];
+                if (idx_C.sa_s(y) < x_c && spa_iv.b <= Psi[y] && Psi[y] <= spa_iv.e) {
+                    p.x = Psi[y];
                     p.y = y;
                     result = true;
                     break;
@@ -308,7 +308,7 @@ bool lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, ran
 
         if (lce > f.len) {
             f.len = lce;
-            f.src = C[idx_C.ssa(p.y)] - lce_l + 1;
+            f.src = C[idx_C.sa_s(p.y)] - lce_l + 1;
 
             #ifndef NDEBUG
             assert(f.src < i);

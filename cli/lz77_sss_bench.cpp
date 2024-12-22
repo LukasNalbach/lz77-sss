@@ -146,12 +146,12 @@ int main(int argc, char** argv)
     
     std::cout << std::endl << "running LZ77 SSS exact algorithm (with samples):" << std::endl;
     run_sss_exact<greedy, lpf_opt, with_samples,
-        decomposed_static_weighted_kd_tree>("fact_sss_exact", max_threads);
+        decomposed_static_weighted_square_grid>("fact_sss_exact", max_threads);
     std::filesystem::remove("fact_sss_exact");
 
     std::cout << std::endl << "running LZ77 SSS exact algorithm (without samples):" << std::endl;
     run_sss_exact<greedy, lpf_opt, without_samples,
-        decomposed_static_weighted_kd_tree>("fact_sss_exact", max_threads);
+        decomposed_static_weighted_square_grid>("fact_sss_exact", max_threads);
     std::filesystem::remove("fact_sss_exact");
 
     std::cout << std::endl << "running LZ77 LPF algorithm" << std::flush;

@@ -52,12 +52,11 @@ public:
     static constexpr phrase_mode        default_phr_mode         = lpf_opt;
     static constexpr factorize_mode     default_fact_mode        = greedy;
     static constexpr transform_mode     default_transf_mode      = without_samples;
-    template <typename sidx_t> using    default_range_ds_t       = decomposed_static_weighted_kd_tree<sidx_t>;
+    template <typename sidx_t> using    default_range_ds_t       = decomposed_static_weighted_square_grid<sidx_t>;
 
     static constexpr uint64_t           default_tau              = 512;
     static constexpr uint64_t           max_delta                = 256;
     static constexpr uint64_t           range_scan_threshold     = 4096;
-    static constexpr uint64_t           max_buffered_lpf_phrases = 2048;
     static constexpr double             min_rel_gap_len          = 0.2;
     static constexpr uint64_t           min_gap_blk_size         = 4096;
     static constexpr uint64_t           max_num_gap_blks         = 512;
@@ -618,8 +617,8 @@ protected:
             sample_index_t idx_C;
             std::vector<point_t> P;
             range_ds_t<sidx_t> R;
-            std::vector<sidx_t> PS;
-            std::vector<sidx_t> SP;
+            std::vector<sidx_t> Pi;
+            std::vector<sidx_t> Psi;
 
             inline pos_t LCE_R(pos_t i, pos_t j)
             {
@@ -641,7 +640,7 @@ protected:
                 build_p();
 
                 if constexpr (transf_mode != naive) {
-                    build_ps_sp();
+                    build_pi_psi();
                 }
 
                 if (log) {
@@ -701,7 +700,7 @@ protected:
 
             void build_idx_C();
 
-            void build_ps_sp();
+            void build_pi_psi();
 
             void build_p();
 
