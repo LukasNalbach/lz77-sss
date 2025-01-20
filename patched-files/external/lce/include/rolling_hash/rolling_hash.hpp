@@ -1,5 +1,5 @@
 /*******************************************************************************
- * alx/rolling_hash/rolling_hash.hpp
+ * lce/rolling_hash/rolling_hash.hpp
  *
  * Copyright (C) 2022 Alexander Herlez <alexander.herlez@tu-dortmund.de>
  *
@@ -16,7 +16,7 @@
 #include "rolling_hash/mersenne_modular_arithmetic.hpp"
 #include "rolling_hash/modular_arithmetic.hpp"
 
-namespace alx::rolling_hash {
+namespace lce::rolling_hash {
 __extension__ typedef unsigned __int128 uint128_t;
 
 template <size_t t_prime_exp = 107>
@@ -147,4 +147,4 @@ class rk_prime {
     }
   }
 };
-}  // namespace alx::rolling_hash
+}  // namespace lce::rolling_hash

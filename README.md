@@ -1,5 +1,5 @@
 # LZ77-SSS Algorithms
-This repository contains implementations of Lempel-Ziv 77 (LZ77) algorithms based on string synchronizing sets [1].
+This repository contains implementations of Lempel-Ziv 77 (LZ77) algorithms [1] based on string synchronizing sets [2].
 
 ## CLI Build Instructions
 This implementation has been tested on Ubuntu 24.04 with gcc-12, g++-12, zstd, p7zip-full, gzip, bzip2, xz-utils, lz4, libtbb-dev and libomp-dev installed. [bsc](https://github.com/IlyaGrebnov/libbsc) has to be built and installed manually.
@@ -70,7 +70,6 @@ set(LZ77_SSS_BUILD_TESTS OFF)
 ### C++
 ```c++
 #include <lz77_sss/lz77_sss.hpp>
-#include <lz77/lpf_factorizer.hpp>
 
 int main() {
     // generate a random string
@@ -93,4 +92,6 @@ int main() {
 ```
 
 ### References
-Jonas Ellert. Sublinear Time Lempel-Ziv (LZ77) Factorization. In String Processing and Information Retrieval (SPIRE) 2023, pages 171-187.
+Jonas Ellert. Sublinear Time Lempel-Ziv (LZ77) Factorization. In String Processing and Information Retrieval (SPIRE) 2023, pages 171-187. ([springer.com](https://link.springer.com/chapter/10.1007/978-3-031-43980-3_14))
+
+[2] Dominik Kempa and Tomasz Kociumaka. String synchronizing sets: sublinear-time BWT construction and optimal LCE data structure. In Proceedings of the 51st Annual ACM SIGACT Symposium on Theory of Computing (STOC) 2019, pages 756-767. ([arxiv.org](https://arxiv.org/abs/1904.04228))

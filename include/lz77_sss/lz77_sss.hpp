@@ -4,9 +4,9 @@
 #include <functional>
 #include <vector>
 
-#include <lce/lce_classic.hpp>
-#include <lce/lce_naive_wordwise_xor.hpp>
-#include <lce/lce_sss.hpp>
+#include <ds/lce_classic.hpp>
+#include <ds/lce_naive_wordwise_xor.hpp>
+#include <ds/lce_sss.hpp>
 
 #include <lz77_sss/algorithms/lce_l.hpp>
 #include <lz77_sss/data_structures/dynamic_range/dynamic_square_grid.hpp>
@@ -252,7 +252,7 @@ protected:
     template <uint64_t tau>
     class factorizer {
     public:
-        using lce_t = alx::lce::lce_sss<char, tau, pos_t, false>;
+        using lce_t = lce::ds::lce_sss<char, tau, pos_t, false>;
         using gap_idx_t = rolling_hash_index_107<pos_t, num_patt_lens>;
         using par_gap_idx_t = parallel_rolling_hash_index_107<pos_t, num_patt_lens>;
         using fp_arr_t = par_gap_idx_t::fp_arr_t;

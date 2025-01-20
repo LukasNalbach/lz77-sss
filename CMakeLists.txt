@@ -25,23 +25,20 @@ option(LZ77_SSS_BUILD_TESTS "Build tests" ON)
 find_package(OpenMP REQUIRED)
 
 add_subdirectory("${CMAKE_SOURCE_DIR}/external/lz77/")
-add_subdirectory("${CMAKE_SOURCE_DIR}/external/alx/")
+add_subdirectory("${CMAKE_SOURCE_DIR}/external/lce/")
 add_subdirectory("${CMAKE_SOURCE_DIR}/external/fp/")
 add_subdirectory("${CMAKE_SOURCE_DIR}/external/sparse-map/")
 
 set_target_properties(
-  ips4o_example benchmark_lce benchmark_pred benchmark_ss
-  gen_sss genqueries test_lce test_pred test_rmq
+  ips4o_example benchmark_lce benchmark_pred benchmark_lce
+  gen_sss gen_queries gen_sa_lcp test_lce test_pred test_rmq
   test_rolling_hash test_string_synchronizing_set
   PROPERTIES EXCLUDE_FROM_ALL 1 EXCLUDE_FROM_DEFAULT_BUILD 1
 )
 
 add_library(lz77_sss INTERFACE)
 target_include_directories(lz77_sss INTERFACE "${CMAKE_SOURCE_DIR}/include/")
-target_link_libraries(lz77_sss INTERFACE
-  malloc_count alx_rolling_hash alx_lce
-  lz77 fp sparse_map OpenMP::OpenMP_CXX
-)
+target_link_libraries(lz77_sss INTERFACE malloc_count lce lz77 fp sparse_map OpenMP::OpenMP_CXX)
 
 if(LZ77_SSS_BUILD_CLI)
   add_executable(ssszip "${CMAKE_SOURCE_DIR}/cli/ssszip.cpp")
@@ -87,8 +84,8 @@ endif()
 
 if(LZ77_SSS_BUILD_TESTS)
   enable_testing()
-  include(GoogleTest)
-  include(Dart)
+  find_package(GTest REQUIRED)
+  include_directories(${GTEST_INCLUDE_DIR})
 
   add_executable(test-lz77_sss "${CMAKE_SOURCE_DIR}/tests/test_lz77_sss.cpp")
   target_link_libraries(test-lz77_sss PRIVATE gtest_main lz77_sss)

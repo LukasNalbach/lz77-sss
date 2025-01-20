@@ -1,5 +1,5 @@
 /*******************************************************************************
- * alx/lce/lce_sss.hpp
+ * lce/ds/lce_sss.hpp
  *
  * Copyright (C) 2022 Alexander Herlez <alexander.herlez@tu-dortmund.de>
  *
@@ -13,23 +13,23 @@
 #include <memory>
 #include <vector>
 
-#include "lce/lce_classic_for_sss.hpp"
-#include "lce/lce_naive_wordwise_xor.hpp"
+#include "ds/lce_classic_for_sss.hpp"
+#include "ds/lce_naive_wordwise_xor.hpp"
 #include "pred/pred_index.hpp"
 #include "rolling_hash/reduce_fingerprints.hpp"
 #include "rolling_hash/string_synchronizing_set.hpp"
 
-#ifdef ALX_BENCHMARK_INTERNAL
+#ifdef LCE_BENCHMARK_INTERNAL
 #include <fmt/core.h>
 #include <fmt/ranges.h>
 
 #include "util/timer.hpp"
-#ifdef ALX_BENCHMARK_SPACE
+#ifdef LCE_BENCHMARK_SPACE
 #include <malloc_count/malloc_count.h>
 #endif
 #endif
 
-namespace alx::lce {
+namespace lce::ds {
 
 template <typename t_char_type = uint8_t, uint64_t t_tau = 1024,
           typename t_index_type = uint32_t, bool t_prefer_long = false>
@@ -42,9 +42,9 @@ class lce_sss {
   lce_sss(char_type const* text, size_t size) : m_text(text), m_size(size) {
     assert(sizeof(t_char_type) == 1);
 
-#ifdef ALX_BENCHMARK_INTERNAL
-    alx::util::timer t;
-#ifdef ALX_BENCHMARK_SPACE
+#ifdef LCE_BENCHMARK_INTERNAL
+    lce::util::timer t;
+#ifdef LCE_BENCHMARK_SPACE
     size_t mem_before = malloc_count_current();
     malloc_count_reset_peak();
 #endif
@@ -53,36 +53,26 @@ class lce_sss {
     m_sync_set = rolling_hash::sss<t_index_type, t_tau>(text, size, false);
     // check_string_synchronizing_set(text, m_sync_set);
 
-#ifdef ALX_BENCHMARK_INTERNAL
-    fmt::print(" sss_construct_time={}", t.get_and_reset());
+#ifdef LCE_BENCHMARK_INTERNAL
+    fmt::print(" sss_time={}", t.get_and_reset());
     fmt::print(" sss_size={}", m_sync_set.size());
     fmt::print(" sss_runs={}", m_sync_set.num_runs());
-
-#ifdef ALX_BENCHMARK_SPACE
-    fmt::print(" sss_construct_mem={}", malloc_count_current() - mem_before);
-    fmt::print(" sss_construct_mem_peak={}", malloc_count_peak() - mem_before);
-#endif
-#endif
-
-#ifdef ALX_BENCHMARK_INTERNAL
-#ifdef ALX_BENCHMARK_SPACE
+#ifdef LCE_BENCHMARK_SPACE
+    fmt::print(" sss_mem={}", malloc_count_current() - mem_before);
+    fmt::print(" sss_mem_peak={}", malloc_count_peak() - mem_before);
     mem_before = malloc_count_current();
     malloc_count_reset_peak();
 #endif
 #endif
-    m_pred = alx::pred::pred_index<t_index_type, std::bit_width(t_tau) - 1,
+
+    m_pred = lce::pred::pred_index<t_index_type, std::bit_width(t_tau) - 1,
                                    t_index_type>(m_sync_set.get_sss());
 
-#ifdef ALX_BENCHMARK_INTERNAL
-    fmt::print(" pred_construct_time={}", t.get_and_reset());
-#ifdef ALX_BENCHMARK_SPACE
-    fmt::print(" pred_construct_mem={}", malloc_count_current() - mem_before);
-    fmt::print(" pred_construct_mem_peak={}", malloc_count_peak() - mem_before);
-#endif
-#endif
-
-#ifdef ALX_BENCHMARK_INTERNAL
-#ifdef ALX_BENCHMARK_SPACE
+#ifdef LCE_BENCHMARK_INTERNAL
+    fmt::print(" pred_time={}", t.get_and_reset());
+#ifdef LCE_BENCHMARK_SPACE
+    fmt::print(" pred_mem={}", malloc_count_current() - mem_before);
+    fmt::print(" pred_mem_peak={}", malloc_count_peak() - mem_before);
     mem_before = malloc_count_current();
     malloc_count_reset_peak();
 #endif
@@ -92,34 +82,17 @@ class lce_sss {
     std::vector<t_index_type> reduced_fps = reduce_fps_3tau_lexicographic(
         reinterpret_cast<uint8_t const*>(m_text), m_size, m_sync_set);
 
-#ifdef ALX_BENCHMARK_INTERNAL
-    fmt::print(" meta_symbols_time={}", t.get_and_reset());
-#ifdef ALX_BENCHMARK_SPACE
-    fmt::print(" meta_reduction_mem={}", malloc_count_current() - mem_before);
-    fmt::print(" meta_reduction_mem_peak={}", malloc_count_peak() - mem_before);
+#ifdef LCE_BENCHMARK_INTERNAL
+    fmt::print(" alphabet_reduction_time={}", t.get_and_reset());
+#ifdef LCE_BENCHMARK_SPACE
+    fmt::print(" alphabet_reduction_mem={}", malloc_count_current() - mem_before);
+    fmt::print(" alphabet_reduction_mem_peak={}", malloc_count_peak() - mem_before);
 #endif
 #endif
 
-#ifdef ALX_BENCHMARK_INTERNAL
-#ifdef ALX_BENCHMARK_SPACE
-    mem_before = malloc_count_current();
-    malloc_count_reset_peak();
-#endif
-#endif
-
-    m_fp_lce = alx::lce::lce_classic_for_sss<t_index_type, t_tau>(
+    m_fp_lce = lce::ds::lce_classic_for_sss<t_index_type, t_tau>(
         reinterpret_cast<uint8_t const*>(m_text), m_size, reduced_fps.data(),
         reduced_fps.size(), sss);
-
-#ifdef ALX_BENCHMARK_INTERNAL
-    fmt::print(" meta_lce_construct_time={}", t.get_and_reset());
-#ifdef ALX_BENCHMARK_SPACE
-    fmt::print(" meta_lce_construct_mem={}",
-               malloc_count_current() - mem_before);
-    fmt::print(" meta_lce_construct_mem_peak={}",
-               malloc_count_peak() - mem_before);
-#endif
-#endif
   }
 
   template <typename C>
@@ -165,7 +138,7 @@ class lce_sss {
             std::min(lce_local_max, static_cast<size_t>(sss[l_] - l));
       }
 
-      size_t lce_local = alx::lce::lce_naive_wordwise_xor<t_char_type>::lce_lr(
+      size_t lce_local = lce::ds::lce_naive_wordwise_xor<t_char_type>::lce_lr(
           m_text, r + lce_local_max, l, r);
 
       // Case 0: Mismatch at first 3*tau symbols
@@ -176,7 +149,7 @@ class lce_sss {
       // Naive part until synchronizing position
       size_t lce_max{m_size - r};
       size_t lce_local_max{std::min(3 * t_tau, lce_max)};
-      size_t lce_local = alx::lce::lce_naive_wordwise_xor<t_char_type>::lce_lr(
+      size_t lce_local = lce::ds::lce_naive_wordwise_xor<t_char_type>::lce_lr(
           m_text, r + lce_local_max, l, r);
 
       // Case 0: Mismatch at first 3*tau symbols
@@ -191,13 +164,13 @@ class lce_sss {
       // Case 1: Positions l' and r' don't sync, (because they are at the end of
       // runs).
       size_t final_lce = std::min(sss[l_] - l, sss[r_] - r) + 2 * t_tau - 1;
-      assert(final_lce == alx::lce::lce_naive_wordwise_xor<t_char_type>::lce_lr(
+      assert(final_lce == lce::ds::lce_naive_wordwise_xor<t_char_type>::lce_lr(
                               m_text, m_size, l, r));
       return final_lce;
     } else {
       // Case 2: Positions l' and r' are synchronized.
       size_t final_lce = (sss[l_] - l) + m_fp_lce.lce_lr(l_, r_);
-      assert(final_lce == alx::lce::lce_naive_wordwise_xor<t_char_type>::lce_lr(
+      assert(final_lce == lce::ds::lce_naive_wordwise_xor<t_char_type>::lce_lr(
                               m_text, m_size, l, r));
       return final_lce;
     }
@@ -252,10 +225,9 @@ class lce_sss {
   char_type const* m_text;
   size_t m_size;
 
-  alx::pred::pred_index<t_index_type, std::bit_width(t_tau) - 1, t_index_type>
+  lce::pred::pred_index<t_index_type, std::bit_width(t_tau) - 1, t_index_type>
       m_pred;
   rolling_hash::sss<t_index_type, t_tau> m_sync_set;
-  alx::lce::lce_classic_for_sss<t_index_type, t_tau> m_fp_lce;
+  lce::ds::lce_classic_for_sss<t_index_type, t_tau> m_fp_lce;
 };
-}  // namespace alx::lce
-/******************************************************************************/
+}  // namespace lce::ds
