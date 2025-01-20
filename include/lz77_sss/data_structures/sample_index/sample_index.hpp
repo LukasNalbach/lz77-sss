@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <vector>
 
-#include <lce/lce_naive_wordwise_xor.hpp>
+#include <ds/lce_naive_wordwise_xor.hpp>
 #include <lz77_sss/algorithms/lce_l.hpp>
 #include <lz77_sss/data_structures/rk61_substring.hpp>
 #include <lz77_sss/misc/utils.hpp>
@@ -12,7 +12,7 @@
 template <
     typename pos_t = uint32_t,
     typename sidx_t = uint32_t,
-    typename lce_r_t = alx::lce::lce_naive_wordwise_xor<char>>
+    typename lce_r_t = lce::ds::lce_naive_wordwise_xor<char>>
 class sample_index {
 public:
     static constexpr uint64_t fingerprint_sample_rate = 64;

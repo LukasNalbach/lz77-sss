@@ -2,7 +2,7 @@
 #include <ips4o.hpp>
 #include <lz77_sss/data_structures/sample_index/sample_index.hpp>
 
-using lce_r_t = alx::lce::lce_naive_wordwise_xor<char>;
+using lce_r_t = lce::ds::lce_naive_wordwise_xor<char>;
 
 std::random_device rd;
 std::mt19937 gen(rd());

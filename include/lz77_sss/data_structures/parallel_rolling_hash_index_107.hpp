@@ -9,7 +9,7 @@ public:
     using fp_arr_t = std::array<fp_t, num_patt_lens>;
 
 protected:
-    using rolling_hash_t = alx::rolling_hash::rk_prime<107>;
+    using rolling_hash_t = lce::rolling_hash::rk_prime<107>;
     static constexpr double min_rel_idx_size = 0.1;
     char* input = nullptr;
     pos_t input_size = 0;

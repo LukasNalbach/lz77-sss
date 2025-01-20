@@ -1,5 +1,5 @@
 /*******************************************************************************
- * alx/lce/lce_classic_for_sss.hpp
+ * lce/ds/lce_classic_for_sss.hpp
  *
  * Copyright (C) 2022 Alexander Herlez <alexander.herlez@tu-dortmund.de>
  *
@@ -8,26 +8,24 @@
 
 #pragma once
 #include <assert.h>
-#include <libsais.h>
-#include <libsais64.h>
 
 #include <cstdint>
 #include <gsaca-double-sort-par.hpp>
 
-#include "lce/lce_naive_wordwise_xor.hpp"
+#include "ds/lce_naive_wordwise.hpp"
 #include "rmq/rmq_n.hpp"
 
-#ifdef ALX_BENCHMARK_INTERNAL
+#ifdef LCE_BENCHMARK_INTERNAL
 #include <fmt/core.h>
 #include <fmt/ranges.h>
 
 #include "util/timer.hpp"
-#ifdef ALX_BENCHMARK_SPACE
+#ifdef LCE_BENCHMARK_SPACE
 #include <malloc_count/malloc_count.h>
 #endif
 #endif
 
-namespace alx::lce {
+namespace lce::ds {
 
 template <typename t_index_type, size_t t_tau>
 class lce_classic_for_sss {
@@ -41,20 +39,22 @@ class lce_classic_for_sss {
       : m_size(reduced_fps_size) {
     m_sa.resize(reduced_fps_size);
     // sort sa
-#ifdef ALX_BENCHMARK_INTERNAL
-    alx::util::timer t;
-#ifdef ALX_BENCHMARK_SPACE
+#ifdef LCE_BENCHMARK_INTERNAL
+    lce::util::timer t;
+#ifdef LCE_BENCHMARK_SPACE
     size_t mem_before = malloc_count_current();
     malloc_count_reset_peak();
 #endif
 #endif
     gsaca_for_lce(reduced_fps, m_sa.data(), reduced_fps_size);
 
-#ifdef ALX_BENCHMARK_INTERNAL
-    fmt::print(" gsaca_time={}", t.get_and_reset());
-#ifdef ALX_BENCHMARK_SPACE
-    fmt::print(" gsaca_mem={}", malloc_count_current() - mem_before);
-    fmt::print(" gsaca_mem_peak={}", malloc_count_peak() - mem_before);
+#ifdef LCE_BENCHMARK_INTERNAL
+    fmt::print(" sa_time={}", t.get_and_reset());
+#ifdef LCE_BENCHMARK_SPACE
+    fmt::print(" sa_mem={}", malloc_count_current() - mem_before);
+    fmt::print(" sa_mem_peak={}", malloc_count_peak() - mem_before);
+    mem_before = malloc_count_current();
+    malloc_count_reset_peak();
 #endif
 #endif
 
@@ -65,9 +65,20 @@ class lce_classic_for_sss {
       m_isa[m_sa[i]] = i;
     }
 
+#ifdef LCE_BENCHMARK_INTERNAL
+    fmt::print(" isa_time={}", t.get_and_reset());
+#ifdef LCE_BENCHMARK_SPACE
+    fmt::print(" isa_mem={}", malloc_count_current() - mem_before);
+    fmt::print(" isa_mem_peak={}", malloc_count_peak() - mem_before);
+    mem_before = malloc_count_current();
+    malloc_count_reset_peak();
+#endif
+#endif
+
     // build lcp
     m_lcp.resize(m_sa.size());
     m_lcp[0] = 0;
+    size_t current_lcp = 0;
 
 #pragma omp parallel
     {
@@ -103,8 +114,27 @@ class lce_classic_for_sss {
         }
       }
     }
-    // built rmq
-    m_rmq = alx::rmq::rmq_n<t_index_type>(m_lcp);
+
+#ifdef LCE_BENCHMARK_INTERNAL
+    fmt::print(" lcp_time={}", t.get_and_reset());
+#ifdef LCE_BENCHMARK_SPACE
+    fmt::print(" lcp_mem={}", malloc_count_current() - mem_before);
+    fmt::print(" lcp_mem_peak={}", malloc_count_peak() - mem_before);
+    mem_before = malloc_count_current();
+    malloc_count_reset_peak();
+#endif
+#endif
+
+    // build rmq
+    m_rmq = lce::rmq::rmq_n<t_index_type>(m_lcp);
+
+#ifdef LCE_BENCHMARK_INTERNAL
+    fmt::print(" rmq_time={}", t.get_and_reset());
+#ifdef LCE_BENCHMARK_SPACE
+    fmt::print(" rmq_mem={}", malloc_count_current() - mem_before);
+    fmt::print(" rmq_mem_peak={}", malloc_count_peak() - mem_before);
+#endif
+#endif
   }
 
   // Return the number of common letters in text[i..] and text[j..]. Here i and
@@ -138,7 +168,6 @@ class lce_classic_for_sss {
   std::vector<uint32_t> m_sa;
   std::vector<uint32_t> m_isa;
   std::vector<t_index_type> m_lcp;
-  alx::rmq::rmq_n<t_index_type> m_rmq;
+  lce::rmq::rmq_n<t_index_type> m_rmq;
 };
-
-}  // namespace alx::lce
+}  // namespace lce::ds

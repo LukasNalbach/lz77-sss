@@ -14,7 +14,7 @@
 #include <omp.h>
 #include <rolling_hash/rolling_hash.hpp>
 
-using uint128_t = alx::rolling_hash::uint128_t;
+using uint128_t = lce::rolling_hash::uint128_t;
 
 std::chrono::steady_clock::time_point now()
 {

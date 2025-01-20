@@ -8,7 +8,7 @@
 #include <lz77_sss/data_structures/static_weighted_range/static_weighted_striped_square.hpp>
 
 using point_t = static_weighted_range<>::point_t;
-using lce_r_t = alx::lce::lce_naive_wordwise_xor<char>;
+using lce_r_t = lce::ds::lce_naive_wordwise_xor<char>;
 
 std::random_device rd;
 std::mt19937 gen(rd());
