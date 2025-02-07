@@ -61,8 +61,11 @@ public:
     static constexpr uint64_t           min_gap_blk_size         = 4096;
     static constexpr uint64_t           max_num_gap_blks         = 512;
     static constexpr uint64_t           num_patt_lens            = 5;
+    static constexpr uint64_t           max_rh_index_size        = 1 << 30;
+    static constexpr double             min_rel_rh_index_size    = 0.1;
 
-    using entry_t = std::pair<pos_t, std::array<pos_t, num_patt_lens>>;
+    using entry_t = std::pair<double, std::array<pos_t, num_patt_lens>>;
+    static constexpr double infty = std::numeric_limits<double>::max();
 
     static constexpr std::array<entry_t, 10> patt_len_table {
         entry_t { 6, { 2, 3, 4, 5, 6 } },
@@ -74,7 +77,7 @@ public:
         entry_t { 128, { 2, 4, 8, 16, 36 } },
         entry_t { 256, { 2, 5, 10, 20, 42 } },
         entry_t { 1024, { 2, 6, 12, 24, 48 } },
-        entry_t { UINT_MAX, { 2, 8, 16, 32, 64 } }
+        entry_t { infty, { 2, 8, 16, 32, 64 } }
     };
     
     static double get_patt_len_guess(double avg_gap_len, double avg_lpf_phr_len, double rel_len_gaps)
@@ -84,7 +87,7 @@ public:
 
     static uint64_t get_target_gap_idx_size(uint64_t n, double rel_len_gaps)
     {
-        return std::min<uint64_t>(1 << 30, std::max<uint64_t>(malloc_count_peak() - malloc_count_current(), (n / 3.0) * rel_len_gaps));
+        return std::min<uint64_t>(max_rh_index_size, std::max<uint64_t>(malloc_count_peak() - malloc_count_current(), (n / 3.0) * rel_len_gaps));
     }
 
     struct factor {
@@ -465,6 +468,7 @@ protected:
                 double avg_gap_len = len_gaps / (double)num_gaps;
                 double avg_lpf_phr_len = len_lpf_phr / (double)num_lpf;
                 target_index_size = get_target_gap_idx_size(n, rel_len_gaps);
+                double patt_len_guess = get_patt_len_guess(avg_gap_len, avg_lpf_phr_len, rel_len_gaps);
 
                 if (log) {
                     log_phase("phrase_info", time_diff_ns(time, now()));
@@ -474,12 +478,11 @@ protected:
                     std::cout << "num. of gaps / num. of LPF phrases: " << gaps_per_lpf_phr << std::endl;
                     std::cout << "avg. gap length: " << avg_gap_len << std::endl;
                     std::cout << "avg. LPF phrase length: " << avg_lpf_phr_len << std::endl;
+                    std::cout << "pattern length guess: " << patt_len_guess << std::endl;
                     std::cout << "peak memory consumption: " << format_size(malloc_count_peak() - baseline_memory_alloc) << std::endl;
                     std::cout << "current memory consumption: " << format_size(malloc_count_current() - baseline_memory_alloc) << std::endl;
                     std::cout << "target index size: " << format_size(target_index_size) << std::endl;
                 }
-
-                double patt_len_guess = get_patt_len_guess(avg_gap_len, avg_lpf_phr_len, rel_len_gaps);
 
                 for (auto [threshold, lens] : patt_len_table) {
                     if (patt_len_guess <= threshold) {

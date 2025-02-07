@@ -207,24 +207,16 @@ void lz77_sss<pos_t>::factorizer<tau>::factorize_greedy_parallel(
         blk_info.emplace_back(block_info_t { .beg = n });
     }
 
-    #pragma omp parallel num_threads(p)
-    {
-        uint16_t i_p = omp_get_thread_num();
+    for (pos_t cur_blk = 0; cur_blk < num_blks;) {
+        pos_t blks = std::min<pos_t>(p, num_blks - cur_blk);
+        par_gap_idx.overwrite(p);
 
-        uint64_t num_per_thr = num_128 / p;
-        uint128_t* from_beg = par_gap_idx.data_new() + i_p * num_per_thr;
-        uint128_t* to_beg = par_gap_idx.data_old() + i_p * num_per_thr;
-        uint128_t* from_end = par_gap_idx.data_new() + (i_p == p - 1 ? num_128 : ((i_p + 1) * num_per_thr));
-
-        for (pos_t cur_blk = 0; cur_blk < num_blks;) {
-            pos_t blks = std::min<pos_t>(p, num_blks - cur_blk);
-
-            #pragma omp barrier
-            std::copy(from_beg, from_end, to_beg);
-            #pragma omp barrier
+        #pragma omp parallel num_threads(p)
+        {
+            uint16_t i_p = omp_get_thread_num();
 
             if (i_p < blks) {
-                if (cur_blk == 0) [[unlikely]] {
+                if (cur_blk == 0) {
                     if (i_p == 0)
                         factorize_block<true, lpf_it_t>(next_lpf, 0, blks);
                 } else {
@@ -232,34 +224,29 @@ void lz77_sss<pos_t>::factorizer<tau>::factorize_greedy_parallel(
                     factorize_block<false, lpf_it_t>(next_lpf, blk_idx, blk_idx + 1);
                 }
             }
+        }
 
-            #pragma omp barrier
+        for (auto& vec : factors) {
+            for (factor f : vec) {
+                output(f);
 
-            #pragma omp single
-            {
-                for (auto& vec : factors) {
-                    for (factor f : vec) {
-                        output(f);
+                #ifndef NDEBUG
+                assert((f.len == 0 && (char) f.src == T[cur_pos]) || f.src < cur_pos);
+                assert(f.len <= n - cur_pos);
 
-                        #ifndef NDEBUG
-                        assert((f.len == 0 && (char) f.src == T[cur_pos]) || f.src < cur_pos);
-                        assert(f.len <= n - cur_pos);
-
-                        for (pos_t j = 0; j < f.len; j++) {
-                            assert(T[f.src + j] == T[cur_pos + j]);
-                        }
-
-                        cur_pos += std::max<pos_t>(1, f.len);
-                        #endif
-                    }
-
-                    num_phr += vec.size();
-                    vec.clear();
+                for (pos_t j = 0; j < f.len; j++) {
+                    assert(T[f.src + j] == T[cur_pos + j]);
                 }
+
+                cur_pos += std::max<pos_t>(1, f.len);
+                #endif
             }
 
-            cur_blk += blks;
+            num_phr += vec.size();
+            vec.clear();
         }
+
+        cur_blk += blks;
     }
 
     blk_info.clear();

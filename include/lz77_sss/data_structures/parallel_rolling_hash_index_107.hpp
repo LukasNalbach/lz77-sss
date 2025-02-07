@@ -1,5 +1,7 @@
 #pragma once
 
+template <typename pos_t> class lz77_sss;
+
 #include <lz77_sss/lz77_sss.hpp>
 
 template <typename pos_t, uint8_t num_patt_lens>
@@ -10,7 +12,6 @@ public:
 
 protected:
     using rolling_hash_t = lce::rolling_hash::rk_prime<107>;
-    static constexpr double min_rel_idx_size = 0.1;
     char* input = nullptr;
     pos_t input_size = 0;
     std::array<pos_t, num_patt_lens> patt_lens;
@@ -30,27 +31,30 @@ public:
         , input_size(size)
         , patt_lens(patt_lens)
     {
-        uint64_t target_size_h = std::max<int64_t>(
-            (input_size * min_rel_idx_size) / (2 * sizeof(pos_t)),
-            (int64_t { target_size_in_bytes } - int64_t { sizeof(rolling_hash_t) *
-            num_patt_lens }) / int64_t { 2 * sizeof(pos_t) });
-        uint8_t log2_size_h = std::round(std::log2(target_size_h));
+        static constexpr int64_t rolling_hash_size = sizeof(rolling_hash_t) * num_patt_lens;
+        int64_t min_index_size = (input_size * lz77_sss<pos_t>::min_rel_rh_index_size) / sizeof(pos_t);
+        int64_t max_index_size = lz77_sss<pos_t>::max_rh_index_size / sizeof(pos_t);
+        int64_t target_index_size = (int64_t{target_size_in_bytes} - rolling_hash_size) / sizeof(pos_t);
+
+        uint64_t target_size_h = std::min<int64_t>(max_index_size, std::max<int64_t>(min_index_size, target_index_size));
+        uint8_t log2_size_h = std::round(std::log2(target_size_h)) - 1;
         pos_t size_h = 1 << log2_size_h;
         h_mod_mask = size_h - 1;
-        H_old.resize(size_h, { });
-        H_new.resize(size_h, { });
-        uint64_t num_elements = H_old.size() / (16 / sizeof(pos_t));
-        uint128_t* data_new = reinterpret_cast<uint128_t*>(H_new.data());
+        no_init_resize(H_old, size_h);
+        no_init_resize(H_new, size_h);
+
+        uint64_t num_blks = H_new.size() / (sizeof(uint128_t) / sizeof(pos_t));
+        uint128_t* blks_new = reinterpret_cast<uint128_t*>(H_new.data());
+
+        #pragma omp parallel for num_threads(num_threads)
+        for (uint64_t i = 0; i < num_blks; i++) {
+            blks_new[i] = std::numeric_limits<uint128_t>::max();
+        }
 
         for_constexpr<0, num_patt_lens, 1>([&](auto i) {
             rolling_hash[i] = new rolling_hash_t(
                 fp_t { patt_lens[i] });
         });
-
-        #pragma omp parallel for num_threads(num_threads)
-        for (uint64_t i = 0; i < num_elements; i++) {
-            data_new[i] = std::numeric_limits<uint128_t>::max();
-        }
     }
 
     inline uint64_t size() const
@@ -58,14 +62,16 @@ public:
         return H_old.size();
     }
 
-    inline uint128_t* data_old()
+    void overwrite(uint16_t p)
     {
-        return reinterpret_cast<uint128_t*>(H_old.data());
-    }
+        uint128_t* blks_old = reinterpret_cast<uint128_t*>(H_old.data());
+        uint128_t* blks_new = reinterpret_cast<uint128_t*>(H_new.data());
+        uint64_t num_blks = H_new.size() / (sizeof(uint128_t) / sizeof(pos_t));
 
-    inline uint128_t* data_new()
-    {
-        return reinterpret_cast<uint128_t*>(H_new.data());
+        #pragma omp parallel for num_threads(p)
+        for (uint64_t i = 0; i < num_blks; i++) {
+            blks_old[i] = blks_new[i];
+        }
     }
 
     inline void reinit(fp_arr_t& fps, pos_t pos)
@@ -94,7 +100,9 @@ public:
     inline void roll(fp_arr_t& fps, pos_t pos)
     {
         for_constexpr<0, num_patt_lens, 1>([&](auto i) {
-            roll<i>(fps, pos);
+            if (pos + patt_lens[i] < input_size) [[likely]] {
+                roll<i>(fps, pos);
+            }
         });
     }
 
