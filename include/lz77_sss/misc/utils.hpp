@@ -235,7 +235,7 @@ void no_init_resize(std::vector<std::tuple<T, T, T>>& vec, size_t size)
     (*reinterpret_cast<std::vector<std::tuple<no_init<T>, no_init<T>, no_init<T>>>*>(&vec)).resize(size);
 }
 
-void no_init_resize_with_exess(std::string& str, size_t size, size_t excess)
+void no_init_resize_with_excess(std::string& str, size_t size, size_t excess)
 {
     str.reserve(size + excess);
     no_init_resize(str, size);
@@ -555,7 +555,7 @@ std::string random_repetitive_string(uint32_t min_size, uint32_t max_size)
         run_repetitiveness });
 
     std::string input;
-    no_init_resize_with_exess(input, target_input_size, 4 * 4096);
+    no_init_resize_with_excess(input, target_input_size, 4 * 4096);
     input.clear();
     input.push_back(char_distrib(mt));
 

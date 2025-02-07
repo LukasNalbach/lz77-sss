@@ -1,4 +1,3 @@
-#include <lz77/lpf_factorizer.hpp>
 #include <lz77_sss/lz77_sss.hpp>
 
 int main()

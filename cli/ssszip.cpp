@@ -180,7 +180,7 @@ void encode()
     input_file.seekg(0, std::ios::beg);
     if (logs == 2)
         std::cout << "reading input (" << format_size(bytes_input) << ")" << std::flush;
-    no_init_resize_with_exess(input, bytes_input, 4 * lz77_sss<>::default_tau);
+    no_init_resize_with_excess(input, bytes_input, 4 * lz77_sss<>::default_tau);
     read_from_file(input_file, input.data(), bytes_input);
     input_file.close();
 

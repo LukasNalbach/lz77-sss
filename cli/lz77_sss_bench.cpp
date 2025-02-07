@@ -118,7 +118,7 @@ int main(int argc, char** argv)
     input_file.seekg(0, std::ios::beg);
     auto t0 = now();
     std::cout << "reading T (" << format_size(n) << ")" << std::flush;
-    no_init_resize_with_exess(T, n, 4 * lz77_sss<>::default_tau);
+    no_init_resize_with_excess(T, n, 4 * lz77_sss<>::default_tau);
     read_from_file(input_file, T.data(), n);
     input_file.close();
     log_runtime(t0);

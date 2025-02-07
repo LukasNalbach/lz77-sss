@@ -161,7 +161,7 @@ void bench(uint64_t win_size, std::string log_name) {
     std::cout << std::endl;
     std::cout << "construction time: " << time_build / (1.0 * num_points) << " ns/point" << std::endl;
     std::cout << "construction memory peak: " << mem_peak / (1.0 * num_points) << " bytes/point" << std::endl;
-    std::cout << (num_operations * 1000.0) / time_query << "inserts & queries/us" << std::endl;
+    std::cout << (num_operations * 1000.0) / time_query << " inserts & queries/us" << std::endl;
     std::cout << "size: " << mem_used / (1.0 * num_points) << " bytes/point" << std::endl;
     std::cout << "checksum: " << check_sum << std::endl;
     std::cout << std::endl;
