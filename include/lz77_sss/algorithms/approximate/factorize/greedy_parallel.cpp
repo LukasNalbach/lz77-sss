@@ -3,9 +3,9 @@
 #include <lz77_sss/lz77_sss.hpp>
 
 template <typename pos_t>
-template <uint64_t tau>
+template <uint64_t tau, typename char_t>
 template <bool first_block>
-inline lz77_sss<pos_t>::factor lz77_sss<pos_t>::factorizer<tau>::longest_prev_occ_par(fp_arr_t& fps, pos_t pos, pos_t end)
+inline lz77_sss<pos_t>::factor lz77_sss<pos_t>::factorizer<tau, char_t>::longest_prev_occ_par(fp_arr_t& fps, pos_t pos, pos_t end)
 {
     factor f { .src = char_to_uchar(T[pos]), .len = 0 };
 
@@ -41,9 +41,9 @@ inline lz77_sss<pos_t>::factor lz77_sss<pos_t>::factorizer<tau>::longest_prev_oc
 }
 
 template <typename pos_t>
-template <uint64_t tau>
+template <uint64_t tau, typename char_t>
 template <bool first_block, typename lpf_it_t>
-void lz77_sss<pos_t>::factorizer<tau>::factorize_block(
+void lz77_sss<pos_t>::factorizer<tau, char_t>::factorize_block(
     std::function<lpf(lpf_it_t&)>& next_lpf, pos_t blk_beg, pos_t blk_end)
 {
     uint16_t i_p = omp_get_thread_num();
@@ -159,9 +159,9 @@ void lz77_sss<pos_t>::factorizer<tau>::factorize_block(
 }
 
 template <typename pos_t>
-template <uint64_t tau>
+template <uint64_t tau, typename char_t>
 template <typename lpf_it_t>
-void lz77_sss<pos_t>::factorizer<tau>::factorize_greedy_parallel(
+void lz77_sss<pos_t>::factorizer<tau, char_t>::factorize_greedy_parallel(
     output_it_t& output,
     std::function<lpf_it_t()>& lpf_beg,
     std::function<lpf(lpf_it_t&)>& next_lpf)

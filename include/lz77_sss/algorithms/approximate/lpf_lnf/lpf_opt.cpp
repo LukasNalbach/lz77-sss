@@ -3,8 +3,8 @@
 #include <lz77_sss/lz77_sss.hpp>
 
 template <typename pos_t>
-template <uint64_t tau>
-void lz77_sss<pos_t>::factorizer<tau>::build_LPF_opt(std::function<void(uint16_t, lpf&&)> lpf_it)
+template <uint64_t tau, typename char_t>
+void lz77_sss<pos_t>::factorizer<tau, char_t>::build_LPF_opt(std::function<void(uint16_t, lpf&&)> lpf_it)
 {
     build_PSV_NSV_S();
 

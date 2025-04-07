@@ -14,7 +14,7 @@ int arg_idx = 1;
 bool decompress = false;
 uint64_t bytes_input;
 std::string text_name;
-std::string input;
+char* input = nullptr;
 std::string input_file_path;
 std::string output_file_path;
 std::string tmp_file_path;
@@ -140,7 +140,7 @@ void encode_gapped()
     };
 
     lz77_sss<pos_t>::template factorize_approximate<
-        skip_phrases, lpf_opt>(input, output,
+        skip_phrases, lpf_opt>(input, bytes_input, output,
         { .num_threads = num_threads, .log = logs == 2 });
 
     if (gap) {
@@ -180,8 +180,8 @@ void encode()
     input_file.seekg(0, std::ios::beg);
     if (logs == 2)
         std::cout << "reading input (" << format_size(bytes_input) << ")" << std::flush;
-    no_init_resize_with_excess(input, bytes_input, 4 * lz77_sss<>::default_tau);
-    read_from_file(input_file, input.data(), bytes_input);
+    input = (char*) std::aligned_alloc(16, bytes_input + 4 * lz77_sss<>::default_tau);
+    read_from_file(input_file, input, bytes_input);
     input_file.close();
 
     if (result_file_path != "") {
@@ -201,8 +201,8 @@ void encode()
     if (bytes_input <= std::numeric_limits<uint32_t>::max())
          encode_gapped<uint32_t>();
     else encode_gapped<uint64_t>();
-    input.clear();
-    input.shrink_to_fit();
+    delete input;
+    input = nullptr;
     double rel_len_gaps = gaps_length / (double) bytes_input;
     if (logs == 2) {
         uint64_t bytes_gapped = std::filesystem::file_size(tmp_file_path);

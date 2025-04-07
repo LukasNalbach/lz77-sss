@@ -3,9 +3,9 @@
 #include <lz77_sss/lz77_sss.hpp>
 
 template <typename pos_t>
-template <uint64_t tau>
+template <uint64_t tau, typename char_t>
 template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t>
-void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::build_c(std::istream_iterator<factor>& ifile_approx_it)
+void lz77_sss<pos_t>::factorizer<tau, char_t>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::build_c(std::istream_iterator<factor>& ifile_approx_it)
 {
     if (log) {
         std::cout << "setting delta = " << delta << std::endl;
@@ -50,23 +50,23 @@ void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, ran
         log_phase("sample_set", time_diff_ns(time, now()));
         std::cout << " (" << format_size(c * sizeof(pos_t)) << ")";
         time = log_runtime(time);
-        std::cout << "c / num. of phrases = " << c / (double)num_phr << std::endl;
+        std::cout << "c / num. of phrases = " << c / (double) num_phr << std::endl;
     }
 }
 
 template <typename pos_t>
-template <uint64_t tau>
+template <uint64_t tau, typename char_t>
 template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t>
-void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::build_idx_C()
+void lz77_sss<pos_t>::factorizer<tau, char_t>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::build_idx_C()
 {
     if (log) {
         std::cout << "building sample-index for C:" << std::endl;
     }
 
-    double aprx_comp_ratio = n / (double)num_phr;
+    double aprx_comp_ratio = n / (double) num_phr;
     pos_t typ_lce_r = std::round(aprx_comp_ratio * (1.0 + 0.5 * std::exp(-aprx_comp_ratio / 1000.0)));
 
-    idx_C.build(T, C, LCE, transf_mode == with_samples, p, log, delta, typ_lce_r);
+    idx_C.build(T, n, C, LCE, transf_mode == with_samples, p, log, delta, typ_lce_r);
 
     if (log) {
         std::cout << "size: " << format_size(idx_C.size_in_bytes());
@@ -75,9 +75,9 @@ void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, ran
 }
 
 template <typename pos_t>
-template <uint64_t tau>
+template <uint64_t tau, typename char_t>
 template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t>
-void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::build_p()
+void lz77_sss<pos_t>::factorizer<tau, char_t>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::build_p()
 {
     if (log) {
         std::cout << "building P" << std::flush;
@@ -119,9 +119,9 @@ void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, ran
 }
 
 template <typename pos_t>
-template <uint64_t tau>
+template <uint64_t tau, typename char_t>
 template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t>
-void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::build_pi_psi()
+void lz77_sss<pos_t>::factorizer<tau, char_t>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::build_pi_psi()
 {
     if (log) {
         std::cout << "building Pi and Psi" << std::flush;
@@ -148,9 +148,9 @@ void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, ran
 }
 
 template <typename pos_t>
-template <uint64_t tau>
+template <uint64_t tau, typename char_t>
 template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t>
-inline void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::adjust_xc(sidx_t& idx, pos_t pos)
+inline void lz77_sss<pos_t>::factorizer<tau, char_t>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::adjust_xc(sidx_t& idx, pos_t pos)
 {
     while (idx < c && C[idx] < pos) {
         idx++;
@@ -162,9 +162,9 @@ inline void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mo
 }
 
 template <typename pos_t>
-template <uint64_t tau>
+template <uint64_t tau, typename char_t>
 template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t>
-void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::insert_points(sidx_t& x_r, pos_t i)
+void lz77_sss<pos_t>::factorizer<tau, char_t>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::insert_points(sidx_t& x_r, pos_t i)
 {
     while (x_r < c && C[x_r] < i) {
         #if not defined(GEN_RANGE_QUERIES)
@@ -198,9 +198,9 @@ void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, ran
 }
 
 template <typename pos_t>
-template <uint64_t tau>
+template <uint64_t tau, typename char_t>
 template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t>
-void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::find_close_sources(factor& f, pos_t i, pos_t e)
+void lz77_sss<pos_t>::factorizer<tau, char_t>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::find_close_sources(factor& f, pos_t i, pos_t e)
 {
     pos_t min_j = i <= delta ? 0 : (i - delta);
 
@@ -219,9 +219,9 @@ void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, ran
 }
 
 template <typename pos_t>
-template <uint64_t tau>
+template <uint64_t tau, typename char_t>
 template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t>
-bool lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::intersect(
+bool lz77_sss<pos_t>::factorizer<tau, char_t>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::intersect(
     const sxa_interval_t& spa_iv, const sxa_interval_t& ssa_iv,
     pos_t i, pos_t j, pos_t lce_l, pos_t lce_r, sidx_t& x_c, factor& f)
 {
@@ -324,9 +324,9 @@ bool lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, ran
 }
 
 template <typename pos_t>
-template <uint64_t tau>
+template <uint64_t tau, typename char_t>
 template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t>
-void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::
+void lz77_sss<pos_t>::factorizer<tau, char_t>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::
     combine_factorizations(output_it_t& output)
 {
     for (uint16_t i_p = 0; i_p < p; i_p++) {

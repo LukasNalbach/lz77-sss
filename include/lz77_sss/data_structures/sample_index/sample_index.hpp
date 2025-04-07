@@ -12,7 +12,8 @@
 template <
     typename pos_t = uint32_t,
     typename sidx_t = uint32_t,
-    typename lce_r_t = lce::ds::lce_naive_wordwise_xor<char>>
+    typename char_t = char,
+    typename lce_r_t = lce::ds::lce_naive_wordwise_xor<char_t>>
 class sample_index {
 public:
     static constexpr uint64_t fingerprint_sample_rate = 64;
@@ -78,7 +79,7 @@ protected:
 
         inline std::size_t operator()(const sxa_interval_t& iv) const
         {
-            return idx->rks.substring<dir>(idx->interval_to_pos<dir>(iv), len);
+            return idx->rks.template substring<dir>(idx->interval_to_pos<dir>(iv), len);
         }
     };
 
@@ -108,10 +109,10 @@ protected:
     pos_t max_lce_l = 0;
     uint64_t byte_size = 0;
 
-    const char* T = nullptr;
+    const char_t* T = nullptr;
     const pos_t* S = nullptr;
     const lce_r_t* LCE_R = nullptr;
-    rk61_substring rks;
+    rk61_substring<char_t> rks;
 
     std::vector<sidx_t> PA_S;
     std::vector<sidx_t> SA_S;
@@ -258,7 +259,8 @@ public:
     sample_index() = default;
 
     void build(
-        const std::string& T,
+        const char_t* T,
+        pos_t n,
         const std::vector<pos_t>& S,
         const lce_r_t& LCE_R,
         bool use_samples = true,
@@ -270,11 +272,11 @@ public:
         uint64_t baseline_memory_alloc = malloc_count_current();
         auto time = now();
 
-        this->T = T.data();
+        this->T = T;
         this->S = S.data();
         this->LCE_R = &LCE_R;
         this->max_lce_l = max_lce_l;
-        n = T.size();
+        this->n = n;
         s = S.size();
 
         #ifndef NDEBUG
@@ -345,7 +347,7 @@ public:
             }
 
             uint64_t sampling_rate = max_lce_l < 256 ? n : fingerprint_sample_rate;
-            rks = rk61_substring(T, sampling_rate, 0, p);
+            rks = rk61_substring<char_t>(T, n, sampling_rate, 0, p);
 
             if (log) {
                 log_phase("rks", time_diff_ns(time, now()));
@@ -361,7 +363,7 @@ public:
         byte_size = malloc_count_current() - baseline_memory_alloc;
     }
 
-    inline const rk61_substring& rabin_karp_substring() const
+    inline const rk61_substring<char_t>& rabin_karp_substring() const
     {
         return rks;
     }

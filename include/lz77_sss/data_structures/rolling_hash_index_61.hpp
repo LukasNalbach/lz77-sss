@@ -5,14 +5,14 @@ template <typename pos_t> class lz77_sss;
 #include <fp/rk61.hpp>
 #include <lz77_sss/lz77_sss.hpp>
 
-template <typename pos_t, uint8_t num_patt_lens>
+template <typename pos_t, uint8_t num_patt_lens, typename char_t>
 class rolling_hash_index_61 {
 public:
     using fp_t = uint64_t;
 
 protected:
     using rolling_hash_t = fp::RabinKarp61;
-    const char* input = nullptr;
+    const char_t* input = nullptr;
     pos_t input_size = 0;
     const std::array<pos_t, num_patt_lens> patt_lens;
     rolling_hash_t* rolling_hash[num_patt_lens] = { nullptr };
@@ -25,7 +25,7 @@ public:
     rolling_hash_index_61() = default;
 
     rolling_hash_index_61(
-        char* input, pos_t size,
+        const char_t* input, pos_t size,
         std::array<pos_t, num_patt_lens> patt_lens,
         uint64_t target_size_in_bytes)
         : input(input)

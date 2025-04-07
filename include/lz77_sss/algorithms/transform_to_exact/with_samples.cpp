@@ -3,14 +3,14 @@
 #include <lz77_sss/lz77_sss.hpp>
 
 template <typename pos_t>
-template <uint64_t tau>
+template <uint64_t tau, typename char_t>
 template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t>
-void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::
+void lz77_sss<pos_t>::factorizer<tau, char_t>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::
     extend_right_with_samples(
         const sxa_interval_t& spa_iv,
         pos_t i, pos_t j, pos_t e, sidx_t& x_c, factor& f)
 {
-    const rk61_substring& rks = idx_C.rabin_karp_substring();
+    const auto& rks = idx_C.rabin_karp_substring();
     const std::vector<pos_t>& smpl_lens_right = idx_C.sampled_pattern_lengths_right();
     pos_t num_smpl_lens_right = idx_C.num_sampled_pattern_lengths_right();
     pos_t lce_r_min = f.len < j - i ? 0 : (i + f.len - j);
@@ -96,16 +96,16 @@ void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, ran
 }
 
 template <typename pos_t>
-template <uint64_t tau>
+template <uint64_t tau, typename char_t>
 template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t>
-void lz77_sss<pos_t>::factorizer<tau>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::
+void lz77_sss<pos_t>::factorizer<tau, char_t>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::
     transform_to_exact_with_samples(output_it_t& output)
 {
     if (log) {
         std::cout << "computing the exact factorization" << std::flush;
     }
 
-    const rk61_substring& rks = idx_C.rabin_karp_substring();
+    const auto& rks = idx_C.rabin_karp_substring();
     const std::vector<pos_t>& smpl_lens_left = idx_C.sampled_pattern_lengths_left();
     std::vector<uint8_t> is_smpld_left(delta + 1, 0);
     num_phr = 0;

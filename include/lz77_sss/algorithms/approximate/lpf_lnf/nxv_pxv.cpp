@@ -3,8 +3,8 @@
 #include <lz77_sss/lz77_sss.hpp>
 
 template <typename pos_t>
-template <uint64_t tau>
-void lz77_sss<pos_t>::factorizer<tau>::build_PSV_NSV_S()
+template <uint64_t tau, typename char_t>
+void lz77_sss<pos_t>::factorizer<tau, char_t>::build_PSV_NSV_S()
 {
     if (log) {
         std::cout << "building NSV_S and PSV_S" << std::flush;
@@ -54,8 +54,8 @@ void lz77_sss<pos_t>::factorizer<tau>::build_PSV_NSV_S()
 }
 
 template <typename pos_t>
-template <uint64_t tau>
-void lz77_sss<pos_t>::factorizer<tau>::build_PGV_NGV_S()
+template <uint64_t tau, typename char_t>
+void lz77_sss<pos_t>::factorizer<tau, char_t>::build_PGV_NGV_S()
 {
     if (log) {
         std::cout << "building PGV_S and NGV_S" << std::flush;

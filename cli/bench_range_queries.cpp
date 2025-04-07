@@ -27,7 +27,7 @@ struct __attribute__((packed)) operation {
     uint64_t y_2;
 };
 
-std::string T;
+const char* T = nullptr;
 uint64_t n;
 std::vector<uint64_t> sampling;
 std::vector<point> points;
@@ -255,8 +255,8 @@ int main(int argc, char** argv)
     input_file.seekg(0, std::ios::beg);
     auto t0 = now();
     std::cout << "reading T (" << format_size(n) << ")" << std::flush;
-    no_init_resize(T, n);
-    read_from_file(input_file, T.data(), n);
+    char* T = (char*) std::aligned_alloc(16, n + 4 * 4096);
+    read_from_file(input_file, T, n);
     input_file.close();
     log_runtime(t0);
 

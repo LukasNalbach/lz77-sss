@@ -4,9 +4,9 @@
 #include <cstdint>
 #include <lz77_sss/misc/utils.hpp>
 
-template <typename pos_t>
+template <typename pos_t, typename char_t>
 pos_t lce_l_128(
-    const char* T, pos_t i, pos_t j,
+    const char_t* T, pos_t i, pos_t j,
     pos_t lce_max = std::numeric_limits<pos_t>::max())
 {
     pos_t min_ij_p1 = std::min<pos_t>(i, j) + 1;
@@ -36,14 +36,14 @@ pos_t lce_l_128(
     }
 
     pos_t min__ = i - (lce_max - 1);
-    pos_t i__ = reinterpret_cast<const char*>(i_ + 1) - T;
+    pos_t i__ = reinterpret_cast<const char_t*>(i_ + 1) - T;
 
     if (i__ <= min__) [[unlikely]] {
         return lce_max;
     }
 
     i__--;
-    pos_t j__ = reinterpret_cast<const char*>(j_ + 1) - 1 - T;
+    pos_t j__ = reinterpret_cast<const char_t*>(j_ + 1) - 1 - T;
 
     while (i__ >= min__ && T[i__] == T[j__]) {
         if (i__ == 0) [[unlikely]] {
