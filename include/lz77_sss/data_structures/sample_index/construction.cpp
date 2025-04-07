@@ -2,8 +2,8 @@
 
 #include <lz77_sss/data_structures/sample_index/sample_index.hpp>
 
-template <typename pos_t, typename sidx_t, typename lce_r_t>
-void sample_index<pos_t, sidx_t, lce_r_t>::build_xa_s_1_2_intervals(uint16_t p, bool log)
+template <typename pos_t, typename sidx_t, typename char_t, typename lce_r_t>
+void sample_index<pos_t, sidx_t, char_t, lce_r_t>::build_xa_s_1_2_intervals(uint16_t p, bool log)
 {
     auto time = now();
 
@@ -79,9 +79,9 @@ void sample_index<pos_t, sidx_t, lce_r_t>::build_xa_s_1_2_intervals(uint16_t p, 
     }
 }
 
-template <typename pos_t, typename sidx_t, typename lce_r_t>
+template <typename pos_t, typename sidx_t, typename char_t, typename lce_r_t>
 template <direction dir>
-void sample_index<pos_t, sidx_t, lce_r_t>::build_samples(pos_t typ_lce_r, uint16_t p, bool log)
+void sample_index<pos_t, sidx_t, char_t, lce_r_t>::build_samples(pos_t typ_lce_r, uint16_t p, bool log)
 {
     auto time = now();
 
@@ -248,7 +248,7 @@ void sample_index<pos_t, sidx_t, lce_r_t>::build_samples(pos_t typ_lce_r, uint16
                 if (is_pos_in_T<dir>(pos_im1, len - 1)) {
                     SXIVX_vec[j][i_p].emplace_back(sxa_iv_fp_t {
                         .iv = { .b = sxiv_b[j], .e = i - 1 },
-                        .fp = rks.substring<dir>(pos_im1, len) });
+                        .fp = rks.template substring<dir>(pos_im1, len) });
                 }
 
                 sxiv_b[j] = i;

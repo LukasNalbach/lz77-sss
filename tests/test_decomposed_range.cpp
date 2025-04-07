@@ -32,7 +32,8 @@ void test()
     uint32_t input_size = input_size_distrib(gen);
 
     // generate a random string
-    std::string input = random_repetitive_string(input_size, input_size);
+    char* input = nullptr;
+    random_repetitive_string(input, input_size, input_size);
 
     // choose a random average sample rate
     uint32_t avg_sample_rate = avg_sample_rate_distrib(gen);
@@ -48,7 +49,7 @@ void test()
 
     // build a sample index (SA_S and PA_S)
     sample_index<> index;
-    index.build(input, sampling, lce_r_t(input), false);
+    index.build(input, input_size, sampling, lce_r_t(input, input_size), false);
 
     // build the points-array
     std::vector<point_t> points;
@@ -100,7 +101,7 @@ void test()
         uint8_t uchar = used_uchars[uchar_idx_distrib(gen)];
 
         query q {
-            .chr = uchar_to_char(uchar),
+            .chr = uchar_to_char<char>(uchar),
             .x1 = query_range_distrib[uchar](gen),
             .x2 = query_range_distrib[uchar](gen),
             .y1 = query_range_distrib[uchar](gen),
@@ -127,8 +128,7 @@ void test()
 
     // build the range data structure
     range_ds_t<uint32_t> ds(input, sampling, points);
-    if constexpr (range_ds_t<uint32_t>::is_static())
-        points.clear();
+    if constexpr (range_ds_t<uint32_t>::is_static()) points.clear();
 
     // verify that all queries are answered correctly
     for (uint32_t i = 0; i < num_samples; i++) {
@@ -160,7 +160,6 @@ void test()
 
     queries.clear();
     sampling.clear();
-    input.clear();
 }
 
 TEST(test_static_weighted_range, fuzzy_test)

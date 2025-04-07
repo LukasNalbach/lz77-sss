@@ -92,7 +92,7 @@ void test()
     queries.clear();
 }
 
-TEST(test_static_weighted_range, fuzzy_test)
+TEST(test_dynamic_range, fuzzy_test)
 {
     auto start_time = now();
 

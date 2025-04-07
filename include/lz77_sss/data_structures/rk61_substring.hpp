@@ -6,13 +6,14 @@
 
 #include <lz77_sss/misc/utils.hpp>
 
+template <typename char_t>
 class rk61_substring {
 protected:
     static constexpr uint64_t e61 = 61;
     static constexpr uint64_t p61 = (uint64_t(1) << e61) - 1;
     static constexpr uint128_t sq61 = uint128_t(p61) * p61;
 
-    const char* T;
+    const char_t* T = nullptr;
     uint64_t n;
     uint64_t sqrt_n;
     uint128_t b;
@@ -54,12 +55,13 @@ public:
     rk61_substring() = default;
 
     rk61_substring(
-        const std::string& T,
+        const char* T,
+        uint64_t n,
         const uint64_t s,
         const uint64_t w = 0,
         uint16_t p = 1)
-        : T(T.data())
-        , n(T.size())
+        : T(T)
+        , n(n)
         , s(s)
         , w(w)
     {
@@ -172,12 +174,12 @@ public:
         return size;
     }
 
-    inline uint64_t push(const uint64_t fp, const char push) const
+    inline uint64_t push(const uint64_t fp, const char_t push) const
     {
         return mod(((b * uint128_t { fp }) + sq61) + uint128_t(char_to_uchar(push)));
     }
 
-    inline uint64_t roll(const uint64_t fp, const char pop, const char push) const
+    inline uint64_t roll(const uint64_t fp, const char_t pop, const char_t push) const
     {
         return mod(((b * uint128_t { fp }) + pop_prec[char_to_uchar(pop)]) + uint128_t(char_to_uchar(push)));
     }

@@ -3,8 +3,8 @@
 #include <lz77_sss/lz77_sss.hpp>
 
 template <typename pos_t>
-template <uint64_t tau>
-inline lz77_sss<pos_t>::factor lz77_sss<pos_t>::factorizer<tau>::longest_prev_occ(pos_t pos)
+template <uint64_t tau, typename char_t>
+inline lz77_sss<pos_t>::factor lz77_sss<pos_t>::factorizer<tau, char_t>::longest_prev_occ(pos_t pos)
 {
     assert(gap_idx.pos() == pos);
     factor f { .src = char_to_uchar(T[pos]), .len = 0 };
@@ -35,9 +35,9 @@ inline lz77_sss<pos_t>::factor lz77_sss<pos_t>::factorizer<tau>::longest_prev_oc
 }
 
 template <typename pos_t>
-template <uint64_t tau>
+template <uint64_t tau, typename char_t>
 template <factorize_mode fact_mode>
-void lz77_sss<pos_t>::factorizer<tau>::factorize(output_it_t& output)
+void lz77_sss<pos_t>::factorizer<tau, char_t>::factorize(output_it_t& output)
 {
     std::function<lpf_arr_it_t()> lpf_beg = [&]() {
         lpf_arr_it_t lpf_it { .i_p = 0, .i = 0 };

@@ -11,7 +11,7 @@ using range_ds_base = std::conditional_t<
     std::is_base_of_v<static_weighted_range<sidx_t>, range_ds_t<sidx_t>>,
     static_weighted_range<sidx_t>, dynamic_range<sidx_t>>;
 
-template <template <typename> typename range_ds_t, typename sidx_t = uint32_t>
+template <template <typename> typename range_ds_t, typename sidx_t = uint32_t, typename char_t = char>
 class decomposed_range : public range_ds_base<range_ds_t, sidx_t> {
 public:
     using point_t = range_ds_t<sidx_t>::point_t;
@@ -54,7 +54,7 @@ public:
 
     template <typename pos_t>
     decomposed_range(
-        const std::string& T,
+        const char_t* T,
         const std::vector<pos_t>& S,
         const std::vector<point_t>& P,
         uint16_t p = 1)

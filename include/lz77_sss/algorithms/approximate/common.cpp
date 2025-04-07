@@ -3,8 +3,8 @@
 #include <lz77_sss/lz77_sss.hpp>
 
 template <typename pos_t>
-template <uint64_t tau>
-void lz77_sss<pos_t>::factorizer<tau>::greedy_phrase_selection(std::vector<lpf>& P)
+template <uint64_t tau, typename char_t>
+void lz77_sss<pos_t>::factorizer<tau, char_t>::greedy_phrase_selection(std::vector<lpf>& P)
 {
     if (P.empty()) {
         return;
@@ -70,8 +70,8 @@ void lz77_sss<pos_t>::factorizer<tau>::greedy_phrase_selection(std::vector<lpf>&
 }
 
 template <typename pos_t>
-template <uint64_t tau>
-void lz77_sss<pos_t>::factorizer<tau>::get_phrase_info()
+template <uint64_t tau, typename char_t>
+void lz77_sss<pos_t>::factorizer<tau, char_t>::get_phrase_info()
 {
 #pragma omp parallel num_threads(p)
     {
@@ -121,11 +121,11 @@ void lz77_sss<pos_t>::factorizer<tau>::get_phrase_info()
             num_gaps_thr = 1;
         }
 
-        #pragma omp atomic
+        #pragma omp atomic update
         num_gaps += num_gaps_thr;
-        #pragma omp atomic
+        #pragma omp atomic update
         num_lpf += num_lpf_thr;
-        #pragma omp atomic
+        #pragma omp atomic update
         len_lpf_phr += len_lpf_phr_thr;
     }
 }

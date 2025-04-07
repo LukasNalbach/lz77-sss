@@ -55,7 +55,7 @@ public:
 
         #pragma omp parallel for num_threads(p)
         for (uint64_t i = 0; i < points.size(); i++) {
-            #pragma omp atomic
+            #pragma omp atomic update
             grid[window_index(points[i])].len++;
         }
 

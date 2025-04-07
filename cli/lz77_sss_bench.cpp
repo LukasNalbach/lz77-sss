@@ -10,7 +10,7 @@ std::ofstream result_file;
 #include <lz77_sss/lz77_sss.hpp>
 
 uint16_t max_threads = 0;
-std::string T;
+char* T = nullptr;
 uint64_t n;
 
 template <
@@ -24,12 +24,14 @@ void run_sss_approximate(std::string file_name, uint16_t max_threads)
 
         if (n <= std::numeric_limits<uint32_t>::max()) {
             lz77_sss<uint32_t>::factorize_approximate<
-                fact_mode, phr_mode>(T, fact_sss_file,
-                { .num_threads = num_threads, .log = true });
+                fact_mode, phr_mode>(T, n,
+                    [&](auto f){fact_sss_file << f;},
+                    { .num_threads = num_threads, .log = true });
         } else {
             lz77_sss<uint64_t>::factorize_approximate<
-                fact_mode, phr_mode>(T, fact_sss_file,
-                { .num_threads = num_threads, .log = true });
+                fact_mode, phr_mode>(T, n,
+                    [&](auto f){fact_sss_file << f;},
+                    { .num_threads = num_threads, .log = true });
         }
     }
 }
@@ -48,11 +50,13 @@ void run_sss_exact(std::string file_name, uint16_t max_threads)
         if (n <= std::numeric_limits<uint32_t>::max()) {
             lz77_sss<uint32_t>::factorize_exact<
                 fact_mode, phr_mode, transf_mode, range_ds_t>(
-                T, fact_sss_file, { .num_threads = num_threads, .log = true });
+                T, n, [&](auto f){fact_sss_file << f;},
+                { .num_threads = num_threads, .log = true });
         } else {
             lz77_sss<uint64_t>::factorize_exact<
                 fact_mode, phr_mode, transf_mode, range_ds_t>(
-                T, fact_sss_file, { .num_threads = num_threads, .log = true });
+                T, n, [&](auto f){fact_sss_file << f;},
+                { .num_threads = num_threads, .log = true });
         }
     }
 }
@@ -118,8 +122,8 @@ int main(int argc, char** argv)
     input_file.seekg(0, std::ios::beg);
     auto t0 = now();
     std::cout << "reading T (" << format_size(n) << ")" << std::flush;
-    no_init_resize_with_excess(T, n, 4 * lz77_sss<>::default_tau);
-    read_from_file(input_file, T.data(), n);
+    T = (char*) std::aligned_alloc(16, n + 4 * lz77_sss<>::default_tau);
+    read_from_file(input_file, T, n);
     input_file.close();
     log_runtime(t0);
 
@@ -132,7 +136,7 @@ int main(int argc, char** argv)
     std::filesystem::remove("fact_sss_aprx");
     
     std::cout << std::endl << "running naive LZ77 SSS 1.5-approximation:" << std::endl;
-    run_sss_approximate<greedy, lpf_lnf_naive>("fact_sss_aprx", max_threads);
+    run_sss_approximate<greedy_naive, lpf_lnf_naive>("fact_sss_aprx", max_threads);
     std::filesystem::remove("fact_sss_aprx");
     
     std::cout << std::endl << "running LZ77 SSS 1.5-approximation:" << std::endl;
@@ -159,7 +163,7 @@ int main(int argc, char** argv)
     std::ofstream file_lpf("fact_lpf");
     malloc_count_reset_peak();
     auto t1 = now();
-    lz77::LPFFactorizer().factorize(T.begin(), T.end(),
+    lz77::LPFFactorizer().factorize(T, T + n,
         std::ostream_iterator<lz77::Factor>(file_lpf, ""));
     auto t2 = now();
     uint64_t num_factors = file_lpf.tellp() / sizeof(lz77::Factor);
@@ -174,7 +178,7 @@ int main(int argc, char** argv)
     std::ofstream file_gz9("fact_gz9");
     malloc_count_reset_peak();
     auto t3 = now();
-    lz77::Gzip9Factorizer().factorize(T.begin(), T.end(),
+    lz77::Gzip9Factorizer().factorize(T, T + n,
         std::ostream_iterator<lz77::Factor>(file_gz9, ""));
     auto t4 = now();
     num_factors = file_gz9.tellp() / sizeof(lz77::Factor);

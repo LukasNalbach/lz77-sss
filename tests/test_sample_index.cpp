@@ -10,7 +10,8 @@ std::uniform_int_distribution<uint32_t> avg_sample_rate_distrib(1, 10);
 std::uniform_int_distribution<uint32_t> pattern_length_distrib(1, 1000);
 std::uniform_real_distribution<double> prob_distrib(0.0, 1.0);
 
-std::string input;
+char* input = nullptr;
+uint32_t input_size;
 uint32_t avg_sample_rate;
 std::vector<uint32_t> sampling;
 sample_index<>::query_context query;
@@ -22,11 +23,11 @@ std::vector<uint32_t> correct_occurrences;
 template <direction dir>
 void test_query(sample_index<>& index)
 {
-    std::uniform_int_distribution<uint32_t> pattern_pos_distrib(0, input.size() - 1);
+    std::uniform_int_distribution<uint32_t> pattern_pos_distrib(0, input_size - 1);
     pattern_pos = pattern_pos_distrib(gen);
     query = index.query();
     pattern_length = std::min<uint32_t>(
-        dir == LEFT ? pattern_pos + 1 : (input.size() - pattern_pos),
+        dir == LEFT ? pattern_pos + 1 : (input_size - pattern_pos),
         pattern_length_distrib(gen));
     std::uniform_int_distribution<uint32_t> step_size_distrib(1, 3);
     uint32_t current_pattern_length = 0;
@@ -49,7 +50,7 @@ void test_query(sample_index<>& index)
 
         if (dir == LEFT ?
             (sample_pos >= pattern_length - 1) :
-            (sample_pos + pattern_length <= input.size())
+            (sample_pos + pattern_length <= input_size)
         ) {
             for (uint32_t j = 0; j < pattern_length; j++) {
                 if (dir == LEFT ?
@@ -77,7 +78,7 @@ TEST(test_sample_index, fuzzy_test)
 
     while (time_diff_min(start_time, now()) < 60) {
         // generate a random string
-        input = random_repetitive_string(1, 100000);
+        input_size = random_repetitive_string(input, 1, 100000);
 
         // choose a random average sample rate
         avg_sample_rate = avg_sample_rate_distrib(gen);
@@ -85,15 +86,15 @@ TEST(test_sample_index, fuzzy_test)
 
         // compute a random sampling of text positions
         sampling.emplace_back(std::min<uint32_t>(
-            input.size() - 1, sample_distance_distrib(gen)));
+            input_size - 1, sample_distance_distrib(gen)));
         
-        while (sampling.back() + 2 * avg_sample_rate < input.size()) {
+        while (sampling.back() + 2 * avg_sample_rate < input_size) {
             sampling.emplace_back(sampling.back() + sample_distance_distrib(gen));
         }
 
         // build the sample-index
         sample_index<> index;
-        index.build(input, sampling, lce_r_t(input), true, omp_get_max_threads());
+        index.build(input, input_size, sampling, lce_r_t(input, input_size), true, omp_get_max_threads());
 
         // perform random queries and check their correctness
         for (uint32_t i = 0; i < 1000; i++) {
@@ -105,6 +106,7 @@ TEST(test_sample_index, fuzzy_test)
         }
 
         sampling.clear();
-        input.clear();
+        delete input;
+        input = nullptr;
     }
 }

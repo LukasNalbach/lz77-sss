@@ -2,10 +2,10 @@
 
 #include <lz77_sss/data_structures/sample_index/sample_index.hpp>
 
-template <typename pos_t, typename sidx_t, typename lce_r_t>
+template <typename pos_t, typename sidx_t, typename char_t, typename lce_r_t>
 template <direction dir>
-inline std::pair<typename sample_index<pos_t, sidx_t, lce_r_t>::sxa_interval_t, bool>
-sample_index<pos_t, sidx_t, lce_r_t>::sxa_interval(
+inline std::pair<typename sample_index<pos_t, sidx_t, char_t, lce_r_t>::sxa_interval_t, bool>
+sample_index<pos_t, sidx_t, char_t, lce_r_t>::sxa_interval(
     pos_t pat_len_idx, pos_t pos_pat, std::size_t hash) const
 {
     if (pat_len_idx == 0) {
@@ -26,7 +26,7 @@ sample_index<pos_t, sidx_t, lce_r_t>::sxa_interval(
 
     if (hash == std::numeric_limits<std::size_t>::max()) {
         pos_t pat_len = sampled_pattern_lengths<dir>()[pat_len_idx];
-        hash = rks.substring<dir>(pos_pat, pat_len);
+        hash = rks.template substring<dir>(pos_pat, pat_len);
     }
 
     auto it = map.find(pos_to_interval(pos_pat), hash);
@@ -38,9 +38,9 @@ sample_index<pos_t, sidx_t, lce_r_t>::sxa_interval(
     }
 }
 
-template <typename pos_t, typename sidx_t, typename lce_r_t>
+template <typename pos_t, typename sidx_t, typename char_t, typename lce_r_t>
 template <direction dir>
-bool sample_index<pos_t, sidx_t, lce_r_t>::extend(
+bool sample_index<pos_t, sidx_t, char_t, lce_r_t>::extend(
     const query_context& qc_old, query_context& qc_new,
     pos_t pos_pat, pos_t len, bool use_samples) const
 {
@@ -72,7 +72,7 @@ bool sample_index<pos_t, sidx_t, lce_r_t>::extend(
 
     if (use_samples && std::min<pos_t>(qc_old.lce_b, qc_old.lce_e) < len_smpl) {
         if (pat_len_idx >= 2) {
-            fp_smpl = rks.substring<dir>(pos_pat, len_smpl);
+            fp_smpl = rks.template substring<dir>(pos_pat, len_smpl);
         }
 
         auto [iv, result] = sxa_interval<dir>(pat_len_idx, pos_pat, fp_smpl);
@@ -113,15 +113,15 @@ bool sample_index<pos_t, sidx_t, lce_r_t>::extend(
 
         if (pat_len_idx >= 1) {
             if (fp_smpl == std::numeric_limits<std::size_t>::max()) {
-                fp_nxt_smpl = rks.substring<dir>(pos_pat, len_nxt_smpl);
+                fp_nxt_smpl = rks.template substring<dir>(pos_pat, len_nxt_smpl);
             } else {
                 if constexpr (dir == LEFT) {
                     fp_nxt_smpl = rks.concat(
-                        rks.substring<LEFT>(pos_pat - len_smpl, len_diff),
+                        rks.template substring<LEFT>(pos_pat - len_smpl, len_diff),
                         fp_smpl, len_smpl);
                 } else {
                     fp_nxt_smpl = rks.concat(
-                        fp_smpl, rks.substring<RIGHT>(pos_pat + len_smpl, len_diff),
+                        fp_smpl, rks.template substring<RIGHT>(pos_pat + len_smpl, len_diff),
                         len_diff);
                 }
             }
@@ -248,10 +248,10 @@ bool sample_index<pos_t, sidx_t, lce_r_t>::extend(
     return true;
 }
 
-template <typename pos_t, typename sidx_t, typename lce_r_t>
+template <typename pos_t, typename sidx_t, typename char_t, typename lce_r_t>
 template <direction dir>
-sample_index<pos_t, sidx_t, lce_r_t>::query_context
-sample_index<pos_t, sidx_t, lce_r_t>::interpolate(
+sample_index<pos_t, sidx_t, char_t, lce_r_t>::query_context
+sample_index<pos_t, sidx_t, char_t, lce_r_t>::interpolate(
     const query_context& qc_short,
     const query_context& qc_long,
     pos_t pos_pat, pos_t len) const

@@ -4,7 +4,7 @@ template <typename pos_t> class lz77_sss;
 
 #include <lz77_sss/lz77_sss.hpp>
 
-template <typename pos_t, uint8_t num_patt_lens>
+template <typename pos_t, uint8_t num_patt_lens, typename char_t>
 class parallel_rolling_hash_index_107 {
 public:
     using fp_t = uint128_t;
@@ -12,7 +12,7 @@ public:
 
 protected:
     using rolling_hash_t = lce::rolling_hash::rk_prime<107>;
-    char* input = nullptr;
+    const char_t* input = nullptr;
     pos_t input_size = 0;
     std::array<pos_t, num_patt_lens> patt_lens;
     rolling_hash_t* rolling_hash[num_patt_lens] = { nullptr };
@@ -24,7 +24,7 @@ public:
     parallel_rolling_hash_index_107() = default;
 
     parallel_rolling_hash_index_107(
-        char* input, pos_t size,
+        const char_t* input, pos_t size,
         std::array<pos_t, num_patt_lens> patt_lens,
         uint64_t target_size_in_bytes, uint16_t num_threads)
         : input(input)

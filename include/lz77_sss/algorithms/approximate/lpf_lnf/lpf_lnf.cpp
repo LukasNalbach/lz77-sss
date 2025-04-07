@@ -3,9 +3,9 @@
 #include <lz77_sss/lz77_sss.hpp>
 
 template <typename pos_t>
-template <uint64_t tau>
+template <uint64_t tau, typename char_t>
 template <phrase_mode phr_mode>
-void lz77_sss<pos_t>::factorizer<tau>::build_LPF_all(std::function<void(uint16_t, lpf&&)> lpf_it)
+void lz77_sss<pos_t>::factorizer<tau, char_t>::build_LPF_all(std::function<void(uint16_t, lpf&&)> lpf_it)
 {
     build_PSV_NSV_S();
 
@@ -108,9 +108,9 @@ void lz77_sss<pos_t>::factorizer<tau>::build_LPF_all(std::function<void(uint16_t
 }
 
 template <typename pos_t>
-template <uint64_t tau>
+template <uint64_t tau, typename char_t>
 template <phrase_mode phr_mode>
-void lz77_sss<pos_t>::factorizer<tau>::build_LNF_all(std::function<void(uint16_t, lpf&&)> lpf_it)
+void lz77_sss<pos_t>::factorizer<tau, char_t>::build_LNF_all(std::function<void(uint16_t, lpf&&)> lpf_it)
 {
     build_PGV_NGV_S();
 

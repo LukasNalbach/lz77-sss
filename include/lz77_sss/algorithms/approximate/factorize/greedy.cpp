@@ -3,9 +3,9 @@
 #include <lz77_sss/lz77_sss.hpp>
 
 template <typename pos_t>
-template <uint64_t tau>
+template <uint64_t tau, typename char_t>
 template <typename lpf_it_t>
-void lz77_sss<pos_t>::factorizer<tau>::factorize_greedy(
+void lz77_sss<pos_t>::factorizer<tau, char_t>::factorize_greedy(
     output_it_t& output,
     std::function<lpf_it_t()>& lpf_beg,
     std::function<lpf(lpf_it_t&)>& next_lpf)
