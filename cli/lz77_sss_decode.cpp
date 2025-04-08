@@ -24,19 +24,21 @@ int main(int argc, char** argv)
     uint64_t n;
     input_file >> n;
     std::cout << "decoding T (" << format_size(n) << ")" << std::flush;
-    char* T = (char*) std::aligned_alloc(16, n + 4 * lz77_sss<>::default_tau);
+    std::string T;
+    no_init_resize_with_excess(T, n, 4 * lz77_sss<>::default_tau);
+    read_from_file(input_file, T.data(), n);
     auto time = now();
 
     if (n <= std::numeric_limits<uint32_t>::max()) {
-        lz77_sss<uint32_t>::decode(std::istream_iterator<lz77_sss<uint32_t>::factor>(input_file), T, n);
+        lz77_sss<uint32_t>::decode(std::istream_iterator<lz77_sss<uint32_t>::factor>(input_file), T.data(), n);
     } else {
-        lz77_sss<uint64_t>::decode(std::istream_iterator<lz77_sss<uint64_t>::factor>(input_file), T, n);
+        lz77_sss<uint64_t>::decode(std::istream_iterator<lz77_sss<uint64_t>::factor>(input_file), T.data(), n);
     }
 
     input_file.close();
     time = log_runtime(time);
     std::cout << "writing T to the output file" << std::flush;
-    write_to_file(output_file, T, n);
+    write_to_file(output_file, T.data(), n);
     time = log_runtime(time);
     output_file.close();
 }

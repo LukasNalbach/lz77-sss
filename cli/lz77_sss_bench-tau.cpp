@@ -44,8 +44,9 @@ int main(int argc, char** argv)
     input_file.seekg(0, std::ios::beg);
     auto t0 = now();
     std::cout << "reading T (" << format_size(n) << ")" << std::flush;
-    char* T = (char*) std::aligned_alloc(16, n + 4 * lz77_sss<>::default_tau);
-    read_from_file(input_file, T, n);
+    std::string T;
+    no_init_resize_with_excess(T, n, 4 * lz77_sss<>::default_tau);
+    read_from_file(input_file, T.data(), n);
     input_file.close();
     log_runtime(t0);
 
@@ -58,12 +59,12 @@ int main(int argc, char** argv)
 
             if (n <= std::numeric_limits<uint32_t>::max()) {
                 lz77_sss<uint32_t>::factorize_approximate<
-                    greedy, lpf_opt, tau>(T, n,
+                    greedy, lpf_opt, tau>(T.data(), n,
                         [&](auto f){fact_sss_file << f;},
                         { .num_threads = 1, .log = true });
             } else {
                 lz77_sss<uint64_t>::factorize_approximate<
-                    greedy, lpf_opt, tau>(T, n,
+                    greedy, lpf_opt, tau>(T.data(), n,
                         [&](auto f){fact_sss_file << f;},
                         { .num_threads = 1, .log = true });
             }

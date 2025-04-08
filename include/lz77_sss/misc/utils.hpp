@@ -224,6 +224,15 @@ void no_init_resize(std::string& str, size_t size)
     (*reinterpret_cast<std::basic_string<char, std::char_traits<char>, default_init_allocator<char>>*>(&str)).resize(size);
 }
 
+void no_init_resize_with_excess(std::string& str, size_t size, size_t excess)
+{
+    str.reserve(size + excess);
+    no_init_resize(str, size);
+    str.resize(size + excess);
+    std::fill(str.end() - excess, str.end(), 0);
+    str.resize(size);
+}
+
 template <typename T>
 void no_init_resize(std::vector<T>& vec, size_t size)
 {
@@ -526,71 +535,68 @@ T sum(std::vector<T> vec)
     return sum;
 }
 
-template <typename char_t>
-uint64_t random_repetitive_string(char_t*& output, uint64_t min_size, uint64_t max_size)
+std::string random_repetitive_string(uint32_t min_size, uint32_t max_size)
 {
-    static_assert(sizeof(char_t) == 1);
-
     std::random_device rd;
     std::mt19937 mt(rd());
     std::uniform_real_distribution<double> prob_distrib(0.0, 1.0);
-    std::uniform_int_distribution<uint64_t> input_size_distrib(min_size, max_size);
+    std::uniform_int_distribution<uint32_t> input_size_distrib(min_size, max_size);
 
-    std::uniform_int_distribution<char_t> char_distrib(
-        std::numeric_limits<char_t>::min(),
-        std::numeric_limits<char_t>::max());
+    std::uniform_int_distribution<char> char_distrib(
+        std::numeric_limits<char>::min(),
+        std::numeric_limits<char>::max());
 
-    uint64_t size = input_size_distrib(mt);
+    uint32_t target_input_size = input_size_distrib(mt);
     enum string_construction_operation { new_character = 0, repetition = 1, run = 2 };
     double repetition_repetitiveness = prob_distrib(mt);
     double run_repetitiveness = prob_distrib(mt);
 
-    std::uniform_int_distribution<uint64_t> repetition_length_distrib(
-        1, (repetition_repetitiveness * size) / 100);
+    std::uniform_int_distribution<uint32_t> repetition_length_distrib(
+        1, (repetition_repetitiveness * target_input_size) / 100);
 
-    std::uniform_int_distribution<uint64_t> run_length_distrib(
-        1, (run_repetitiveness * size) / 200);
+    std::uniform_int_distribution<uint32_t> run_length_distrib(
+        1, (run_repetitiveness * target_input_size) / 200);
 
     std::discrete_distribution<uint8_t> next_operation_distrib({
         2 - (repetition_repetitiveness + run_repetitiveness),
         repetition_repetitiveness,
         run_repetitiveness });
 
-    output = (char_t*) std::aligned_alloc(16, size + 4 * 4096);
-    char_t* output_it = output;
-    char_t* end = output + size;
-    *output_it++ = char_distrib(mt);
+    std::string input;
+    no_init_resize_with_excess(input, target_input_size, 4 * 4096);
+    input.clear();
+    input.push_back(char_distrib(mt));
 
-    while (output_it < end) {
+    while (input.size() < target_input_size) {
         switch (next_operation_distrib(mt)) {
-            case new_character: {
-                *output_it++ = char_distrib(mt);
-                break;
-            }
-            case repetition: {
-                uint64_t repetition_length = std::min<uint64_t>(
-                    end - output_it, repetition_length_distrib(mt));
-                uint64_t repstition_source = std::rand() % size;
+        case new_character: {
+            input.push_back(char_distrib(mt));
+            break;
+        }
+        case repetition: {
+            uint32_t repetition_length = std::min<uint32_t>(
+                target_input_size - input.size(), repetition_length_distrib(mt));
+            uint32_t repstition_source = std::rand() % input.size();
 
-                for (uint64_t i = 0; i < repetition_length; i++)
-                    *output_it++ = output[repstition_source + i];
+            for (uint32_t i = 0; i < repetition_length; i++)
+                input.push_back(input[repstition_source + i]);
 
-                break;
-            }
-            case run: {
-                uint64_t run_length = std::min<uint64_t>(
-                    end - output_it, run_length_distrib(mt));
-                char_t run_char = char_distrib(mt);
+            break;
+        }
+        case run: {
+            uint32_t run_length = std::min<uint32_t>(
+                target_input_size - input.size(), run_length_distrib(mt));
+            char run_char = char_distrib(mt);
 
-                for (uint64_t i = 0; i < run_length; i++)
-                    *output_it++ = run_char;
+            for (uint32_t i = 0; i < run_length; i++)
+                input.push_back(run_char);
 
-                break;
-            }
+            break;
+        }
         }
     }
 
-    return size;
+    return input;
 }
 
 static void log_phase(std::string phase, uint64_t time) {
