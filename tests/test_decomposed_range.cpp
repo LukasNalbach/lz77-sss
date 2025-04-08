@@ -32,8 +32,7 @@ void test()
     uint32_t input_size = input_size_distrib(gen);
 
     // generate a random string
-    char* input = nullptr;
-    random_repetitive_string(input, input_size, input_size);
+    std::string input = random_repetitive_string(input_size, input_size);
 
     // choose a random average sample rate
     uint32_t avg_sample_rate = avg_sample_rate_distrib(gen);
@@ -49,7 +48,7 @@ void test()
 
     // build a sample index (SA_S and PA_S)
     sample_index<> index;
-    index.build(input, input_size, sampling, lce_r_t(input, input_size), false);
+    index.build(input.data(), input_size, sampling, lce_r_t(input), false);
 
     // build the points-array
     std::vector<point_t> points;
@@ -127,7 +126,7 @@ void test()
     }
 
     // build the range data structure
-    range_ds_t<uint32_t> ds(input, sampling, points);
+    range_ds_t<uint32_t> ds(input.data(), sampling, points);
     if constexpr (range_ds_t<uint32_t>::is_static()) points.clear();
 
     // verify that all queries are answered correctly

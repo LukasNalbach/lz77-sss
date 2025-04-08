@@ -12,7 +12,7 @@
 #include <cstdint>
 #include <gsaca-double-sort-par.hpp>
 
-#include "ds/lce_naive_wordwise.hpp"
+#include "ds/lce_naive_wordwise_xor.hpp"
 #include "rmq/rmq_n.hpp"
 
 #ifdef LCE_BENCHMARK_INTERNAL
@@ -105,7 +105,6 @@ class lce_classic_for_sss {
         assert(lce_naive_wordwise_xor<uint8_t>::lce_uneq(
                    text, text_size, sss[i], sss[preceding_suffix_pos]) ==
                current_lcp);
-        if (i == end-1) break;
         uint64_t diff = sss[i + 1] - sss[i];
         if (current_lcp < 2 * t_tau + diff) {
           current_lcp = 0;

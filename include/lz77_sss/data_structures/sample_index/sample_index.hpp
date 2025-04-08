@@ -209,7 +209,7 @@ protected:
         pos_t max_lce_l = std::numeric_limits<pos_t>::max()) const
     {
         if constexpr (dir == LEFT) {
-            return lce_l_128<pos_t>(T, i, j, max_lce_l);
+            return lce_l_64<pos_t>(T, i, j, max_lce_l);
         } else {
             return LCE_R->lce(i, j);
         }
@@ -222,7 +222,7 @@ protected:
     {
         if constexpr (dir == LEFT) {
             if (!is_pos_in_T<dir>(std::min<pos_t>(i, j), offs)) [[unlikely]] return offs;
-            return offs + lce_l_128<pos_t>(T, i - offs, j - offs, max_lce_l - offs);
+            return offs + lce_l_64<pos_t>(T, i - offs, j - offs, max_lce_l - offs);
         } else {
             if (!is_pos_in_T<dir>(std::max<pos_t>(i, j), offs)) [[unlikely]] return offs;
             return offs + LCE_R->lce(offs + i, offs + j);

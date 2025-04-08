@@ -126,9 +126,9 @@ public:
     using output_it_t = std::function<void(factor)>;
 
     template <
-        factorize_mode                  fact_mode   = default_fact_mode,
-        phrase_mode                     phr_mode    = default_phr_mode,
-        uint64_t                        tau         = default_tau,
+        factorize_mode  fact_mode = default_fact_mode,
+        phrase_mode     phr_mode  = default_phr_mode,
+        uint64_t        tau       = default_tau,
         typename char_t
     >
     static void factorize_approximate(char_t* input, pos_t input_size, output_it_t output, parameters params = { })
@@ -137,11 +137,11 @@ public:
     }
 
     template <
-        factorize_mode                  fact_mode       = default_fact_mode,
-        phrase_mode                     phr_mode        = default_phr_mode,
-        transform_mode                  transf_mode     = default_transf_mode,
-        template <typename> typename    range_ds_t      = default_range_ds_t,
-        uint64_t                        tau             = default_tau,
+        factorize_mode               fact_mode   = default_fact_mode,
+        phrase_mode                  phr_mode    = default_phr_mode,
+        transform_mode               transf_mode = default_transf_mode,
+        template <typename> typename range_ds_t  = default_range_ds_t,
+        uint64_t                     tau         = default_tau,
         typename char_t
     >
     static void factorize_exact(char_t* input, pos_t input_size, output_it_t output, parameters params = { })
@@ -452,7 +452,7 @@ protected:
 
         inline pos_t LCE_L(pos_t i, pos_t j, pos_t max_lce = std::numeric_limits<pos_t>::max())
         {
-            return lce_l_128<pos_t>(T, i, j, max_lce);
+            return lce_l_64<pos_t>(T, i, j, max_lce);
         }
 
         static void greedy_phrase_selection(std::vector<lpf>& P);
