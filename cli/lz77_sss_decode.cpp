@@ -26,7 +26,6 @@ int main(int argc, char** argv)
     std::cout << "decoding T (" << format_size(n) << ")" << std::flush;
     std::string T;
     no_init_resize_with_excess(T, n, 4 * lz77_sss<>::default_tau);
-    read_from_file(input_file, T.data(), n);
     auto time = now();
 
     if (n <= std::numeric_limits<uint32_t>::max()) {
