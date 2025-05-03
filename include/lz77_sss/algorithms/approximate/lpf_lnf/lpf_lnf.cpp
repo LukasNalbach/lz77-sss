@@ -34,7 +34,7 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::build_LPF_all(std::function<void(
         lpf lst_gr_phr = {n, n, n};
 
         for (uint32_t i = i_min; i < i_max; i++) {
-            if (PSV_S[ISSA_S[i]] > 0) [[likely]] {
+            if (PSV_S[ISSA_S[i]] != s) [[likely]] {
                 pos_t beg = S[i];
                 pos_t src = S[SSA_S[PSV_S[ISSA_S[i]]]];
 
@@ -64,7 +64,7 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::build_LPF_all(std::function<void(
                 }
             }
 
-            if (NSV_S[ISSA_S[i]] < s) [[likely]] {
+            if (NSV_S[ISSA_S[i]] != s) [[likely]] {
                 pos_t beg = S[i];
                 pos_t src = S[SSA_S[NSV_S[ISSA_S[i]]]];
 
@@ -139,7 +139,7 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::build_LNF_all(std::function<void(
         lpf lst_gr_phr = {n, n, n};
 
         for (uint32_t i = i_min; i < i_max; i++) {
-            if (PGV_S[ISSA_S[i]] > 0) [[likely]] {
+            if (PGV_S[ISSA_S[i]] != s) [[likely]] {
                 pos_t src = S[SSA_S[PGV_S[ISSA_S[i]]]];
                 pos_t beg = S[i];
 
@@ -174,7 +174,7 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::build_LNF_all(std::function<void(
                 }
             }
 
-            if (NGV_S[ISSA_S[i]] < s) [[likely]] {
+            if (NGV_S[ISSA_S[i]] != s) [[likely]] {
                 pos_t src = S[SSA_S[NGV_S[ISSA_S[i]]]];
                 pos_t beg = S[i];
 

@@ -26,15 +26,16 @@ public:
     parallel_rolling_hash_index_107(
         const char_t* input, pos_t size,
         std::array<pos_t, num_patt_lens> patt_lens,
-        uint64_t target_size_in_bytes, uint16_t num_threads)
+        int64_t target_size_in_bytes, uint16_t num_threads)
         : input(input)
         , input_size(size)
         , patt_lens(patt_lens)
     {
         static constexpr int64_t rolling_hash_size = sizeof(rolling_hash_t) * num_patt_lens;
-        int64_t min_index_size = (input_size * lz77_sss<pos_t>::min_rel_rh_index_size) / sizeof(pos_t);
+        int64_t min_index_size = std::max<pos_t>(lz77_sss<pos_t>::min_rh_index_size,
+            input_size * lz77_sss<pos_t>::min_rel_rh_index_size) / sizeof(pos_t);
         int64_t max_index_size = lz77_sss<pos_t>::max_rh_index_size / sizeof(pos_t);
-        int64_t target_index_size = (int64_t{target_size_in_bytes} - rolling_hash_size) / sizeof(pos_t);
+        int64_t target_index_size = std::max<int64_t>(0, target_size_in_bytes - rolling_hash_size) / sizeof(pos_t);
 
         uint64_t target_size_h = std::min<int64_t>(max_index_size, std::max<int64_t>(min_index_size, target_index_size));
         uint8_t log2_size_h = std::round(std::log2(target_size_h)) - 1;
@@ -126,6 +127,12 @@ public:
     inline pos_t advance_and_get_occ(fp_arr_t& fps, pos_t pos)
     {
         fp_t h_pos = fps[i] & h_mod_mask;
+        pos_t occ;
+
+        if constexpr (ret_new) {
+            occ = H_new[h_pos];
+        }
+        
         H_new[h_pos] = pos;
 
         if (pos + patt_lens[i] < input_size) [[likely]] {
@@ -133,7 +140,7 @@ public:
         }
 
         if constexpr (ret_new) {
-            return H_new[h_pos];
+            return occ;
         } else {
             return H_old[h_pos];
         }

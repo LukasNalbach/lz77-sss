@@ -133,25 +133,19 @@ void sample_index<pos_t, sidx_t, char_t, lce_r_t>::build_samples(pos_t typ_lce_r
     double slcx_rng = slcx_rng_max - slcx_rng_min;
     smpl_pat_lens[dir] = { 1, 2 };
     SXIVX<dir>().resize(2);
-    if (slcx_rng_min >= slcx_rng_max)
-        return;
+    if (slcx_rng_min >= slcx_rng_max) return;
     int16_t num_pat_lens = 2 + std::floor((2.0 * max_num_samples) / double { slcx_rng_min + slcx_rng_max });
     std::vector<sidx_t> pat_len_rank(num_pat_lens, 0);
 
     for (int16_t i = 2; i < num_pat_lens; i++) {
-        double rel_slcx_rnk = (double { i } + 1.0) / double { num_pat_lens };
-        pos_t slcx_rnk = slcx_rng_min + rel_slcx_rnk * slcx_rng;
-        pos_t len = SLCX_sorted[slcx_rnk] - 1;
-        while (len <= smpl_pat_lens[dir].back())
-            len++;
-        if (len > max_sampled_len)
-            break;
+        double rel_slcx_rnk = (i - 1) / double { num_pat_lens - 2 };
+        pos_t slcx_rnk = std::floor(double { slcx_rng_min } + rel_slcx_rnk * slcx_rng);
+        pos_t len = std::max(SLCX_sorted[slcx_rnk], smpl_pat_lens[dir].back() + 1);
+        if (len > max_sampled_len) break;
 
         smpl_pat_lens[dir].emplace_back(len);
         slcx_rnk = bin_search_min_geq<pos_t, sidx_t>(
-            len, 0, s - 1, [&](sidx_t i) {
-                return SLCX_sorted[i];
-            });
+            len, 0, s - 1, [&](sidx_t i) {return SLCX_sorted[i];});
 
         SXIVX<dir>().emplace_back(sxivx_map_t<dir>(0,
             sxivx_hash<dir>(this, len),
@@ -241,8 +235,7 @@ void sample_index<pos_t, sidx_t, char_t, lce_r_t>::build_samples(pos_t typ_lce_r
 
             for (int16_t j = num_pat_lens - 1; j >= 2; j--) {
                 pos_t len = smpl_pat_lens[dir][j];
-                if (lcx >= len)
-                    break;
+                if (lcx >= len) break;
                 pos_t pos_im1 = S[XA_S<dir>(i - 1)];
 
                 if (is_pos_in_T<dir>(pos_im1, len - 1)) {
@@ -279,8 +272,7 @@ void sample_index<pos_t, sidx_t, char_t, lce_r_t>::build_samples(pos_t typ_lce_r
 
         for (int16_t j = num_pat_lens - 1; j >= 2; j--) {
             pos_t len = smpl_pat_lens[dir][j];
-            if (lcx >= len)
-                break;
+            if (lcx >= len) break;
             pos_t pos_im1 = S[XA_S<dir>(i - 1)];
 
             if (is_pos_in_T<dir>(pos_im1, len - 1)) {

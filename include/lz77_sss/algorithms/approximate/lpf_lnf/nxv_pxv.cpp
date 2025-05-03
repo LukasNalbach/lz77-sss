@@ -22,22 +22,25 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::build_PSV_NSV_S()
 
     no_init_resize(PSV_S, s);
     no_init_resize(NSV_S, s);
-    PSV_S[0] = 0;
+    PSV_S[0] = s;
     NSV_S[s - 1] = s;
 
     for (uint32_t i = 1; i < s; i++) {
         uint32_t j = i - 1;
 
-        while (j != 0 && SSA_S[j] > SSA_S[i]) {
+        while (j != s && SSA_S[j] > SSA_S[i]) {
             NSV_S[j] = i;
             j = PSV_S[j];
         }
 
         PSV_S[i] = j;
-        NSV_S[j] = s;
+
+        if (j != s) {
+            NSV_S[j] = s;
+        }
 
         #ifndef NDEBUG
-        assert(PSV_S[i] == 0 || S[SSA_S[PSV_S[i]]] < S[SSA_S[i]]);
+        assert(PSV_S[i] == s || S[SSA_S[PSV_S[i]]] < S[SSA_S[i]]);
         #endif
     }
 
@@ -74,22 +77,25 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::build_PGV_NGV_S()
 
     no_init_resize(PGV_S, s);
     no_init_resize(NGV_S, s);
-    PGV_S[0] = 0;
+    PGV_S[0] = s;
     NGV_S[s - 1] = s;
 
     for (uint32_t i = 1; i < s; i++) {
         uint32_t j = i - 1;
 
-        while (j != 0 && SSA_S[j] < SSA_S[i]) {
+        while (j != s && SSA_S[j] < SSA_S[i]) {
             NGV_S[j] = i;
             j = PGV_S[j];
         }
 
         PGV_S[i] = j;
-        NGV_S[j] = s;
+        
+        if (j != s) {
+            NGV_S[j] = s;
+        }
 
         #ifndef NDEBUG
-        assert(PGV_S[i] == 0 || S[SSA_S[PGV_S[i]]] > S[SSA_S[i]]);
+        assert(PGV_S[i] == s || S[SSA_S[PGV_S[i]]] > S[SSA_S[i]]);
         #endif
     }
 

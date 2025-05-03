@@ -57,10 +57,12 @@ public:
     static constexpr uint64_t           default_tau              = 512;
     static constexpr uint64_t           max_delta                = 256;
     static constexpr uint64_t           range_scan_threshold     = 4096;
-    static constexpr double             min_rel_gap_len          = 0.2;
-    static constexpr uint64_t           min_gap_blk_size         = 4096;
-    static constexpr uint64_t           max_num_gap_blks         = 512;
+    static constexpr uint64_t           min_par_input_size       = 500'000;
+    static constexpr double             min_par_rel_gap_len      = 0.2;
+    static constexpr uint64_t           min_par_gap_blk_size     = 4096;
+    static constexpr uint64_t           max_par_gap_blks         = 512;
     static constexpr uint64_t           num_patt_lens            = 5;
+    static constexpr uint64_t           min_rh_index_size        = 1 << 20;
     static constexpr uint64_t           max_rh_index_size        = 1 << 30;
     static constexpr double             min_rel_rh_index_size    = 0.1;
 
@@ -87,7 +89,8 @@ public:
 
     static uint64_t get_target_gap_idx_size(uint64_t n, double rel_len_gaps)
     {
-        return std::min<uint64_t>(max_rh_index_size, std::max<uint64_t>(malloc_count_peak() - malloc_count_current(), (n / 3.0) * rel_len_gaps));
+        return std::min<uint64_t>(max_rh_index_size, std::max<uint64_t>({min_rh_index_size,
+            malloc_count_peak() - malloc_count_current(), (n / 3.0) * rel_len_gaps}));
     }
 
     struct factor {
@@ -393,6 +396,8 @@ protected:
                 if (log) {
                     log_phase("phrase_info", time_diff_ns(time, now()));
                     time = log_runtime(time);
+                    std::cout << "|S| / (2n / tau) = " << size_sss / ((2.0 * n) / tau) << std::endl;
+                    std::cout << "the density condition has " << (LCE.has_runs() ? "" : "not ") << "been applied" << std::endl;
                     std::cout << "num. of LPF phrases / SSS size = " << lpf_phr_per_sync << std::endl;
                     std::cout << "gaps length / input length: " << rel_len_gaps << std::endl;
                     std::cout << "num. of gaps / num. of LPF phrases: " << gaps_per_lpf_phr << std::endl;
@@ -424,7 +429,9 @@ protected:
                     std::cout << "initializing rolling hash index" << std::flush;
                 }
 
-                if (fact_mode == greedy && rel_len_gaps > min_rel_gap_len && p >= 2) {
+                if (fact_mode == greedy && !LCE.has_runs() && size_sss < 1.3 * ((2.0 * n) / tau) &&
+                    n > min_par_input_size && rel_len_gaps > min_par_rel_gap_len && p > 1
+                ) {
                     par_gap_idx = par_gap_idx_t(T, n, patt_lens, target_index_size, p);
                     if (log) std::cout << " (size: " << format_size(par_gap_idx.size_in_bytes()) << ")";
                 } else {

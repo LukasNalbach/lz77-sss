@@ -25,7 +25,7 @@ public:
         : num_points(points.size())
         , seg_size(seg_size)
     {
-        // this can also be done in O(n) time, but requires more space
+        // this can also be done in O(n log seg_size) time, but requires more space
         ips4o::parallel::sort(points.begin(), points.end(),
             [&](const point_t& p1, const point_t& p2) {
                 pos_t x1_s = p1.x / seg_size;

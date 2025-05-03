@@ -33,7 +33,7 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::build_LPF_naive()
             pos_t src;
             pos_t len = 0;
 
-            if (PSV_S[ISSA_S[i]] > 0) {
+            if (PSV_S[ISSA_S[i]] != s) {
                 pos_t src_cur = S[SSA_S[PSV_S[ISSA_S[i]]]];
                 pos_t len_cur = LCE_R(src_cur, S[i]);
 
@@ -51,7 +51,7 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::build_LPF_naive()
                 }
             }
 
-            if (NSV_S[ISSA_S[i]] < s) {
+            if (NSV_S[ISSA_S[i]] != s) {
                 pos_t src_cur = S[SSA_S[NSV_S[ISSA_S[i]]]];
                 pos_t len_cur = LCE_R(src_cur, S[i]);
 

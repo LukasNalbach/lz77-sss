@@ -30,7 +30,7 @@ TEST(test_lz77_sss, fuzzy_test) {
 
     while (time_diff_min(start_time,now()) < 60) {
         // generate a random string
-        std::string input = random_repetitive_string(10000, 100000);
+        std::string input = random_repetitive_string(4'000, 1'000'000);
 
         // compute the factorization
         std::vector<lz77_sss<>::factor> factorization;
