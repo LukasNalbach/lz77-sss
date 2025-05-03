@@ -66,7 +66,7 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::exact_factorizer<sidx_t, transf_m
     double aprx_comp_ratio = n / (double) num_phr;
     pos_t typ_lce_r = std::round(aprx_comp_ratio * (1.0 + 0.5 * std::exp(-aprx_comp_ratio / 1000.0)));
 
-    idx_C.build(T, n, C, LCE, transf_mode == with_samples, p, log, delta, typ_lce_r);
+    idx_C.build(T, n, C, LCE, transf_mode == with_samples, p, log, delta - 1, typ_lce_r);
 
     if (log) {
         std::cout << "size: " << format_size(idx_C.size_in_bytes());

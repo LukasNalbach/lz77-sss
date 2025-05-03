@@ -3,7 +3,7 @@
 int main()
 {
     // generate a random string
-    std::string input = random_repetitive_string(10000, 200000);
+    std::string input = random_repetitive_string(4'000, 1'000'000);
     std::cout << "input size: " << input.size() << std::endl;
     
     // compute an approximate LZ77 factorization
@@ -20,7 +20,7 @@ int main()
     // compute the exact LZ77 factorization to get the approximation ratio
     std::vector<lz77_sss<>::factor> exact_factorization;
     lz77_sss<>::factorize_exact<>(input.data(), input.size(),
-        [&](auto f){exact_factorization.emplace_back(f);}, {.num_threads = 1});
+        [&](auto f){exact_factorization.emplace_back(f);});
     std::cout << "approximation ratio: "
         << factorization.size() / (double) exact_factorization.size() << std::endl;
 }

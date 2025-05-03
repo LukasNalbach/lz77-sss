@@ -127,7 +127,6 @@ void test()
 
     // build the range data structure
     range_ds_t<uint32_t> ds(input.data(), sampling, points);
-    if constexpr (range_ds_t<uint32_t>::is_static()) points.clear();
 
     // verify that all queries are answered correctly
     for (uint32_t i = 0; i < num_samples; i++) {
@@ -156,12 +155,9 @@ void test()
             }
         }
     }
-
-    queries.clear();
-    sampling.clear();
 }
 
-TEST(test_static_weighted_range, fuzzy_test)
+TEST(test_decomposed_range, fuzzy_test)
 {
     auto start_time = now();
 

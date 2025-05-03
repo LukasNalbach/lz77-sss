@@ -31,6 +31,8 @@ template <typename t_char_type = uint8_t, typename t_index_type = uint32_t>
 class lce_classic {
  public:
   typedef t_char_type char_type;
+  static_assert(sizeof(char_type) <= 16);
+  static_assert(std::is_unsigned_v<char_type>);
 
   lce_classic() : m_text(nullptr), m_size(0) {
   }

@@ -34,6 +34,7 @@ namespace lce::ds {
 template <typename t_char_type = uint8_t, uint64_t t_tau = 1024,
           typename t_index_type = uint32_t, bool t_prefer_long = false>
 class lce_sss {
+  static_assert(sizeof(t_char_type) == 1);
  public:
   typedef t_char_type char_type;
   __extension__ typedef unsigned __int128 uint128_t;
@@ -204,6 +205,10 @@ class lce_sss {
   char_type operator[](size_t i) { return m_text[i]; }
 
   size_t size() { return m_size; }
+
+  bool has_runs() const {
+    return m_sync_set.has_runs();
+  }
 
   const std::vector<t_index_type>& get_sync_set() {
     return m_sync_set.get_sss();

@@ -69,6 +69,8 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::factorize(output_it_t& output)
                         phr_i.src += offs;
                     }
                 } while (i == LPF[i_p].size() && i_p < p - 1);
+            } else {
+                i--;
             }
         }
 

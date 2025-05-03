@@ -111,7 +111,9 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::exact_factorizer<sidx_t, transf_m
     num_phr = 0;
 
     for (pos_t len : smpl_lens_left) {
-        is_smpld_left[len] = 1;
+        if (len <= delta) {
+            is_smpld_left[len] = 1;
+        }
     }
 
     #pragma omp parallel num_threads(p)

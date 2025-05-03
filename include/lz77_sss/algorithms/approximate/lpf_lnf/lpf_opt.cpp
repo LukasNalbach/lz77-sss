@@ -39,7 +39,7 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::build_LPF_opt(std::function<void(
             pos_t lst_end = max_end;
             lpf phr { 0, 0, 0 };
 
-            if (PSV_S[ISSA_S[i]] > 0) [[likely]] {
+            if (PSV_S[ISSA_S[i]] != s) [[likely]] {
                 pos_t src = S[SSA_S[PSV_S[ISSA_S[i]]]];
                 pos_t end = S[i] + LCE_R(src, S[i]);
 
@@ -76,7 +76,7 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::build_LPF_opt(std::function<void(
                 }
             }
 
-            if (NSV_S[ISSA_S[i]] < s) [[likely]] {
+            if (NSV_S[ISSA_S[i]] != s) [[likely]] {
                 pos_t src = S[SSA_S[NSV_S[ISSA_S[i]]]];
                 pos_t end = S[i] + LCE_R(src, S[i]);
 
