@@ -4,7 +4,8 @@
 
 template <typename pos_t>
 template <uint64_t tau, typename char_t>
-void lz77_sss<pos_t>::factorizer<tau, char_t>::build_LPF_opt(std::function<void(uint16_t, lpf&&)> lpf_it)
+template <typename lpf_it_t>
+void lz77_sss<pos_t>::factorizer<tau, char_t>::build_LPF_opt(lpf_it_t lpf_it)
 {
     build_PSV_NSV_S();
 
@@ -13,8 +14,8 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::build_LPF_opt(std::function<void(
     }
 
     const std::vector<pos_t>& S = LCE.get_sync_set();
-    const std::vector<uint32_t>& SSA_S = LCE.get_ssa();
-    const std::vector<uint32_t>& ISSA_S = LCE.get_issa();
+    const std::vector<uint32_t>& SA_S = LCE.get_ssa();
+    const std::vector<uint32_t>& ISA_S = LCE.get_issa();
     pos_t s = S.size();
 
     #pragma omp parallel num_threads(p)
@@ -39,8 +40,8 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::build_LPF_opt(std::function<void(
             pos_t lst_end = max_end;
             lpf phr { 0, 0, 0 };
 
-            if (PSV_S[ISSA_S[i]] != s) [[likely]] {
-                pos_t src = S[SSA_S[PSV_S[ISSA_S[i]]]];
+            if (PSV_S[ISA_S[i]] != s) [[likely]] {
+                pos_t src = S[SA_S[PSV_S[ISA_S[i]]]];
                 pos_t end = S[i] + LCE_R(src, S[i]);
 
                 if (end > lst_end) {
@@ -76,8 +77,8 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::build_LPF_opt(std::function<void(
                 }
             }
 
-            if (NSV_S[ISSA_S[i]] != s) [[likely]] {
-                pos_t src = S[SSA_S[NSV_S[ISSA_S[i]]]];
+            if (NSV_S[ISA_S[i]] != s) [[likely]] {
+                pos_t src = S[SA_S[NSV_S[ISA_S[i]]]];
                 pos_t end = S[i] + LCE_R(src, S[i]);
 
                 if (end > lst_end) {
@@ -113,7 +114,7 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::build_LPF_opt(std::function<void(
                 }
 
                 if (phr.end - phr.beg > 1) {
-                    lpf_it(i_p, std::move(phr));
+                    lpf_it(i_p, phr);
                 }
             }
         }

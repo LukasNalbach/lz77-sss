@@ -5,7 +5,7 @@
 
 #include <ds/lce_naive_wordwise_xor.hpp>
 #include <lz77_sss/algorithms/lce_l.hpp>
-#include <lz77_sss/data_structures/rk61_substring.hpp>
+#include <lz77_sss/data_structures/rabin_karp_substring.hpp>
 #include <lz77_sss/misc/utils.hpp>
 #include <tsl/sparse_set.h>
 
@@ -16,9 +16,7 @@ template <
     typename lce_r_t = lce::ds::lce_naive_wordwise_xor<char_t>>
 class sample_index {
 public:
-    static constexpr uint64_t fingerprint_sample_rate = 64;
-
-    struct sxa_interval_t {
+    struct interval_t {
         sidx_t b;
         sidx_t e;
 
@@ -28,7 +26,7 @@ public:
         }
     };
 
-    struct query_context {
+    struct query_ctx_t {
         sidx_t b;
         sidx_t e;
         pos_t lce_b;
@@ -39,22 +37,22 @@ public:
             return std::min<pos_t>(lce_b, lce_e);
         }
 
-        inline sxa_interval_t interval() const
+        inline interval_t interval() const
         {
             return { b, e };
         }
     };
 
 protected:
-    inline static sxa_interval_t pos_to_interval(pos_t pos)
+    inline static interval_t pos_to_interval(pos_t pos)
     {
-        sxa_interval_t iv;
+        interval_t iv;
         *reinterpret_cast<uint64_t*>(&iv) = uint64_t { pos } | (uint64_t { 1 } << 63);
         return iv;
     }
 
     template <direction dir>
-    inline pos_t interval_to_pos(const sxa_interval_t& iv) const
+    inline pos_t interval_to_pos(const interval_t& iv) const
     {
         const uint64_t& iv_u64 = *reinterpret_cast<const uint64_t*>(&iv);
         pos_t pos;
@@ -71,26 +69,26 @@ protected:
     static constexpr sidx_t no_occ = std::numeric_limits<sidx_t>::max();
 
     template <direction dir>
-    struct sxivx_hash {
+    struct xiv_s_hash {
         sample_index* idx = nullptr;
         pos_t len, s;
-        sxivx_hash() = default;
-        sxivx_hash(sample_index* idx, pos_t len) : idx(idx), len(len), s(idx->num_samples()) { }
+        xiv_s_hash() = default;
+        xiv_s_hash(sample_index* idx, pos_t len) : idx(idx), len(len), s(idx->num_samples()) { }
 
-        inline std::size_t operator()(const sxa_interval_t& iv) const
+        inline std::size_t operator()(const interval_t& iv) const
         {
             return idx->rks.template substring<dir>(idx->interval_to_pos<dir>(iv), len);
         }
     };
 
     template <direction dir>
-    struct sxivx_eq {
+    struct xiv_s_eq {
         sample_index* idx = nullptr;
         pos_t len, s;
-        sxivx_eq() = default;
-        sxivx_eq(sample_index* idx, const pos_t len) : idx(idx), len(len), s(idx->num_samples()) { }
+        xiv_s_eq() = default;
+        xiv_s_eq(sample_index* idx, const pos_t len) : idx(idx), len(len), s(idx->num_samples()) { }
 
-        inline bool operator()(const sxa_interval_t& iv_1, const sxa_interval_t& iv_2) const
+        inline bool operator()(const interval_t& iv_1, const interval_t& iv_2) const
         {
             pos_t pos_1 = idx->interval_to_pos<dir>(iv_1);
             pos_t pos_2 = idx->interval_to_pos<dir>(iv_2);
@@ -99,48 +97,45 @@ protected:
     };
 
     template <direction dir>
-    using sxivx_map_t = tsl::sparse_set<
-        sxa_interval_t,
-        sxivx_hash<dir>,
-        sxivx_eq<dir>>;
+    using xiv_s_map_t = tsl::sparse_set<interval_t, xiv_s_hash<dir>, xiv_s_eq<dir>>;
 
     pos_t n = 0;
     sidx_t s = 0;
-    pos_t max_lce_l = 0;
+    pos_t max_patt_len_left = 0;
     uint64_t byte_size = 0;
 
     const char_t* T = nullptr;
     const pos_t* S = nullptr;
     const lce_r_t* LCE_R = nullptr;
-    rk61_substring<char_t> rks;
+    rabin_karp_substring<31, pos_t> rks;
 
     std::vector<sidx_t> PA_S;
     std::vector<sidx_t> SA_S;
 
-    sxa_interval_t SCIV[1 << 8];
-    sxa_interval_t SXIV2[2][1 << 16];
-    std::vector<sxivx_map_t<LEFT>> SPIVX;
-    std::vector<sxivx_map_t<RIGHT>> SSIVX;
+    interval_t SIV_S_1[1 << 8];
+    interval_t XIV_S_2[2][1 << 16];
+    std::vector<xiv_s_map_t<LEFT>> PIV_S;
+    std::vector<xiv_s_map_t<RIGHT>> SIV_S;
 
     std::vector<pos_t> smpl_pat_lens[2];
 
     template <direction dir>
-    inline std::vector<sxivx_map_t<dir>>& SXIVX()
+    inline std::vector<xiv_s_map_t<dir>>& XIV_S()
     {
         if constexpr (dir == LEFT) {
-            return SPIVX;
+            return PIV_S;
         } else {
-            return SSIVX;
+            return SIV_S;
         }
     }
 
     template <direction dir>
-    inline const std::vector<sxivx_map_t<dir>>& SXIVX() const
+    inline const std::vector<xiv_s_map_t<dir>>& XIV_S() const
     {
         if constexpr (dir == LEFT) {
-            return SPIVX;
+            return PIV_S;
         } else {
-            return SSIVX;
+            return SIV_S;
         }
     }
 
@@ -175,41 +170,41 @@ protected:
         }
     }
 
-    inline const sxa_interval_t& sciv(pos_t pos_char) const
+    inline const interval_t& siv_s_1(pos_t pos_char) const
     {
-        return SCIV[val_offs<uint8_t, RIGHT, 0>(T, pos_char)];
+        return SIV_S_1[val_offs<uint8_t, RIGHT, 0>(T, pos_char)];
     }
 
     template <direction dir>
-    inline const sxa_interval_t& sxiv2(pos_t pos_pat) const
+    inline const interval_t& xiv_s2(pos_t pos_patt) const
     {
-        return SXIV2[dir][val_offs<uint16_t, dir, 0>(T, pos_pat)];
+        return XIV_S_2[dir][val_offs<uint16_t, dir, 0>(T, pos_patt)];
     }
 
     inline bool occurs1(pos_t pos_char) const
     {
-        return sciv(pos_char).b != no_occ;
+        return siv_s_1(pos_char).b != no_occ;
     }
 
     template <direction dir>
-    inline bool occurs2(pos_t pos_pat) const
+    inline bool occurs2(pos_t pos_patt) const
     {
         if constexpr (dir == LEFT) {
-            if (pos_pat < 1) [[unlikely]] return false;
+            if (pos_patt < 1) [[unlikely]] return false;
         } else {
-            if (pos_pat >= n - 1) [[unlikely]] return false;
+            if (pos_patt >= n - 1) [[unlikely]] return false;
         }
 
-        return sxiv2<dir>(pos_pat).b != no_occ;
+        return xiv_s2<dir>(pos_patt).b != no_occ;
     }
 
     template <direction dir>
     inline pos_t lce(
         pos_t i, pos_t j,
-        pos_t max_lce_l = std::numeric_limits<pos_t>::max()) const
+        pos_t max_patt_len_left = std::numeric_limits<pos_t>::max()) const
     {
         if constexpr (dir == LEFT) {
-            return lce_l_64<pos_t>(T, i, j, max_lce_l);
+            return lce_l_64<pos_t>(T, i, j, max_patt_len_left);
         } else {
             return LCE_R->lce(i, j);
         }
@@ -218,11 +213,11 @@ protected:
     template <direction dir>
     inline pos_t lce_offs(
         pos_t i, pos_t j, pos_t offs,
-        pos_t max_lce_l = std::numeric_limits<pos_t>::max()) const
+        pos_t max_patt_len_left = std::numeric_limits<pos_t>::max()) const
     {
         if constexpr (dir == LEFT) {
             if (!is_pos_in_T<dir>(std::min<pos_t>(i, j), offs)) [[unlikely]] return offs;
-            return offs + lce_l_64<pos_t>(T, i - offs, j - offs, max_lce_l - offs);
+            return offs + lce_l_64<pos_t>(T, i - offs, j - offs, max_patt_len_left - offs);
         } else {
             if (!is_pos_in_T<dir>(std::max<pos_t>(i, j), offs)) [[unlikely]] return offs;
             return offs + LCE_R->lce(offs + i, offs + j);
@@ -247,13 +242,13 @@ protected:
     inline bool cmp_sample_lex(sidx_t i, sidx_t j) const
     {
         if (i == j) [[unlikely]] return false;
-        return cmp_lex<dir>(S[i], S[j], lce<dir>(S[i], S[j], max_lce_l));
+        return cmp_lex<dir>(S[i], S[j], lce<dir>(S[i], S[j], max_patt_len_left));
     }
 
     void build_xa_s_1_2_intervals(uint16_t p, bool log);
 
     template <direction dir>
-    void build_samples(pos_t typ_lce_r, uint16_t p, bool log);
+    void build_samples(pos_t max_smpl_len, uint16_t p, bool log);
 
 public:
     sample_index() = default;
@@ -263,11 +258,12 @@ public:
         pos_t n,
         const std::vector<pos_t>& S,
         const lce_r_t& LCE_R,
-        bool use_samples = true,
+        bool build_interval_samples = true,
+        pos_t rks_sample_rate = 32,
         uint16_t p = 1,
         bool log = false,
-        pos_t max_lce_l = std::numeric_limits<pos_t>::max(),
-        pos_t typ_lce_r = std::numeric_limits<pos_t>::max())
+        pos_t max_patt_len_left = std::numeric_limits<pos_t>::max(),
+        pos_t max_smpl_len_right = std::numeric_limits<pos_t>::max())
     {
         uint64_t baseline_memory_alloc = malloc_count_current();
         auto time = now();
@@ -275,7 +271,7 @@ public:
         this->T = T;
         this->S = S.data();
         this->LCE_R = &LCE_R;
-        this->max_lce_l = max_lce_l;
+        this->max_patt_len_left = max_patt_len_left;
         this->n = n;
         s = S.size();
 
@@ -341,13 +337,12 @@ public:
             time = log_runtime(time);
         }
 
-        if (use_samples) {
+        if (build_interval_samples) {
             if (log) {
                 std::cout << "building rabin karp substring data structure" << std::flush;
             }
 
-            uint64_t sampling_rate = max_lce_l < 256 ? n : fingerprint_sample_rate;
-            rks = rk61_substring<char_t>(T, n, sampling_rate, 0, p);
+            rks = rabin_karp_substring<31, pos_t>(T, n, rks_sample_rate, 0, p);
 
             if (log) {
                 log_phase("rks", time_diff_ns(time, now()));
@@ -356,14 +351,14 @@ public:
             }
 
             build_xa_s_1_2_intervals(p, log);
-            build_samples<LEFT>(typ_lce_r, p, log);
-            build_samples<RIGHT>(typ_lce_r, p, log);
+            build_samples<LEFT>(max_patt_len_left, p, log);
+            build_samples<RIGHT>(max_smpl_len_right, p, log);
         }
 
         byte_size = malloc_count_current() - baseline_memory_alloc;
     }
 
-    inline const rk61_substring<char_t>& rabin_karp_substring() const
+    inline const rabin_karp_substring<31, pos_t>& rab_karp_substr() const
     {
         return rks;
     }
@@ -403,7 +398,7 @@ public:
         return SA_S[i];
     }
 
-    inline query_context query() const
+    inline query_ctx_t query() const
     {
         return {
             .b = 0,
@@ -414,24 +409,24 @@ public:
     }
 
     template <direction dir>
-    inline query_context query(const sxa_interval_t& sxa_iv, pos_t pos_pat, pos_t len) const
+    inline query_ctx_t query(const interval_t& sxa_iv, pos_t pos_patt, pos_t len) const
     {
         return {
             .b = sxa_iv.b,
             .e = sxa_iv.e,
-            .lce_b = lce_offs<dir>(pos_pat, S[XA_S<dir>(sxa_iv.b)], len, max_lce_l),
-            .lce_e = lce_offs<dir>(pos_pat, S[XA_S<dir>(sxa_iv.e)], len, max_lce_l)
+            .lce_b = lce_offs<dir>(pos_patt, S[XA_S<dir>(sxa_iv.b)], len, max_patt_len_left),
+            .lce_e = lce_offs<dir>(pos_patt, S[XA_S<dir>(sxa_iv.e)], len, max_patt_len_left)
         };
     }
 
-    inline query_context query_left(const sxa_interval_t& sxa_iv, pos_t pos_pat, pos_t len) const
+    inline query_ctx_t query_left(const interval_t& sxa_iv, pos_t pos_patt, pos_t len) const
     {
-        return query<LEFT>(sxa_iv, pos_pat, len);
+        return query<LEFT>(sxa_iv, pos_patt, len);
     }
 
-    inline query_context query_right(const sxa_interval_t& sxa_iv, pos_t pos_pat, pos_t len) const
+    inline query_ctx_t query_right(const interval_t& sxa_iv, pos_t pos_patt, pos_t len) const
     {
-        return query<RIGHT>(sxa_iv, pos_pat, len);
+        return query<RIGHT>(sxa_iv, pos_patt, len);
     }
 
     template <direction dir>
@@ -467,68 +462,68 @@ public:
     }
 
     template <direction dir>
-    inline std::pair<sxa_interval_t, bool> sxa_interval(
-        pos_t pat_len_idx, pos_t pos_pat,
+    inline std::pair<interval_t, bool> sxa_interval(
+        pos_t pat_len_idx, pos_t pos_patt,
         std::size_t hash = std::numeric_limits<std::size_t>::max()) const;
 
-    inline std::pair<sxa_interval_t, bool> spa_interval(
-        pos_t pat_len_idx, pos_t pos_pat,
+    inline std::pair<interval_t, bool> spa_interval(
+        pos_t pat_len_idx, pos_t pos_patt,
         std::size_t hash = std::numeric_limits<std::size_t>::max()) const
     {
-        return sxa_interval<LEFT>(pat_len_idx, pos_pat, hash);
+        return sxa_interval<LEFT>(pat_len_idx, pos_patt, hash);
     }
 
-    inline std::pair<sxa_interval_t, bool> ssa_interval(
-        pos_t pat_len_idx, pos_t pos_pat,
+    inline std::pair<interval_t, bool> ssa_interval(
+        pos_t pat_len_idx, pos_t pos_patt,
         std::size_t hash = std::numeric_limits<std::size_t>::max()) const
     {
-        return sxa_interval<RIGHT>(pat_len_idx, pos_pat, hash);
+        return sxa_interval<RIGHT>(pat_len_idx, pos_patt, hash);
     }
 
     template <direction dir>
-    bool extend(const query_context& qc_old, query_context& qc_new, pos_t pos_pat, pos_t len, bool use_samples = true) const;
+    inline bool extend(const query_ctx_t& qc_old, query_ctx_t& qc_new, pos_t pos_patt, pos_t len, bool use_interval_samples = true) const;
 
-    bool extend_left(const query_context& qc_old, query_context& qc_new, pos_t pos_pat, pos_t len, bool use_samples = true) const
+    bool extend_left(const query_ctx_t& qc_old, query_ctx_t& qc_new, pos_t pos_patt, pos_t len, bool use_interval_samples = true) const
     {
-        return extend<LEFT>(qc_old, qc_new, pos_pat, len, use_samples);
+        return extend<LEFT>(qc_old, qc_new, pos_patt, len, use_interval_samples);
     }
 
-    bool extend_right(const query_context& qc_old, query_context& qc_new, pos_t pos_pat, pos_t len, bool use_samples = true) const
+    inline bool extend_right(const query_ctx_t& qc_old, query_ctx_t& qc_new, pos_t pos_patt, pos_t len, bool use_interval_samples = true) const
     {
-        return extend<RIGHT>(qc_old, qc_new, pos_pat, len, use_samples);
+        return extend<RIGHT>(qc_old, qc_new, pos_patt, len, use_interval_samples);
     }
 
-    bool extend_left(query_context& qc, pos_t pos_pat, pos_t len, bool use_samples = true) const
+    inline bool extend_left(query_ctx_t& qc, pos_t pos_patt, pos_t len, bool use_interval_samples = true) const
     {
-        return extend<LEFT>(qc, qc, pos_pat, len, use_samples);
+        return extend<LEFT>(qc, qc, pos_patt, len, use_interval_samples);
     }
 
-    bool extend_right(query_context& qc, pos_t pos_pat, pos_t len, bool use_samples = true) const
+    inline bool extend_right(query_ctx_t& qc, pos_t pos_patt, pos_t len, bool use_interval_samples = true) const
     {
-        return extend<RIGHT>(qc, qc, pos_pat, len, use_samples);
-    }
-
-    template <direction dir>
-    bool extend(query_context& qc, pos_t pos_pat, pos_t len, bool use_samples = true) const
-    {
-        return extend<dir>(qc, qc, pos_pat, len, use_samples);
+        return extend<RIGHT>(qc, qc, pos_patt, len, use_interval_samples);
     }
 
     template <direction dir>
-    query_context interpolate(const query_context& qc_short, const query_context& qc_long, pos_t pos_pat, pos_t len) const;
-
-    query_context interpolate_left(const query_context& qc_short, const query_context& qc_long, pos_t pos_pat, pos_t len) const
+    inline bool extend(query_ctx_t& qc, pos_t pos_patt, pos_t len, bool use_interval_samples = true) const
     {
-        return interpolate<LEFT>(qc_short, qc_long, pos_pat, len);
+        return extend<dir>(qc, qc, pos_patt, len, use_interval_samples);
+    }
+
+    template <direction dir>
+    query_ctx_t interpolate(const query_ctx_t& qc_short, const query_ctx_t& qc_long, pos_t pos_patt, pos_t len) const;
+
+    inline query_ctx_t interpolate_left(const query_ctx_t& qc_short, const query_ctx_t& qc_long, pos_t pos_patt, pos_t len) const
+    {
+        return interpolate<LEFT>(qc_short, qc_long, pos_patt, len);
     };
 
-    query_context interpolate_right(const query_context& qc_short, const query_context& qc_long, pos_t pos_pat, pos_t len) const
+    inline query_ctx_t interpolate_right(const query_ctx_t& qc_short, const query_ctx_t& qc_long, pos_t pos_patt, pos_t len) const
     {
-        return interpolate<RIGHT>(qc_short, qc_long, pos_pat, len);
+        return interpolate<RIGHT>(qc_short, qc_long, pos_patt, len);
     };
 
     template <direction dir>
-    void locate(const query_context& qc, std::vector<pos_t>& Occ) const
+    inline void locate(const query_ctx_t& qc, std::vector<pos_t>& Occ) const
     {
         Occ.reserve(Occ.size() + qc.e - qc.b + 1);
 
@@ -538,7 +533,7 @@ public:
     }
 
     template <direction dir>
-    std::vector<pos_t> locate(const query_context& qc) const
+    inline std::vector<pos_t> locate(const query_ctx_t& qc) const
     {
         std::vector<pos_t> Occ;
         locate(qc, Occ);

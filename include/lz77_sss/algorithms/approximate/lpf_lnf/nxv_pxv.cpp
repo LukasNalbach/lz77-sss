@@ -11,7 +11,7 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::build_PSV_NSV_S()
     }
 
     const std::vector<pos_t>& S = LCE.get_sync_set();
-    const std::vector<uint32_t>& SSA_S = LCE.get_ssa();
+    const std::vector<uint32_t>& SA_S = LCE.get_ssa();
     pos_t s = S.size();
 
     #ifndef NDEBUG
@@ -28,7 +28,7 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::build_PSV_NSV_S()
     for (uint32_t i = 1; i < s; i++) {
         uint32_t j = i - 1;
 
-        while (j != s && SSA_S[j] > SSA_S[i]) {
+        while (j != s && SA_S[j] > SA_S[i]) {
             NSV_S[j] = i;
             j = PSV_S[j];
         }
@@ -40,13 +40,13 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::build_PSV_NSV_S()
         }
 
         #ifndef NDEBUG
-        assert(PSV_S[i] == s || S[SSA_S[PSV_S[i]]] < S[SSA_S[i]]);
+        assert(PSV_S[i] == s || S[SA_S[PSV_S[i]]] < S[SA_S[i]]);
         #endif
     }
 
     #ifndef NDEBUG
     for (int64_t i = s - 1; i >= 0; i--) {
-        assert(NSV_S[i] == s || S[SSA_S[NSV_S[i]]] < S[SSA_S[i]]);
+        assert(NSV_S[i] == s || S[SA_S[NSV_S[i]]] < S[SA_S[i]]);
     }
     #endif
 
@@ -65,8 +65,8 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::build_PGV_NGV_S()
     }
 
     const std::vector<pos_t>& S = LCE.get_sync_set();
-    const std::vector<uint32_t>& SSA_S = LCE.get_ssa();
-    const std::vector<uint32_t>& ISSA_S = LCE.get_issa();
+    const std::vector<uint32_t>& SA_S = LCE.get_ssa();
+    const std::vector<uint32_t>& ISA_S = LCE.get_issa();
     pos_t s = S.size();
 
     #ifndef NDEBUG
@@ -83,7 +83,7 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::build_PGV_NGV_S()
     for (uint32_t i = 1; i < s; i++) {
         uint32_t j = i - 1;
 
-        while (j != s && SSA_S[j] < SSA_S[i]) {
+        while (j != s && SA_S[j] < SA_S[i]) {
             NGV_S[j] = i;
             j = PGV_S[j];
         }
@@ -95,13 +95,13 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::build_PGV_NGV_S()
         }
 
         #ifndef NDEBUG
-        assert(PGV_S[i] == s || S[SSA_S[PGV_S[i]]] > S[SSA_S[i]]);
+        assert(PGV_S[i] == s || S[SA_S[PGV_S[i]]] > S[SA_S[i]]);
         #endif
     }
 
     #ifndef NDEBUG
     for (int64_t i = s - 1; i >= 0; i--) {
-        assert(NGV_S[i] == s || S[SSA_S[NGV_S[i]]] > S[SSA_S[i]]);
+        assert(NGV_S[i] == s || S[SA_S[NGV_S[i]]] > S[SA_S[i]]);
     }
     #endif
 

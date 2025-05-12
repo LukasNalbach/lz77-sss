@@ -5,21 +5,22 @@
 template <typename pos_t>
 template <uint64_t tau, typename char_t>
 template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t>
+template <typename output_fnc_t>
 void lz77_sss<pos_t>::factorizer<tau, char_t>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::
-    transform_to_exact_naive(output_it_t& output)
+    transform_to_exact_naive(output_fnc_t output)
 {
     if (log) {
         std::cout << "computing the exact factorization" << std::flush;
     }
 
-    num_phr = 0;
+    num_fact = 0;
 
     #pragma omp parallel num_threads(p)
     {
         uint16_t i_p = omp_get_thread_num();
 
-        pos_t b = start_thr[i_p];
-        pos_t e = start_thr[i_p + 1];
+        pos_t b = par_sect[i_p].beg;
+        pos_t e = par_sect[i_p + 1].beg;
 
         sidx_t x_c = bin_search_min_geq<pos_t, sidx_t>(
             b, 0, c - 1, [&](sidx_t x) { return C[x]; });
@@ -70,13 +71,13 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::exact_factorizer<sidx_t, transf_m
 
             if (p == 1) output(f);
             else *fact_it++ = f;
-            i += std::max<pos_t>(1, f.len);
+            i += f.length();
             num_phr_thr++;
         }
 
         #pragma omp critical
         {
-            num_phr += num_phr_thr;
+            num_fact += num_phr_thr;
         }
     }
 

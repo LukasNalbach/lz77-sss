@@ -7,10 +7,10 @@ template <uint64_t tau, typename char_t>
 template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t>
 void lz77_sss<pos_t>::factorizer<tau, char_t>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::
     extend_right_with_samples(
-        const sxa_interval_t& spa_iv,
+        const interval_t& spa_iv,
         pos_t i, pos_t j, pos_t e, sidx_t& x_c, factor& f)
 {
-    const auto& rks = idx_C.rabin_karp_substring();
+    const auto& rks = idx_C.rab_karp_substr();
     const std::vector<pos_t>& smpl_lens_right = idx_C.sampled_pattern_lengths_right();
     pos_t num_smpl_lens_right = idx_C.num_sampled_pattern_lengths_right();
     pos_t lce_r_min = f.len < j - i ? 0 : (i + f.len - j);
@@ -26,8 +26,8 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::exact_factorizer<sidx_t, transf_m
             return smpl_lens_right[x];
         });
 
-    sxa_interval_t ssa_iv;
-    sxa_interval_t ssa_iv_nxt { .b = 1, .e = 0 };
+    interval_t ssa_iv;
+    interval_t ssa_iv_nxt { .b = 1, .e = 0 };
     pos_t lce_r = 0;
     pos_t lce_r_nxt = 0;
     uint64_t fp_right = 0;
@@ -63,7 +63,7 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::exact_factorizer<sidx_t, transf_m
     assert(x_res < 0 || qc_right.match_length() >= smpl_lens_right[x_res]);
     pos_t lce_r_max = lce_r_nxt == 0 ? e - j : (lce_r_nxt - 1);
 
-    auto fnc = [&](pos_t lce_r_tmp) {
+    auto fnc = [&](auto lce_r_tmp) {
         query_context_t qc_right_tmp;
         bool result = true;
 
@@ -98,17 +98,18 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::exact_factorizer<sidx_t, transf_m
 template <typename pos_t>
 template <uint64_t tau, typename char_t>
 template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t>
+template <typename output_fnc_t>
 void lz77_sss<pos_t>::factorizer<tau, char_t>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::
-    transform_to_exact_with_samples(output_it_t& output)
+    transform_to_exact_with_samples(output_fnc_t output)
 {
     if (log) {
         std::cout << "computing the exact factorization" << std::flush;
     }
 
-    const auto& rks = idx_C.rabin_karp_substring();
+    const auto& rks = idx_C.rab_karp_substr();
     const std::vector<pos_t>& smpl_lens_left = idx_C.sampled_pattern_lengths_left();
     std::vector<uint8_t> is_smpld_left(delta + 1, 0);
-    num_phr = 0;
+    num_fact = 0;
 
     for (pos_t len : smpl_lens_left) {
         if (len <= delta) {
@@ -120,8 +121,15 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::exact_factorizer<sidx_t, transf_m
     {
         uint16_t i_p = omp_get_thread_num();
 
-        pos_t b = start_thr[i_p];
-        pos_t e = start_thr[i_p + 1];
+        pos_t b = par_sect[i_p].beg;
+        pos_t e = par_sect[i_p + 1].beg;
+
+        std::ifstream aprx_ifile(aprx_file_name);
+        aprx_ifile.seekg(par_sect[i_p].phr_idx *
+            lz77_sss<pos_t>::factor::size_of(), std::ios::beg);
+        std::istream_iterator<factor> aprx_it(aprx_ifile);
+        lz77_sss<pos_t>::factor f_aprx = *aprx_it++;
+        pos_t beg_nxt_aprx_phr = b + f_aprx.length();
 
         sidx_t x_c = bin_search_min_geq<pos_t, sidx_t>(
             b, 0, c - 1, [&](sidx_t x) { return C[x]; });
@@ -130,11 +138,22 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::exact_factorizer<sidx_t, transf_m
         std::ofstream fact_ofile;
         if (p > 1) fact_ofile.open(fact_file_name + "_" + std::to_string(i_p));
         std::ostream_iterator<factor> fact_it(fact_ofile);
-
         std::vector<uint64_t> fp_left(delta);
 
         for (pos_t i = b; i < e;) {
-            factor f { .src = char_to_uchar(T[i]), .len = 0 };
+            while (beg_nxt_aprx_phr <= i) {
+                f_aprx = *aprx_it++;
+                beg_nxt_aprx_phr += f_aprx.length();
+            }
+
+            factor f = f_aprx;
+
+            if (f.len != 0) {
+                pos_t cut_left = f.len - (beg_nxt_aprx_phr - i);
+                f.len -= cut_left;
+                f.src += cut_left;
+            }
+
             pos_t max_k = std::min<pos_t>(delta, e - i);
             fp_left[0] = char_to_uchar(T[i]);
 
@@ -171,7 +190,7 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::exact_factorizer<sidx_t, transf_m
             }
 
             #ifndef NDEBUG
-            assert((f.len == 0 && (char) f.src == T[i]) || f.src < i);
+            assert((f.len == 0 && f.src == char_to_uchar(T[i])) || f.src < i);
             assert(f.len <= e - i);
 
             for (pos_t j = 0; j < f.len; j++) {
@@ -181,13 +200,13 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::exact_factorizer<sidx_t, transf_m
 
             if (p == 1) output(f);
             else *fact_it++ = f;
-            i += std::max<pos_t>(1, f.len);
+            i += f.length();
             num_phr_thr++;
         }
 
         #pragma omp critical
         {
-            num_phr += num_phr_thr;
+            num_fact += num_phr_thr;
         }
     }
 

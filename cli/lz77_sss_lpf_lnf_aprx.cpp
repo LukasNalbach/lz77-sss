@@ -4,7 +4,7 @@
 int main(int argc, char** argv)
 {
     if (!(3 <= argc && argc <= 4)) {
-        std::cout << "usage: lz77_sss_exact <input_file> <output_file> <threads>" << std::endl;
+        std::cout << "usage: lz77_sss_1_5-aprx <input_file> <output_file> <threads>" << std::endl;
         std::cout << "       the last parameter is optional" << std::endl;
         exit(-1);
     }
@@ -41,16 +41,16 @@ int main(int argc, char** argv)
     input_file.close();
     log_runtime(t0);
     output_file.write((char*) &n, 5);
-    std::cout << "running LZ77 SSS exact algorithm (without samples):" << std::endl;
+    std::cout << "running LZ77 SSS LPF/LNF-approximation:" << std::endl;
 
     if (n <= std::numeric_limits<uint32_t>::max()) {
-        lz77_sss<uint32_t>::factorize_exact<
-            greedy, lpf_opt, without_samples>(T.data(), n,
+        lz77_sss<uint32_t>::factorize_approximate<
+            greedy, lpf_lnf_opt>(T.data(), n,
                 [&](auto f){output_file << f;},
                 { .num_threads = p, .log = true });
     } else {
-        lz77_sss<uint64_t>::factorize_exact<
-            greedy, lpf_opt, without_samples>(T.data(), n,
+        lz77_sss<uint64_t>::factorize_approximate<
+            greedy, lpf_lnf_opt>(T.data(), n,
                 [&](auto f){output_file << f;},
                 { .num_threads = p, .log = true });
     }

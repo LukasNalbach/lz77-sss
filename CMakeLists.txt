@@ -9,18 +9,18 @@ endif()
 
 message("Building in ${CMAKE_BUILD_TYPE} mode")
 
-set(lz77_sss_debug_flags "-Wall -Wextra -Wpedantic -ggdb")
-set(lz77_sss_release_flags "-w -march=native -DNDEBUG")
+set(lz77_sss_debug_flags            "-Wall -Wextra -Wpedantic -ggdb")
+set(lz77_sss_release_flags          "-w -march=native -DNDEBUG")
 
-set(CMAKE_CXX_FLAGS_DEBUG           "${lz77_sss_debug_flags} -O0")
-set(CMAKE_CXX_FLAGS_RELEASE         "${lz77_sss_release_flags} -Ofast")
-set(CMAKE_CXX_FLAGS_MINSIZEREL      "${lz77_sss_release_flags} -Os")
-set(CMAKE_CXX_FLAGS_RELWITHDEBINFO  "${lz77_sss_debug_flags} -Ofast")
+set(CMAKE_CXX_FLAGS_DEBUG           "${lz77_sss_debug_flags}        -O0")
+set(CMAKE_CXX_FLAGS_RELEASE         "${lz77_sss_release_flags}      -Ofast")
+set(CMAKE_CXX_FLAGS_MINSIZEREL      "${lz77_sss_release_flags}      -Os")
+set(CMAKE_CXX_FLAGS_RELWITHDEBINFO  "${lz77_sss_debug_flags}        -Ofast")
 
-option(LZ77_SSS_BUILD_CLI "Build the cli programs" ON)
-option(LZ77_SSS_BUILD_BENCH_CLI "Build the benchmark cli programs" ON)
-option(LZ77_SSS_BUILD_EXAMPLES "Build the example programs" ON)
-option(LZ77_SSS_BUILD_TESTS "Build tests" ON)
+option(LZ77_SSS_BUILD_CLI           "Build cli programs"            ON)
+option(LZ77_SSS_BUILD_BENCH         "Build benchmark cli programs"  OFF)
+option(LZ77_SSS_BUILD_EXAMPLES      "Build example programs"        OFF)
+option(LZ77_SSS_BUILD_TESTS         "Build tests"                   OFF)
 
 find_package(OpenMP REQUIRED)
 
@@ -33,8 +33,7 @@ set_target_properties(
   ips4o_example benchmark_lce benchmark_pred benchmark_lce
   gen_sss gen_queries gen_sa_lcp test_lce test_pred test_rmq
   test_rolling_hash test_string_synchronizing_set
-  PROPERTIES EXCLUDE_FROM_ALL 1 EXCLUDE_FROM_DEFAULT_BUILD 1
-)
+  PROPERTIES EXCLUDE_FROM_ALL 1 EXCLUDE_FROM_DEFAULT_BUILD 1)
 
 add_library(lz77_sss INTERFACE)
 target_include_directories(lz77_sss INTERFACE "${CMAKE_SOURCE_DIR}/include/")
@@ -44,42 +43,51 @@ if(LZ77_SSS_BUILD_CLI)
   add_executable(ssszip "${CMAKE_SOURCE_DIR}/cli/ssszip.cpp")
   target_link_libraries(ssszip PRIVATE lz77_sss)
 
-  add_executable(gen_range_queries "${CMAKE_SOURCE_DIR}/cli/gen_range_queries.cpp")
-  target_link_libraries(gen_range_queries PRIVATE lz77_sss)
+  add_executable(lz77-sss-3-aprx "${CMAKE_SOURCE_DIR}/cli/lz77_sss_3_aprx.cpp")
+  target_link_libraries(lz77-sss-3-aprx PRIVATE lz77_sss)
 
-  add_executable(bench_range_queries "${CMAKE_SOURCE_DIR}/cli/bench_range_queries.cpp")
-  target_link_libraries(bench_range_queries PRIVATE lz77_sss)
+  add_executable(lz77-sss-lpf-lnf-aprx "${CMAKE_SOURCE_DIR}/cli/lz77_sss_lpf_lnf_aprx.cpp")
+  target_link_libraries(lz77-sss-lpf-lnf-aprx PRIVATE lz77_sss)
 
-  add_executable(zip-bench "${CMAKE_SOURCE_DIR}/cli/zip-bench.cpp")
-  target_link_libraries(zip-bench PRIVATE lz77_sss)
+  add_executable(lz77-sss-exact "${CMAKE_SOURCE_DIR}/cli/lz77_sss_exact.cpp")
+  target_link_libraries(lz77-sss-exact PRIVATE lz77_sss)
 
-  add_executable(lz77_sss_3-aprx "${CMAKE_SOURCE_DIR}/cli/lz77_sss_3-aprx.cpp")
-  target_link_libraries(lz77_sss_3-aprx PRIVATE lz77_sss)
+  add_executable(lz77-sss-exact-smpl "${CMAKE_SOURCE_DIR}/cli/lz77_sss_exact_smpl.cpp")
+  target_link_libraries(lz77-sss-exact-smpl PRIVATE lz77_sss)
 
-  add_executable(lz77_sss_1_5-aprx "${CMAKE_SOURCE_DIR}/cli/lz77_sss_1_5-aprx.cpp")
-  target_link_libraries(lz77_sss_1_5-aprx PRIVATE lz77_sss)
+  add_executable(lz77-sss-decode "${CMAKE_SOURCE_DIR}/cli/lz77_sss_decode.cpp")
+  target_link_libraries(lz77-sss-decode PRIVATE lz77_sss)
 
-  add_executable(lz77_sss_exact "${CMAKE_SOURCE_DIR}/cli/lz77_sss_exact.cpp")
-  target_link_libraries(lz77_sss_exact PRIVATE lz77_sss)
-
-  add_executable(lz77_sss_exact-smpl "${CMAKE_SOURCE_DIR}/cli/lz77_sss_exact-smpl.cpp")
-  target_link_libraries(lz77_sss_exact-smpl PRIVATE lz77_sss)
-
-  add_executable(lz77_sss_decode "${CMAKE_SOURCE_DIR}/cli/lz77_sss_decode.cpp")
-  target_link_libraries(lz77_sss_decode PRIVATE lz77_sss)
+  set_target_properties(ssszip lz77-sss-3-aprx lz77-sss-lpf-lnf-aprx
+    lz77-sss-exact lz77-sss-exact-smpl lz77-sss-decode
+    PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/cli/")
 endif()
 
-if(LZ77_SSS_BUILD_BENCH_CLI)
-  add_executable(lz77_sss_bench "${CMAKE_SOURCE_DIR}/cli/lz77_sss_bench.cpp")
-  target_link_libraries(lz77_sss_bench PRIVATE lz77_sss)
+if(LZ77_SSS_BUILD_BENCH)
+  add_executable(lz77-sss-bench "${CMAKE_SOURCE_DIR}/bench/lz77_sss_bench.cpp")
+  target_link_libraries(lz77-sss-bench PRIVATE lz77_sss)
 
-  add_executable(lz77_sss_bench-tau "${CMAKE_SOURCE_DIR}/cli/lz77_sss_bench-tau.cpp")
-  target_link_libraries(lz77_sss_bench-tau PRIVATE lz77_sss)
+  add_executable(lz77-sss-bench-tau "${CMAKE_SOURCE_DIR}/bench/lz77_sss_bench_tau.cpp")
+  target_link_libraries(lz77-sss-bench-tau PRIVATE lz77_sss)
+
+  add_executable(gen-range-queries "${CMAKE_SOURCE_DIR}/bench/gen_range_queries.cpp")
+  target_link_libraries(gen-range-queries PRIVATE lz77_sss)
+
+  add_executable(bench-range-queries "${CMAKE_SOURCE_DIR}/bench/bench_range_queries.cpp")
+  target_link_libraries(bench-range-queries PRIVATE lz77_sss)
+
+  add_executable(zip-bench "${CMAKE_SOURCE_DIR}/bench/zip_bench.cpp")
+  target_link_libraries(zip-bench PRIVATE lz77_sss)
+
+  set_target_properties(lz77-sss-bench lz77-sss-bench-tau
+    gen-range-queries bench-range-queries zip-bench
+    PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bench/")
 endif()
 
 if(LZ77_SSS_BUILD_EXAMPLES)
-  add_executable(lz77_sss_example "${CMAKE_SOURCE_DIR}/examples/example.cpp")
-  target_link_libraries(lz77_sss_example PRIVATE lz77_sss)
+  add_executable(lz77-sss-example "${CMAKE_SOURCE_DIR}/examples/lz77_sss_example.cpp")
+  target_link_libraries(lz77-sss-example PRIVATE lz77_sss)
+  set_target_properties(lz77-sss-example PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/examples/")
 endif()
 
 if(LZ77_SSS_BUILD_TESTS)
@@ -87,27 +95,28 @@ if(LZ77_SSS_BUILD_TESTS)
   find_package(GTest REQUIRED)
   include_directories(${GTEST_INCLUDE_DIR})
 
-  add_executable(test-lz77_sss "${CMAKE_SOURCE_DIR}/tests/test_lz77_sss.cpp")
-  target_link_libraries(test-lz77_sss PRIVATE gtest_main lz77_sss)
-  gtest_discover_tests(test-lz77_sss)
+  add_executable(test-lz77-sss "${CMAKE_SOURCE_DIR}/tests/test_lz77_sss.cpp")
+  target_link_libraries(test-lz77-sss PRIVATE gtest_main lz77_sss)
 
-  add_executable(test-sample_index "${CMAKE_SOURCE_DIR}/tests/test_sample_index.cpp")
-  target_link_libraries(test-sample_index PRIVATE gtest_main lz77_sss)
-  gtest_discover_tests(test-sample_index)
+  add_executable(test-sample-index "${CMAKE_SOURCE_DIR}/tests/test_sample_index.cpp")
+  target_link_libraries(test-sample-index PRIVATE gtest_main lz77_sss)
 
-  add_executable(test-dynamic_range "${CMAKE_SOURCE_DIR}/tests/test_dynamic_range.cpp")
-  target_link_libraries(test-dynamic_range PRIVATE gtest_main lz77_sss)
-  gtest_discover_tests(test-dynamic_range)
+  add_executable(test-dynamic-range "${CMAKE_SOURCE_DIR}/tests/test_dynamic_range.cpp")
+  target_link_libraries(test-dynamic-range PRIVATE gtest_main lz77_sss)
 
-  add_executable(test-static_weighted_range "${CMAKE_SOURCE_DIR}/tests/test_static_weighted_range.cpp")
-  target_link_libraries(test-static_weighted_range PRIVATE gtest_main lz77_sss)
-  gtest_discover_tests(test-static_weighted_range)
+  add_executable(test-static-weighted-range "${CMAKE_SOURCE_DIR}/tests/test_static_weighted_range.cpp")
+  target_link_libraries(test-static-weighted-range PRIVATE gtest_main lz77_sss)
 
-  add_executable(test-decomposed_range "${CMAKE_SOURCE_DIR}/tests/test_decomposed_range.cpp")
-  target_link_libraries(test-decomposed_range PRIVATE gtest_main lz77_sss)
-  gtest_discover_tests(test-decomposed_range)
+  add_executable(test-decomposed-range "${CMAKE_SOURCE_DIR}/tests/test_decomposed_range.cpp")
+  target_link_libraries(test-decomposed-range PRIVATE gtest_main lz77_sss)
 
-  add_executable(test-rk61_substring "${CMAKE_SOURCE_DIR}/tests/test_rk61_substring.cpp")
-  target_link_libraries(test-rk61_substring PRIVATE gtest_main lz77_sss)
-  gtest_discover_tests(test-rk61_substring)
+  add_executable(test-rabin-karp-substring "${CMAKE_SOURCE_DIR}/tests/test_rabin_karp_substring.cpp")
+  target_link_libraries(test-rabin-karp-substring PRIVATE gtest_main lz77_sss)
+
+  gtest_discover_tests(test-lz77-sss test-sample-index test-dynamic-range
+    test-static-weighted-range test-decomposed-range test-rabin-karp-substring)
+
+  set_target_properties(test-lz77-sss test-sample-index test-dynamic-range
+    test-static-weighted-range test-decomposed-range test-rabin-karp-substring
+    PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
 endif()

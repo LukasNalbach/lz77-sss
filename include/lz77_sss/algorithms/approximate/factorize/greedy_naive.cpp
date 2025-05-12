@@ -4,18 +4,18 @@
 
 template <typename pos_t>
 template <uint64_t tau, typename char_t>
-template <typename lpf_it_t>
+template <typename output_fnc_t, typename lpf_beg_t, typename next_lpf_t>
 void lz77_sss<pos_t>::factorizer<tau, char_t>::factorize_greedy_naive(
-    output_it_t& output,
-    std::function<lpf_it_t()>& lpf_beg,
-    std::function<lpf(lpf_it_t&)>& next_lpf)
+    output_fnc_t output,
+    lpf_beg_t lpf_beg,
+    next_lpf_t next_lpf)
 {
     if (log) {
-        std::cout << "factorizing" << std::flush;
+        std::cout << "factorizing sequentially" << std::flush;
     }
 
-    lpf_it_t lpf_it = lpf_beg();
-    lpf p = next_lpf(lpf_it);
+    lpf_pos_t lpf_pos = lpf_beg();
+    lpf p = next_lpf(lpf_pos);
     lpf p_nxt;
 
     for (pos_t i = 0; true;) {
@@ -32,8 +32,8 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::factorize_greedy_naive(
                 factor f = longest_prev_occ(i);
                 f.len = std::min<pos_t>(f.len, gap_end - i);
                 output(f);
-                num_phr++;
-                i += std::max<pos_t>(1, f.len);
+                num_fact++;
+                i += f.length();
 
                 while (gap_idx.pos() < i) {
                     gap_idx.advance();
@@ -50,7 +50,7 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::factorize_greedy_naive(
             .len = p.end - p.beg
         };
 
-        p_nxt = next_lpf(lpf_it);
+        p_nxt = next_lpf(lpf_pos);
 
         if (gap_idx.pos() == gap_end) {
             factor f = longest_prev_occ(gap_end);
@@ -70,7 +70,7 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::factorize_greedy_naive(
         #endif
 
         output(lpf);
-        num_phr++;
+        num_fact++;
         i += lpf.len;
         p = p_nxt;
     }

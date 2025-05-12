@@ -4,32 +4,32 @@
 
 template <typename pos_t, typename sidx_t, typename char_t, typename lce_r_t>
 template <direction dir>
-inline std::pair<typename sample_index<pos_t, sidx_t, char_t, lce_r_t>::sxa_interval_t, bool>
+inline std::pair<typename sample_index<pos_t, sidx_t, char_t, lce_r_t>::interval_t, bool>
 sample_index<pos_t, sidx_t, char_t, lce_r_t>::sxa_interval(
-    pos_t pat_len_idx, pos_t pos_pat, std::size_t hash) const
+    pos_t pat_len_idx, pos_t pos_patt, std::size_t hash) const
 {
     if (pat_len_idx == 0) {
-        if (!occurs1(pos_pat)) [[unlikely]] {
+        if (!occurs1(pos_patt)) [[unlikely]] {
             return { { 0, 0 }, false };
         } else {
-            return { sciv(pos_pat), true };
+            return { siv_s_1(pos_patt), true };
         }
     } else if (pat_len_idx == 1) {
-        if (!occurs2<dir>(pos_pat)) [[unlikely]] {
+        if (!occurs2<dir>(pos_patt)) [[unlikely]] {
             return { { 0, 0 }, false };
         } else {
-            return { sxiv2<dir>(pos_pat), true };
+            return { xiv_s2<dir>(pos_patt), true };
         }
     }
 
-    const auto& map = SXIVX<dir>()[pat_len_idx];
+    const auto& map = XIV_S<dir>()[pat_len_idx];
 
     if (hash == std::numeric_limits<std::size_t>::max()) {
         pos_t pat_len = sampled_pattern_lengths<dir>()[pat_len_idx];
-        hash = rks.template substring<dir>(pos_pat, pat_len);
+        hash = rks.template substring<dir>(pos_patt, pat_len);
     }
 
-    auto it = map.find(pos_to_interval(pos_pat), hash);
+    auto it = map.find(pos_to_interval(pos_patt), hash);
 
     if (it == map.end()) {
         return { { 0, 0 }, false };
@@ -41,8 +41,8 @@ sample_index<pos_t, sidx_t, char_t, lce_r_t>::sxa_interval(
 template <typename pos_t, typename sidx_t, typename char_t, typename lce_r_t>
 template <direction dir>
 bool sample_index<pos_t, sidx_t, char_t, lce_r_t>::extend(
-    const query_context& qc_old, query_context& qc_new,
-    pos_t pos_pat, pos_t len, bool use_samples) const
+    const query_ctx_t& qc_old, query_ctx_t& qc_new,
+    pos_t pos_patt, pos_t len, bool use_interval_samples) const
 {
     if (qc_old.match_length() >= len) {
         if (&qc_old != &qc_new) {
@@ -61,7 +61,7 @@ bool sample_index<pos_t, sidx_t, char_t, lce_r_t>::extend(
     pos_t len_smpl;
     std::size_t fp_smpl = std::numeric_limits<std::size_t>::max();
 
-    if (use_samples) {
+    if (use_interval_samples) {
         pat_len_idx = bin_search_max_leq<pos_t, pos_t>(
             len, 0, num_sampled_pattern_lengths<dir>() - 1, [&](pos_t x) {
                 return sampled_pattern_lengths<dir>()[x];
@@ -70,12 +70,12 @@ bool sample_index<pos_t, sidx_t, char_t, lce_r_t>::extend(
         len_smpl = sampled_pattern_lengths<dir>()[pat_len_idx];
     }
 
-    if (use_samples && std::min<pos_t>(qc_old.lce_b, qc_old.lce_e) < len_smpl) {
+    if (use_interval_samples && std::min<pos_t>(qc_old.lce_b, qc_old.lce_e) < len_smpl) {
         if (pat_len_idx >= 2) {
-            fp_smpl = rks.template substring<dir>(pos_pat, len_smpl);
+            fp_smpl = rks.template substring<dir>(pos_patt, len_smpl);
         }
 
-        auto [iv, result] = sxa_interval<dir>(pat_len_idx, pos_pat, fp_smpl);
+        auto [iv, result] = sxa_interval<dir>(pat_len_idx, pos_patt, fp_smpl);
 
         if (!result) {
             return false;
@@ -93,19 +93,19 @@ bool sample_index<pos_t, sidx_t, char_t, lce_r_t>::extend(
     }
 
     if (lce_b < len) [[likely]]
-        lce_b = lce_offs<dir>(pos_pat, S[XA_S<dir>(b)], lce_b, len);
+        lce_b = lce_offs<dir>(pos_patt, S[XA_S<dir>(b)], lce_b, len);
 
     if (lce_e < len) [[likely]] {
         if (e == b) {
             lce_e = lce_b;
         } else {
-            lce_e = lce_offs<dir>(pos_pat, S[XA_S<dir>(e)], lce_e, len);
+            lce_e = lce_offs<dir>(pos_patt, S[XA_S<dir>(e)], lce_e, len);
         }
     }
 
-    if (use_samples && std::min<pos_t>(lce_b, lce_e) < len &&
+    if (use_interval_samples && std::min<pos_t>(lce_b, lce_e) < len &&
         pat_len_idx + 1 < num_sampled_pattern_lengths<dir>() &&
-        is_pos_in_T<dir>(pos_pat, sampled_pattern_lengths<dir>()[pat_len_idx + 1] - 1)
+        is_pos_in_T<dir>(pos_patt, sampled_pattern_lengths<dir>()[pat_len_idx + 1] - 1)
     ) {
         pos_t len_nxt_smpl = sampled_pattern_lengths<dir>()[pat_len_idx + 1];
         pos_t len_diff = len_nxt_smpl - len_smpl;
@@ -113,28 +113,28 @@ bool sample_index<pos_t, sidx_t, char_t, lce_r_t>::extend(
 
         if (pat_len_idx >= 1) {
             if (fp_smpl == std::numeric_limits<std::size_t>::max()) {
-                fp_nxt_smpl = rks.template substring<dir>(pos_pat, len_nxt_smpl);
+                fp_nxt_smpl = rks.template substring<dir>(pos_patt, len_nxt_smpl);
             } else {
                 if constexpr (dir == LEFT) {
                     fp_nxt_smpl = rks.concat(
-                        rks.template substring<LEFT>(pos_pat - len_smpl, len_diff),
+                        rks.template substring<LEFT>(pos_patt - len_smpl, len_diff),
                         fp_smpl, len_smpl);
                 } else {
                     fp_nxt_smpl = rks.concat(
-                        fp_smpl, rks.template substring<RIGHT>(pos_pat + len_smpl, len_diff),
+                        fp_smpl, rks.template substring<RIGHT>(pos_patt + len_smpl, len_diff),
                         len_diff);
                 }
             }
         }
 
         auto [iv2, result2] = sxa_interval<dir>(
-            pat_len_idx + 1, pos_pat, fp_nxt_smpl);
+            pat_len_idx + 1, pos_patt, fp_nxt_smpl);
 
         if (result2) {
             qc_new = interpolate<dir>(
                 { b, e, lce_b, lce_e },
                 { iv2.b, iv2.e, len_nxt_smpl, len_nxt_smpl },
-                pos_pat, len);
+                pos_patt, len);
 
             return true;
         }
@@ -159,7 +159,7 @@ bool sample_index<pos_t, sidx_t, char_t, lce_r_t>::extend(
             pos_m = S[XA_S<dir>(m)];
 
             lce_m = lce_offs<dir>(
-                pos_pat, pos_m,
+                pos_patt, pos_m,
                 std::min<pos_t>(lce_l, lce_r),
                 len);
 
@@ -171,7 +171,7 @@ bool sample_index<pos_t, sidx_t, char_t, lce_r_t>::extend(
                     e_min = m;
                     lce_e_min = lce_m;
                 }
-            } else if (cmp_lex<dir>(pos_m, pos_pat, lce_m)) {
+            } else if (cmp_lex<dir>(pos_m, pos_patt, lce_m)) {
                 l = m;
                 lce_l = lce_m;
 
@@ -220,7 +220,7 @@ bool sample_index<pos_t, sidx_t, char_t, lce_r_t>::extend(
             pos_m = S[XA_S<dir>(m)];
 
             lce_m = lce_offs<dir>(
-                pos_pat, pos_m,
+                pos_patt, pos_m,
                 std::min<pos_t>(lce_l, lce_r),
                 len);
 
@@ -250,11 +250,11 @@ bool sample_index<pos_t, sidx_t, char_t, lce_r_t>::extend(
 
 template <typename pos_t, typename sidx_t, typename char_t, typename lce_r_t>
 template <direction dir>
-sample_index<pos_t, sidx_t, char_t, lce_r_t>::query_context
+sample_index<pos_t, sidx_t, char_t, lce_r_t>::query_ctx_t
 sample_index<pos_t, sidx_t, char_t, lce_r_t>::interpolate(
-    const query_context& qc_short,
-    const query_context& qc_long,
-    pos_t pos_pat, pos_t len) const
+    const query_ctx_t& qc_short,
+    const query_ctx_t& qc_long,
+    pos_t pos_patt, pos_t len) const
 {
     if (qc_short.match_length() >= len) {
         return qc_short;
@@ -268,11 +268,11 @@ sample_index<pos_t, sidx_t, char_t, lce_r_t>::interpolate(
     pos_t lce_r = qc_long.lce_b;
     pos_t lce_m;
 
-    query_context qc_ret;
+    query_ctx_t qc_ret;
     pos_t pos_m;
 
     lce_l = lce_offs<dir>(
-        pos_pat, S[XA_S<dir>(l)],
+        pos_patt, S[XA_S<dir>(l)],
         lce_l,
         len);
 
@@ -281,7 +281,7 @@ sample_index<pos_t, sidx_t, char_t, lce_r_t>::interpolate(
         pos_m = S[XA_S<dir>(m)];
 
         lce_m = lce_offs<dir>(
-            pos_pat, pos_m,
+            pos_patt, pos_m,
             std::min<pos_t>(lce_l, lce_r),
             len);
 
@@ -309,7 +309,7 @@ sample_index<pos_t, sidx_t, char_t, lce_r_t>::interpolate(
     lce_r = qc_short.lce_e;
 
     lce_r = lce_offs<dir>(
-        pos_pat, S[XA_S<dir>(r)],
+        pos_patt, S[XA_S<dir>(r)],
         lce_r, len);
 
     while (r - l > 1) {
@@ -317,7 +317,7 @@ sample_index<pos_t, sidx_t, char_t, lce_r_t>::interpolate(
         pos_m = S[XA_S<dir>(m)];
 
         lce_m = lce_offs<dir>(
-            pos_pat, pos_m,
+            pos_patt, pos_m,
             std::min<pos_t>(lce_l, lce_r),
             len);
 

@@ -13,7 +13,7 @@ std::uniform_real_distribution<double> prob_distrib(0.0, 1.0);
 std::string input;
 uint32_t avg_sample_rate;
 std::vector<uint32_t> sampling;
-sample_index<>::query_context query;
+sample_index<>::query_ctx_t query;
 uint32_t pattern_pos;
 uint32_t pattern_length;
 std::vector<uint32_t> occurrences;
@@ -93,7 +93,7 @@ TEST(test_sample_index, fuzzy_test)
 
         // build the sample-index
         sample_index<> index;
-        index.build(input.data(), input.size(), sampling, lce_r_t(input), true, omp_get_max_threads());
+        index.build(input.data(), input.size(), sampling, lce_r_t(input), true, 64, omp_get_max_threads());
 
         // perform random queries and check their correctness
         for (uint32_t i = 0; i < 1000; i++) {

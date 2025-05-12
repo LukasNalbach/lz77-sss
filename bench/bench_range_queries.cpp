@@ -1,4 +1,5 @@
 #include <fstream>
+#include <filesystem>
 #include <ips4o.hpp>
 
 uint64_t cur_win_size;
@@ -27,7 +28,7 @@ struct __attribute__((packed)) operation {
     uint64_t y_2;
 };
 
-const char* T = nullptr;
+std::string T;
 uint64_t n;
 std::vector<uint64_t> sampling;
 std::vector<point> points;
@@ -78,7 +79,7 @@ void bench(uint64_t win_size, std::string log_name) {
         auto t0 = now();
 
         if constexpr (range_ds_t<sidx_t>::is_decomposed()) {
-            ds = range_ds_t<sidx_t>(T, sampling_local, points_local);
+            ds = range_ds_t<sidx_t>(T.data(), sampling_local, points_local);
         } else {
             ds = range_ds_t<sidx_t>(points_local, points.size());
         }
@@ -250,12 +251,9 @@ int main(int argc, char** argv)
     if (argc >= 5) min_win_size = 1 << atoi(argv[4]);
     if (argc >= 6) max_win_size = 1 << atoi(argv[5]);
     
-    input_file.seekg(0, std::ios::end);
-    n = input_file.tellg();
-    input_file.seekg(0, std::ios::beg);
+    n = std::filesystem::file_size(argv[1]);
     auto t0 = now();
     std::cout << "reading input (" << format_size(n) << ")" << std::flush;
-    std::string T;
     no_init_resize_with_excess(T, n, 4 * 4096);
     read_from_file(input_file, T.data(), n);
     input_file.close();
@@ -297,4 +295,6 @@ int main(int argc, char** argv)
             bench_all<uint64_t, uint64_t>();
         }
     }
+    
+    return 0;
 }

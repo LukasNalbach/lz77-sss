@@ -41,16 +41,16 @@ int main(int argc, char** argv)
     input_file.close();
     log_runtime(t0);
     output_file.write((char*) &n, 5);
-    std::cout << "running LZ77 SSS exact algorithm (without samples):" << std::endl;
+    std::cout << "running LZ77 SSS exact algorithm (with samples):" << std::endl;
 
     if (n <= std::numeric_limits<uint32_t>::max()) {
         lz77_sss<uint32_t>::factorize_exact<
-            greedy, lpf_opt, without_samples>(T.data(), n,
+            greedy, lpf_opt, with_samples>(T.data(), n,
                 [&](auto f){output_file << f;},
                 { .num_threads = p, .log = true });
     } else {
         lz77_sss<uint64_t>::factorize_exact<
-            greedy, lpf_opt, without_samples>(T.data(), n,
+            greedy, lpf_opt, with_samples>(T.data(), n,
                 [&](auto f){output_file << f;},
                 { .num_threads = p, .log = true });
     }

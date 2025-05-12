@@ -65,12 +65,11 @@ void log_algorithm(
     std::string alg_name, uint64_t time,
     uint64_t mem_peak, uint64_t num_factors)
 {
-    double comp_ratio = n / (double) num_factors;
+    double comp_ratio = n / (double)num_factors;
 
     std::cout << ", in ~ " << format_time(time) << std::endl;
     std::cout << "throughput: " << format_throughput(n, time) << std::endl;
     std::cout << "peak memory consumption: " << format_size(mem_peak) << std::endl;
-    std::cout << "num. of factors: " << num_factors << std::endl;
     std::cout << "input length / num. of factors: " << comp_ratio << std::endl;
 
     if (result_file_path != "") {
@@ -118,9 +117,7 @@ int main(int argc, char** argv)
         result_file.open(result_file_path, std::ofstream::app);
     }
 
-    input_file.seekg(0, std::ios::end);
-    n = input_file.tellg();
-    input_file.seekg(0, std::ios::beg);
+    n = std::filesystem::file_size(argv[1]);
     auto t0 = now();
     std::cout << "reading input (" << format_size(n) << ")" << std::flush;
     no_init_resize_with_excess(T, n, 4 * lz77_sss<>::default_tau);
@@ -136,11 +133,11 @@ int main(int argc, char** argv)
     run_sss_approximate<greedy, lpf_opt>("fact_sss_aprx", max_threads);
     std::filesystem::remove("fact_sss_aprx");
     
-    std::cout << std::endl << "running naive LZ77 SSS 1.5-approximation:" << std::endl;
+    std::cout << std::endl << "running naive LZ77 SSS LPF/LNF-approximation:" << std::endl;
     run_sss_approximate<greedy_naive, lpf_lnf_naive>("fact_sss_aprx", max_threads);
     std::filesystem::remove("fact_sss_aprx");
     
-    std::cout << std::endl << "running LZ77 SSS 1.5-approximation:" << std::endl;
+    std::cout << std::endl << "running LZ77 SSS LPF/LNF-approximation:" << std::endl;
     run_sss_approximate<greedy, lpf_lnf_opt>("fact_sss_aprx", max_threads);
     std::filesystem::remove("fact_sss_aprx");
     
@@ -188,4 +185,6 @@ int main(int argc, char** argv)
     file_gz9.close();
     std::filesystem::remove("fact_gz9");
     log_algorithm("gz9", time, mem_peak, num_factors);
+    
+    return 0;
 }

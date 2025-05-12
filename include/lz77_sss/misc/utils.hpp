@@ -9,6 +9,7 @@
 #include <string>
 #include <unistd.h>
 #include <vector>
+#include <random>
 
 #include <malloc_count/malloc_count.h>
 #include <omp.h>
@@ -128,8 +129,7 @@ void copy_buffered(
     std::fstream& input_stream, std::fstream& output_stream,
     std::string& buffer, uint64_t from, uint64_t to, uint64_t length, uint64_t buffer_size)
 {
-    if (&input_stream == &output_stream)
-        buffer_size = std::min(buffer_size, to - from);
+    if (&input_stream == &output_stream) buffer_size = std::min(buffer_size, to - from);
     buffer.resize(buffer_size);
 
     for (uint64_t offset = 0; offset < length;) {
@@ -293,8 +293,8 @@ constexpr decltype(auto) ith_val(Ts&&... vals) noexcept
     return std::get<i>(std::forward_as_tuple(vals...));
 }
 
-template <typename val_t, typename pos_t>
-pos_t bin_search_min_geq(val_t value, pos_t left, pos_t right, std::function<val_t(pos_t)> value_at)
+template <typename val_t, typename pos_t, typename fnc_t>
+pos_t bin_search_min_geq(val_t value, pos_t left, pos_t right, fnc_t value_at)
 {
     pos_t middle;
 
@@ -311,8 +311,8 @@ pos_t bin_search_min_geq(val_t value, pos_t left, pos_t right, std::function<val
     return left;
 }
 
-template <typename val_t, typename pos_t>
-pos_t bin_search_max_lt(val_t value, pos_t left, pos_t right, std::function<val_t(pos_t)> value_at)
+template <typename val_t, typename pos_t, typename fnc_t>
+pos_t bin_search_max_lt(val_t value, pos_t left, pos_t right, fnc_t value_at)
 {
     pos_t middle;
 
@@ -329,8 +329,8 @@ pos_t bin_search_max_lt(val_t value, pos_t left, pos_t right, std::function<val_
     return left;
 }
 
-template <typename val_t, typename pos_t>
-pos_t bin_search_max_geq(val_t value, pos_t left, pos_t right, std::function<val_t(pos_t)> value_at)
+template <typename val_t, typename pos_t, typename fnc_t>
+pos_t bin_search_max_geq(val_t value, pos_t left, pos_t right, fnc_t value_at)
 {
     pos_t middle;
 
@@ -347,8 +347,8 @@ pos_t bin_search_max_geq(val_t value, pos_t left, pos_t right, std::function<val
     return left;
 }
 
-template <typename val_t, typename pos_t>
-pos_t bin_search_max_leq(val_t value, pos_t left, pos_t right, std::function<val_t(pos_t)> value_at)
+template <typename val_t, typename pos_t, typename fnc_t>
+pos_t bin_search_max_leq(val_t value, pos_t left, pos_t right, fnc_t value_at)
 {
     pos_t middle;
 
@@ -381,21 +381,24 @@ std::string random_alphanumeric_string(uint64_t length)
 {
     static std::string possible_chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<uint8_t> char_idx_distrib(0, possible_chars.size() - 1);
+    
     std::string str_rand;
     str_rand.reserve(length);
 
     for (uint64_t i = 0; i < length; i++) {
-        str_rand.push_back(possible_chars[std::rand() % possible_chars.size()]);
+        str_rand.push_back(possible_chars[char_idx_distrib(gen)]);
     }
 
     return str_rand;
 }
 
-enum direction { LEFT,
-    RIGHT };
+enum direction { LEFT, RIGHT };
 
-template <typename val_t, typename pos_t, direction search_dir>
-pos_t exp_search_max_geq(val_t value, pos_t left, pos_t right, std::function<val_t(pos_t)> value_at)
+template <typename val_t, typename pos_t, direction search_dir, typename fnc_t>
+pos_t exp_search_max_geq(val_t value, pos_t left, pos_t right, fnc_t value_at)
 {
     if (right == left) {
         return left;

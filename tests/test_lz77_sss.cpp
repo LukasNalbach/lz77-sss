@@ -4,7 +4,8 @@
 std::random_device rd;
 std::mt19937 gen(rd());
 
-void run_alg(std::string& input, lz77_sss<>::output_it_t&& output) {
+template <typename output_fnc_t>
+void run_alg(std::string& input, output_fnc_t output) {
     switch (std::rand() % 16) {
         case 0: lz77_sss<>::factorize_approximate<greedy_naive, lpf_naive>(input.data(), input.size(), output);
         case 1: lz77_sss<>::factorize_approximate<greedy_naive, lpf_opt>(input.data(), input.size(), output);

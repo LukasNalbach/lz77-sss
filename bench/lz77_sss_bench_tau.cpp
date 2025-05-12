@@ -39,9 +39,7 @@ int main(int argc, char** argv)
     if (argc >= 5)
         max_tau = atol(argv[4]);
 
-    input_file.seekg(0, std::ios::end);
-    uint64_t n = input_file.tellg();
-    input_file.seekg(0, std::ios::beg);
+    uint64_t n = std::filesystem::file_size(argv[1]);
     auto t0 = now();
     std::cout << "reading input (" << format_size(n) << ")" << std::flush;
     std::string T;
@@ -73,4 +71,6 @@ int main(int argc, char** argv)
             std::filesystem::remove("fact_sss_aprx");
         }
     });
+    
+    return 0;
 }
