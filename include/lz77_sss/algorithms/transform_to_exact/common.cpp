@@ -5,42 +5,48 @@
 template <typename pos_t>
 template <uint64_t tau, typename char_t>
 template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t>
-void lz77_sss<pos_t>::factorizer<tau, char_t>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::build_c(std::istream_iterator<factor>& ifile_approx_it)
+void lz77_sss<pos_t>::factorizer<tau, char_t>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::build_c()
 {
     if (log) {
         std::cout << "setting delta = " << delta << std::endl;
         std::cout << "building C" << std::flush;
     }
 
-    C.reserve(num_phr + n / delta);
+    std::ifstream aprx_ifile(aprx_file_name);
+    std::istream_iterator<factor> aprx_it(aprx_ifile);
+    aprx_it++;
+
+    C.reserve(num_fact + n / delta);
     C.emplace_back(0);
-    start_thr.resize(p + 1);
-    start_thr[0] = 0;
-    start_thr[p] = n;
-    pos_t phr = 0;
-    pos_t phr_nxt = num_phr / p;
-    pos_t i_p = 1;
+
+    par_sect.resize(p + 1);
+    par_sect[0] = sect_info {.beg = 0, .phr_idx = 0};
+    par_sect[p] = sect_info {.beg = n, .phr_idx = num_fact};
+
+    sidx_t phr_nxt = num_fact / p;
+    uint16_t i_p = 1;
+    pos_t end_cur = 0;
     pos_t end_lst = 0;
-    pos_t end_nxt;
+    pos_t smpl_lst;
 
-    for (pos_t i = 1; i < num_phr; i++) {
-        end_nxt = end_lst + std::max<pos_t>(1, ifile_approx_it++->len);
+    for (sidx_t phr = 1; phr < num_fact; phr++) {
+        smpl_lst = end_cur;
+        factor fac = *aprx_it++;
+        end_cur += fac.length();
 
-        while (end_nxt - end_lst > delta) {
-            end_lst += delta;
-            C.emplace_back(end_lst);
+        while (end_cur - smpl_lst > delta) {
+            smpl_lst += delta;
+            C.emplace_back(smpl_lst);
         }
 
-        C.emplace_back(end_nxt);
-        end_lst = end_nxt;
+        C.emplace_back(end_cur);
 
-        if (phr >= phr_nxt) {
-            start_thr[i_p] = end_nxt;
-            i_p++;
-            phr_nxt = i_p == p ? num_phr : (i_p * (num_phr / p));
+        if (phr == phr_nxt) {
+            par_sect[i_p++] = sect_info {.beg = end_lst + 1, .phr_idx = phr};
+            phr_nxt = i_p == p ? num_fact : (i_p * (num_fact / p));
         }
 
-        phr++;
+        end_lst = end_cur;
     }
 
     C.shrink_to_fit();
@@ -50,7 +56,7 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::exact_factorizer<sidx_t, transf_m
         log_phase("sample_set", time_diff_ns(time, now()));
         std::cout << " (" << format_size(c * sizeof(pos_t)) << ")";
         time = log_runtime(time);
-        std::cout << "c / num. of phrases = " << c / (double) num_phr << std::endl;
+        std::cout << "num. of samples / num. of phrases = " << c / (double) num_fact << std::endl;
     }
 }
 
@@ -63,10 +69,11 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::exact_factorizer<sidx_t, transf_m
         std::cout << "building sample-index for C:" << std::endl;
     }
 
-    double aprx_comp_ratio = n / (double) num_phr;
-    pos_t typ_lce_r = std::round(aprx_comp_ratio * (1.0 + 0.5 * std::exp(-aprx_comp_ratio / 1000.0)));
+    pos_t max_patt_len_left = delta;
+    pos_t max_smpl_len_right = get_max_smpl_len_right(n / (double) num_fact);
+    constexpr bool build_interval_samples = transf_mode == with_samples;
 
-    idx_C.build(T, n, C, LCE, transf_mode == with_samples, p, log, delta - 1, typ_lce_r);
+    idx_C.build(T, n, C, LCE, build_interval_samples, rks_sample_rate, p, log, max_patt_len_left, max_smpl_len_right);
 
     if (log) {
         std::cout << "size: " << format_size(idx_C.size_in_bytes());
@@ -222,7 +229,7 @@ template <typename pos_t>
 template <uint64_t tau, typename char_t>
 template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t>
 bool lz77_sss<pos_t>::factorizer<tau, char_t>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::intersect(
-    const sxa_interval_t& spa_iv, const sxa_interval_t& ssa_iv,
+    const interval_t& spa_iv, const interval_t& ssa_iv,
     pos_t i, pos_t j, pos_t lce_l, pos_t lce_r, sidx_t& x_c, factor& f)
 {
     point_t p;
@@ -326,8 +333,9 @@ bool lz77_sss<pos_t>::factorizer<tau, char_t>::exact_factorizer<sidx_t, transf_m
 template <typename pos_t>
 template <uint64_t tau, typename char_t>
 template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t>
+template <typename output_fnc_t>
 void lz77_sss<pos_t>::factorizer<tau, char_t>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::
-    combine_factorizations(output_it_t& output)
+    combine_factorizations(output_fnc_t output)
 {
     for (uint16_t i_p = 0; i_p < p; i_p++) {
         std::string fact_file_name_thr = fact_file_name + "_" + std::to_string(i_p);

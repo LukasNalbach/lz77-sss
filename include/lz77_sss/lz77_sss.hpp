@@ -56,6 +56,7 @@ public:
 
     static constexpr uint64_t           default_tau              = 512;
     static constexpr uint64_t           max_delta                = 256;
+    static constexpr uint64_t           rks_sample_rate          = 16;
     static constexpr uint64_t           range_scan_threshold     = 4096;
     static constexpr uint64_t           min_par_input_size       = 500'000;
     static constexpr double             min_par_rel_gap_len      = 0.2;
@@ -93,11 +94,30 @@ public:
             malloc_count_peak() - malloc_count_current(), (n / 3.0) * rel_len_gaps}));
     }
 
+    static uint64_t get_max_smpl_len_right(double aprx_comp_ratio)
+    {
+        return std::round(aprx_comp_ratio * (1.0 + 0.5 * std::exp(-aprx_comp_ratio / 1000.0)));
+    }
+
     struct factor {
         pos_t src;
         pos_t len;
 
         friend class lz77_sss;
+
+        pos_t length() const
+        {
+            return std::max<pos_t>(1, len);
+        }
+
+        static constexpr pos_t size_of()
+        {
+            if constexpr (std::is_same_v<pos_t, uint32_t>) {
+                return 8;
+            } else {
+                return 10;
+            }
+        }
 
         friend std::istream& operator>>(std::istream& in, factor& f)
         {
@@ -126,15 +146,14 @@ public:
         }
     };
 
-    using output_it_t = std::function<void(factor)>;
-
     template <
         factorize_mode  fact_mode = default_fact_mode,
         phrase_mode     phr_mode  = default_phr_mode,
         uint64_t        tau       = default_tau,
-        typename char_t
+        typename char_t,
+        typename output_fnc_t
     >
-    static void factorize_approximate(char_t* input, pos_t input_size, output_it_t output, parameters params = { })
+    static void factorize_approximate(char_t* input, pos_t input_size, output_fnc_t output, parameters params = { })
     {
         factorizer<tau, char_t>(input, input_size, params).template factorize<approximate, fact_mode, phr_mode>(output);
     }
@@ -145,9 +164,10 @@ public:
         transform_mode               transf_mode = default_transf_mode,
         template <typename> typename range_ds_t  = default_range_ds_t,
         uint64_t                     tau         = default_tau,
-        typename char_t
+        typename char_t,
+        typename output_fnc_t
     >
-    static void factorize_exact(char_t* input, pos_t input_size, output_it_t output, parameters params = { })
+    static void factorize_exact(char_t* input, pos_t input_size, output_fnc_t output, parameters params = { })
     {
         factorizer<tau, char_t>(input, input_size, params).template factorize<exact, fact_mode, phr_mode, transf_mode, range_ds_t>(output);
     }
@@ -180,7 +200,7 @@ protected:
         using gap_idx_t = rolling_hash_index_107<pos_t, num_patt_lens, char_t>;
         using par_gap_idx_t = parallel_rolling_hash_index_107<pos_t, num_patt_lens, char_t>;
         using fp_arr_t = par_gap_idx_t::fp_arr_t;
-        std::chrono::steady_clock::time_point time_start, time, time_end;
+        std::chrono::steady_clock::time_point time_start, time;
         uint64_t baseline_memory_alloc = 0;
         uint64_t target_index_size = 0;
         bool log = false;
@@ -192,7 +212,7 @@ protected:
         pos_t size_sss = 0;
         pos_t num_lpf = 0;
         pos_t len_lpf_phr = 0;
-        pos_t num_phr = 0;
+        pos_t num_fact = 0;
         pos_t len_gaps = 0;
         pos_t num_gaps = 0;
 
@@ -207,7 +227,7 @@ protected:
         std::vector<uint32_t> PGV_S;
         std::vector<uint32_t> NGV_S;
 
-        struct lpf_arr_it_t {
+        struct lpf_pos_t {
             uint16_t i_p;
             uint32_t i;
         };
@@ -233,10 +253,19 @@ protected:
             factorize_mode fact_mode = default_fact_mode,
             phrase_mode phr_mode = default_phr_mode,
             transform_mode transf_mode = default_transf_mode,
-            template <typename> typename range_ds_t = default_range_ds_t>
-        void factorize(output_it_t& output)
+            template <typename> typename range_ds_t = default_range_ds_t,
+            typename output_fnc_t>
+        void factorize(output_fnc_t output)
         {
             static_assert(sizeof(char_t) == 1);
+
+            if (p == 0) {
+                p = omp_get_max_threads();
+            }
+
+            baseline_memory_alloc = malloc_count_current();
+            malloc_count_reset_peak();
+            omp_set_num_threads(p);
 
             if (log) {
                 #ifdef LZ77_SSS_BENCH
@@ -259,46 +288,29 @@ protected:
                 time_start = time;
             }
 
-            if (p == 0) {
-                p = omp_get_max_threads();
-            }
-
-            baseline_memory_alloc = malloc_count_current();
-            malloc_count_reset_peak();
-            omp_set_num_threads(p);
-
             if constexpr (qual_mode == exact) {
                 static_assert(fact_mode != skip_phrases);
                 std::string aprx_file_name = std::filesystem::temp_directory_path().string()
                     + "/aprx_" + random_alphanumeric_string(10);
                 std::ofstream ofile_aprx(aprx_file_name);
                 std::ostream_iterator<factor> ofile_aprx_it(ofile_aprx, "");
-                output_it_t aprx_out_it = [&](factor f) { *ofile_aprx_it++ = f; };
-                compute_approximation<fact_mode, phr_mode>(aprx_out_it);
+                compute_approximation<fact_mode, phr_mode>([&](factor f) { *ofile_aprx_it++ = f; });
                 ofile_aprx.close();
-                std::ifstream ifile_aprx(aprx_file_name);
-                std::istream_iterator<factor> ifile_aprx_it(ifile_aprx);
-                pos_t delta = std::min<pos_t>(n / num_phr, max_delta);
+                pos_t delta = std::min<pos_t>(n / num_fact, max_delta);
+                pos_t max_num_samples = num_fact + n / delta;
 
-                if constexpr (std::is_same_v<pos_t, uint32_t>) {
+                if (std::is_same_v<pos_t, uint32_t> ||
+                    max_num_samples <= std::numeric_limits<uint32_t>::max()
+                ) {
                     exact_factorizer<uint32_t, transf_mode, range_ds_t>(
-                        T, n, LCE, delta, num_phr, p, log)
-                        .transform_to_exact(ifile_aprx_it, output);
+                        T, n, LCE, aprx_file_name, delta, num_fact, p, log)
+                        .transform_to_exact(output);
                 } else {
-                    pos_t max_num_samples = num_phr + n / delta;
-
-                    if (max_num_samples <= std::numeric_limits<uint32_t>::max()) {
-                        exact_factorizer<uint32_t, transf_mode, range_ds_t>(
-                            T, n, LCE, delta, num_phr, p, log)
-                            .transform_to_exact(ifile_aprx_it, output);
-                    } else {
-                        exact_factorizer<uint64_t, transf_mode, range_ds_t>(
-                            T, n, LCE, delta, num_phr, p, log)
-                            .transform_to_exact(ifile_aprx_it, output);
-                    }
+                    exact_factorizer<uint64_t, transf_mode, range_ds_t>(
+                        T, n, LCE, aprx_file_name, delta, num_fact, p, log)
+                        .transform_to_exact(output);
                 }
 
-                ifile_aprx.close();
                 std::filesystem::remove(aprx_file_name);
             } else {
                 compute_approximation<fact_mode, phr_mode>(output);
@@ -307,9 +319,10 @@ protected:
             if (log && fact_mode != skip_phrases) {
                 uint64_t time_total = time_diff_ns(time_start, now());
                 uint64_t mem_peak = malloc_count_peak() - baseline_memory_alloc;
-                double comp_ratio = n / (double) num_phr;
+                double comp_ratio = n / (double) num_fact;
 
-                std::cout << "compression ratio: " << comp_ratio << std::endl;
+                std::cout << "num. of factors: " << num_fact << std::endl;
+                std::cout << "input length / num. of factors: " << comp_ratio << std::endl;
                 std::cout << "total time: " << format_time(time_total) << std::endl;
                 std::cout << "throughput: " << format_throughput(n, time_total) << std::endl;
                 std::cout << "peak memory consumption: " << format_size(mem_peak) << std::endl;
@@ -317,7 +330,7 @@ protected:
                 #ifdef LZ77_SSS_BENCH
                 if (result_file_path != "") {
                     result_file
-                        << " num_factors=" << num_phr
+                        << " num_factors=" << num_fact
                         << " comp_ratio=" << comp_ratio
                         << " time=" << time_total
                         << " throughput=" << throughput(n, time_total)
@@ -329,8 +342,9 @@ protected:
 
         template <
             factorize_mode fact_mode = default_fact_mode,
-            phrase_mode phr_mode = default_phr_mode>
-        void compute_approximation(output_it_t& output)
+            phrase_mode phr_mode = default_phr_mode,
+            typename output_fnc_t>
+        void compute_approximation(output_fnc_t output)
         {
             LPF.resize(p);
 
@@ -339,21 +353,21 @@ protected:
                 build_LPF_naive();
             } else if constexpr (phr_mode == lpf_opt) {
                 build_lce();
-                build_LPF_opt([&](uint16_t i_p, lpf&& p) {
+                build_LPF_opt([&](uint16_t i_p, lpf p) {
                     LPF[i_p].emplace_back(p);});
             } else {
-                if (log) std::cout << "reversing T" << std::flush;
+                if (log) std::cout << "reversing input" << std::flush;
                 std::reverse(T, T + n);
                 if (log) time = log_runtime(time);
                 build_lce();
-                build_LNF_all<phr_mode>([&](uint16_t i_p, lpf&& p) {
+                build_LNF_all<phr_mode>([&](uint16_t i_p, lpf p) {
                     LPF[i_p].emplace_back(p);});
                 LCE = lce_t();
-                if (log) std::cout << "reversing T" << std::flush;
+                if (log) std::cout << "reversing input" << std::flush;
                 std::reverse(T, T + n);
                 if (log) time = log_runtime(time);
                 build_lce();
-                build_LPF_all<phr_mode>([&](uint16_t i_p, lpf&& p) {
+                build_LPF_all<phr_mode>([&](uint16_t i_p, lpf p) {
                     LPF[i_p].emplace_back(p);});
             }
 
@@ -472,13 +486,14 @@ protected:
 
         void build_LPF_naive();
 
-        void build_LPF_opt(std::function<void(uint16_t, lpf&&)> lpf_it);
+        template <typename lpf_it_t>
+        void build_LPF_opt(lpf_it_t lpf_it);
 
-        template <phrase_mode phr_mode>
-        void build_LNF_all(std::function<void(uint16_t, lpf&&)> lpf_it);
+        template <phrase_mode phr_mode, typename lpf_it_t>
+        void build_LNF_all(lpf_it_t lpf_it);
         
-        template <phrase_mode phr_mode>
-        void build_LPF_all(std::function<void(uint16_t, lpf&&)> lpf_it);
+        template <phrase_mode phr_mode, typename lpf_it_t>
+        void build_LPF_all(lpf_it_t lpf_it);
 
         void get_phrase_info();
 
@@ -487,14 +502,14 @@ protected:
         template <bool first_block>
         inline factor longest_prev_occ_par(fp_arr_t& fps, pos_t pos, pos_t blk_end);
 
-        template <bool first_block, typename lpf_it_t>
-        void factorize_block(std::function<lpf(lpf_it_t&)>& next_lpf, pos_t blk_beg, pos_t blk_end);
+        template <bool first_block, typename next_lpf_t>
+        void factorize_block(next_lpf_t next_lpf, pos_t blk_beg, pos_t blk_end);
 
-        template <factorize_mode fact_mode>
-        void factorize(output_it_t& output);
+        template <factorize_mode fact_mode, typename output_fnc_t>
+        void factorize(output_fnc_t output);
 
-        template <factorize_mode fact_mode, typename lpf_it_t>
-        void factorize_sequential(output_it_t& output, std::function<lpf_it_t()>& lpf_beg, std::function<lpf(lpf_it_t&)>& next_lpf)
+        template <factorize_mode fact_mode, typename output_fnc_t, typename lpf_beg_t, typename next_lpf_t>
+        void factorize_sequential(output_fnc_t output, lpf_beg_t lpf_beg, next_lpf_t next_lpf)
         {
             if constexpr (fact_mode == skip_phrases) {
                 factorize_skip_gaps(output, lpf_beg, next_lpf);
@@ -505,17 +520,17 @@ protected:
             }
         }
 
-        template <typename lpf_it_t>
-        void factorize_skip_gaps(output_it_t& output, std::function<lpf_it_t()>& lpf_beg, std::function<lpf(lpf_it_t&)>& next_lpf);
+        template <typename output_fnc_t, typename lpf_beg_t, typename next_lpf_t>
+        void factorize_skip_gaps(output_fnc_t output, lpf_beg_t lpf_beg, next_lpf_t next_lpf);
 
-        template <typename lpf_it_t>
-        void factorize_greedy_naive(output_it_t& output, std::function<lpf_it_t()>& lpf_beg, std::function<lpf(lpf_it_t&)>& next_lpf);
+        template <typename output_fnc_t, typename lpf_beg_t, typename next_lpf_t>
+        void factorize_greedy_naive(output_fnc_t output, lpf_beg_t lpf_beg, next_lpf_t next_lpf);
 
-        template <typename lpf_it_t>
-        void factorize_greedy(output_it_t& output, std::function<lpf_it_t()>& lpf_beg, std::function<lpf(lpf_it_t&)>& next_lpf);
+        template <typename output_fnc_t, typename lpf_beg_t, typename next_lpf_t>
+        void factorize_greedy(output_fnc_t output, lpf_beg_t lpf_beg, next_lpf_t next_lpf);
 
-        template <typename lpf_it_t>
-        void factorize_greedy_parallel(output_it_t& output, std::function<lpf_it_t()>& lpf_beg, std::function<lpf(lpf_it_t&)>& next_lpf);
+        template <typename output_fnc_t, typename lpf_beg_t, typename next_lpf_t>
+        void factorize_greedy_parallel(output_fnc_t output, lpf_beg_t lpf_beg, next_lpf_t next_lpf);
 
         template <
             typename sidx_t,
@@ -525,23 +540,29 @@ protected:
         public:
             using sample_index_t = sample_index<pos_t, sidx_t, char_t, lce_t>;
             using point_t = typename range_ds_t<sidx_t>::point_t;
-            using sxa_interval_t = sample_index_t::sxa_interval_t;
-            using query_context_t = sample_index_t::query_context;
+            using interval_t = sample_index_t::interval_t;
+            using query_context_t = sample_index_t::query_ctx_t;
 
-            std::chrono::steady_clock::time_point time_start, time, time_end;
+            std::chrono::steady_clock::time_point time_start, time;
+            std::string aprx_file_name;
             std::string fact_file_name;
             bool log = false;
             uint16_t p = 0;
 
-            const char_t* T;
+            char_t* T;
             const lce_t& LCE;
 
             pos_t n = 0;
             pos_t c = 0;
             pos_t delta = 0;
-            pos_t& num_phr;
+            pos_t& num_fact;
 
-            std::vector<pos_t> start_thr;
+            struct sect_info {
+                pos_t beg;
+                sidx_t phr_idx;
+            };
+
+            std::vector<sect_info> par_sect;
 
             std::vector<pos_t> C;
             sample_index_t idx_C;
@@ -555,17 +576,19 @@ protected:
                 return LCE.lce(i, j);
             }
 
-            exact_factorizer(char_t* T, pos_t n, const lce_t& LCE, pos_t delta, pos_t& num_phr, uint16_t p, bool log)
-                : log(log), p(p), T(T), LCE(LCE), n(n), delta(delta), num_phr(num_phr) { }
+            exact_factorizer(char_t* T, pos_t n, const lce_t& LCE, std::string aprx_file_name,
+                pos_t delta, pos_t& num_fact, uint16_t p, bool log
+            ) : log(log), p(p), T(T), LCE(LCE), aprx_file_name(aprx_file_name), n(n), delta(delta), num_fact(num_fact) { }
 
-            void transform_to_exact(std::istream_iterator<factor>& ifile_aprx_it, output_it_t& output)
+            template <typename output_fnc_t>
+            void transform_to_exact(output_fnc_t output)
             {
                 if (log) {
                     time = now();
                     time_start = time;
                 }
 
-                build_c(ifile_aprx_it);
+                build_c();
                 build_idx_C();
                 build_p();
 
@@ -598,8 +621,8 @@ protected:
 
                 if (range_ds_t<sidx_t>::is_dynamic()) {
                     p = 1;
-                    start_thr.resize(p + 1);
-                    start_thr[p] = n;
+                    par_sect.resize(p + 1);
+                    par_sect[p] = {.beg = n, .phr_idx = num_fact};
                 }
 
                 if (p > 1) {
@@ -626,7 +649,7 @@ protected:
                 }
             }
 
-            void build_c(std::istream_iterator<factor>& ifile_aprx_it);
+            void build_c();
 
             void build_idx_C();
 
@@ -641,20 +664,24 @@ protected:
             inline void adjust_xc(sidx_t& gap_idx, pos_t pos);
 
             bool intersect(
-                const sxa_interval_t& spa_iv, const sxa_interval_t& ssa_iv,
+                const interval_t& spa_iv, const interval_t& ssa_iv,
                 pos_t i, pos_t j, pos_t lce_l, pos_t lce_r, sidx_t& x_c, factor& f);
 
-            void transform_to_exact_naive(output_it_t& output);
+            template <typename output_fnc_t>
+            void transform_to_exact_naive(output_fnc_t output);
 
-            void transform_to_exact_without_samples(output_it_t& output);
+            template <typename output_fnc_t>
+            void transform_to_exact_without_samples(output_fnc_t output);
 
             void extend_right_with_samples(
-                const sxa_interval_t& spa_iv,
+                const interval_t& spa_iv,
                 pos_t i, pos_t j, pos_t e, sidx_t& x_c, factor& f);
 
-            void transform_to_exact_with_samples(output_it_t& output);
+            template <typename output_fnc_t>
+            void transform_to_exact_with_samples(output_fnc_t output);
 
-            void combine_factorizations(output_it_t& output);
+            template <typename output_fnc_t>
+            void combine_factorizations(output_fnc_t output);
         };
     };
 };

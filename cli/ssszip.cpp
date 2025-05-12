@@ -107,7 +107,7 @@ void encode_gapped()
     pos_t gap_beg = 0;
     factor gap_lst { .src = 0, .len = 0 };
 
-    std::function<void(factor)> output = [&](factor f) {
+    auto output = [&](factor f) {
         if (f.len == 0) {
             if (gap) {
                 gap_lst.src += f.src;
@@ -167,19 +167,17 @@ uint64_t peak_memory_usage()
 void encode()
 {
     t1 = now();
+
     input_file.open(input_file_path);
-    if (!input_file.good())
-        help("error: could not read <input_file>");
-    if (output_file_path == "")
-        output_file_path = input_file_path;
+    if (!input_file.good()) help("error: could not read <input_file>");
+
+    if (output_file_path == "") output_file_path = input_file_path;
     output_file_path += ".ssszip." + encoder;
     if (std::filesystem::exists(output_file_path))
         help("error: <output_file> already exists");
-    input_file.seekg(0, std::ios::end);
-    bytes_input = input_file.tellg();
-    input_file.seekg(0, std::ios::beg);
-    if (logs == 2)
-        std::cout << "reading input (" << format_size(bytes_input) << ")" << std::flush;
+
+    bytes_input = std::filesystem::file_size(input_file_path);
+    if (logs == 2) std::cout << "reading input (" << format_size(bytes_input) << ")" << std::flush;
     no_init_resize_with_excess(input, bytes_input, 4 * lz77_sss<>::default_tau);
     read_from_file(input_file, input.data(), bytes_input);
     input_file.close();
@@ -198,12 +196,15 @@ void encode()
     }
 
     if (logs == 2) log_runtime(t1);
+
     if (bytes_input <= std::numeric_limits<uint32_t>::max())
          encode_gapped<uint32_t>();
     else encode_gapped<uint64_t>();
+
     input.clear();
     input.shrink_to_fit();
     double rel_len_gaps = gaps_length / (double) bytes_input;
+
     if (logs == 2) {
         uint64_t bytes_gapped = std::filesystem::file_size(tmp_file_path);
         std::cout << "size: " << format_size(bytes_gapped);
@@ -211,13 +212,13 @@ void encode()
             100.0 * rel_len_gaps << " %" << std::endl;
         std::cout << "compressing gapped factorization" << std::flush;
     }
+
     t2 = now();
     std::string cpu_list;
-    for (uint32_t i = 0; i < num_threads; i++)
-        if (num_threads == omp_get_max_threads())
-            cpu_list += std::to_string(i) + ",";
-        else
-            cpu_list += std::to_string(2 * i) + ",";
+    for (uint32_t i = 0; i < num_threads; i++) {
+        cpu_list += std::to_string(num_threads == omp_get_max_threads() ? i : (2 * i)) + ",";
+    }
+
     cpu_list.resize(cpu_list.length() - 1);
     std::string cmd = "(/usr/bin/time -v taskset -c " + cpu_list + " " +
         encoder + " -c" + (logs <= 1 ? " -q" : " -v") +
@@ -227,13 +228,14 @@ void encode()
         " " + tmp_file_path + " > " + output_file_path + ") 2> " + log_file_path;
     system(cmd.c_str());
     t3 = now();
+    
     uint64_t time_encode = time_diff_ns(t2, t3);
     uint64_t gapped_peak = malloc_count_peak();
     uint64_t encoding_peak = peak_memory_usage() * 1000;
     uint64_t memory_peak = std::max(gapped_peak, encoding_peak);
     uint64_t time_total = time_diff_ns(t1, t3);
     uint64_t bytes_compressed = std::filesystem::file_size(output_file_path);
-    double compression_ratio = bytes_input / (double)bytes_compressed;
+    double compression_ratio = bytes_input / (double) bytes_compressed;
     std::filesystem::remove(log_file_path);
 
     if (logs == 2) {
@@ -268,29 +270,27 @@ void decode_gapped(std::fstream& tmp_input_file)
     using factor = lz77_sss<pos_t>::factor;
     std::fstream output_file(output_file_path,
         std::ios::in | std::ios::out | std::ios::app);
-    std::string buff;
-    factor f;
-    pos_t pos_input = 9;
-    pos_t pos_output = 0;
     uint64_t buff_size = std::max<uint64_t>(32 * 1024, bytes_input / 1000);
     tmp_input_file.read((char*) &bytes_input, 8);
     uint64_t bytes_gapped = std::filesystem::file_size(tmp_file_path);
     if (logs == 2) std::cout << "reverting gapped factorization ("
         << format_size(bytes_gapped) << ")" << std::flush;
+    std::string buff;
+    pos_t pos_input = 9;
+    pos_t pos_output = 0;
+    factor f;
 
     while (pos_output < bytes_input) {
         tmp_input_file >> f;
-        pos_input += std::is_same_v<pos_t, uint32_t> ? 8 : 10;
+        pos_input += factor::size_of();
 
         if (f.len == 0) {
-            copy_buffered(
-                tmp_input_file, output_file,
+            copy_buffered(tmp_input_file, output_file,
                 buff, pos_input, pos_output, f.src, buff_size);
             pos_input += f.src;
             pos_output += f.src;
         } else {
-            copy_buffered(
-                output_file, output_file,
+            copy_buffered(output_file, output_file,
                 buff, pos_output - f.src, pos_output, f.len, buff_size);
             pos_output += f.len;
         }
@@ -299,7 +299,7 @@ void decode_gapped(std::fstream& tmp_input_file)
     uint64_t time_total = time_diff_ns(t1, now());
     uint64_t decoding_peak = peak_memory_usage() * 1000;
     uint64_t memory_peak = std::max(decoding_peak, malloc_count_peak());
-    double compression_ratio = bytes_input / (double)bytes_compressed;
+    double compression_ratio = bytes_input / (double) bytes_compressed;
 
     if (logs == 2) {
         log_runtime(t2);
@@ -341,10 +341,12 @@ void decode()
         help("error: <input_file> does not have extension .ssszip.<encoder>");
     if (logs == 2) std::cout << "decompressing gapped factorization ("
         << format_size(bytes_compressed) << ")" << std::flush;
+
     std::string cmd = "(/usr/bin/time -v " + encoder + " -d -c -q " +
         input_file_path + " > " + tmp_file_path + ") 2> " + log_file_path;
     system(cmd.c_str());
     if (logs == 2) log_runtime(t1);
+
     std::fstream tmp_input_file(tmp_file_path, std::ios::in);
     bool is_64_bit;
     tmp_input_file.read((char*) &is_64_bit, 1);
@@ -363,7 +365,7 @@ int main(int argc, char** argv)
     if (!std::filesystem::exists(input_file_path)) help("error: <input_file> does not exist");
     tmp_file_path = std::filesystem::temp_directory_path().string() + "/tmp_" + random_alphanumeric_string(10);
     log_file_path = std::filesystem::temp_directory_path().string() + "/log_" + random_alphanumeric_string(10);
-    if (decompress) decode();
-    else encode();
+    if (decompress) decode(); else encode();
     if (!keep_input_file) std::filesystem::remove(input_file_path);
+    return 0;
 }

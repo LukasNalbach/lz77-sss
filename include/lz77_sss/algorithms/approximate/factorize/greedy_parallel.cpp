@@ -42,9 +42,9 @@ inline lz77_sss<pos_t>::factor lz77_sss<pos_t>::factorizer<tau, char_t>::longest
 
 template <typename pos_t>
 template <uint64_t tau, typename char_t>
-template <bool first_block, typename lpf_it_t>
+template <bool first_block, typename next_lpf_t>
 void lz77_sss<pos_t>::factorizer<tau, char_t>::factorize_block(
-    std::function<lpf(lpf_it_t&)>& next_lpf, pos_t blk_beg, pos_t blk_end)
+    next_lpf_t next_lpf, pos_t blk_beg, pos_t blk_end)
 {
     uint16_t i_p = omp_get_thread_num();
 
@@ -53,11 +53,11 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::factorize_block(
     pos_t beg = info_beg.beg;
     pos_t end = info_end.beg;
     fp_arr_t fps;
-    lpf_it_t lpf_it;
-    lpf_it.i_p = info_beg.i_p;
-    lpf_it.i = info_beg.i;
+    lpf_pos_t lpf_pos;
+    lpf_pos.i_p = info_beg.i_p;
+    lpf_pos.i = info_beg.i;
 
-    lpf phr = next_lpf(lpf_it);
+    lpf phr = next_lpf(lpf_pos);
     pos_t pos_idx = beg;
     par_gap_idx.reinit(fps, beg);
 
@@ -80,7 +80,7 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::factorize_block(
             do {
                 factor f = longest_prev_occ_par<first_block>(fps, i, end);
                 pos_idx++;
-                i += std::max<pos_t>(1, f.len);
+                i += f.length();
 
                 if (i > gap_end) {
                     if (i <= phr.end) {
@@ -88,7 +88,7 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::factorize_block(
                         i = gap_end;
                     } else {
                         do {
-                            phr = next_lpf(lpf_it);
+                            phr = next_lpf(lpf_pos);
                         } while (phr.end <= i);
 
                         while (pos_idx < gap_end) {
@@ -101,7 +101,7 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::factorize_block(
                 }
 
                 #ifndef NDEBUG
-                pos_t i_ = i - std::max<pos_t>(1, f.len);
+                pos_t i_ = i - f.length();
 
                 assert(f.len == 0 ? f.src == char_to_uchar(T[i_]) : f.src < i_);
 
@@ -152,7 +152,7 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::factorize_block(
         assert(i <= end);
 
         while (phr.end <= i) {
-            phr = next_lpf(lpf_it);
+            phr = next_lpf(lpf_pos);
             assert(phr.beg > 0);
         }
     }
@@ -160,14 +160,14 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::factorize_block(
 
 template <typename pos_t>
 template <uint64_t tau, typename char_t>
-template <typename lpf_it_t>
+template <typename output_fnc_t, typename lpf_beg_t, typename next_lpf_t>
 void lz77_sss<pos_t>::factorizer<tau, char_t>::factorize_greedy_parallel(
-    output_it_t& output,
-    std::function<lpf_it_t()>& lpf_beg,
-    std::function<lpf(lpf_it_t&)>& next_lpf)
+    output_fnc_t output,
+    lpf_beg_t lpf_beg,
+    next_lpf_t next_lpf)
 {
     if (log) {
-        std::cout << "factorizing" << std::flush;
+        std::cout << "factorizing in parallel" << std::flush;
     }
 
     pos_t blk_size = std::max<pos_t>(min_par_gap_blk_size, (n / p) / max_par_gap_blks);
@@ -180,24 +180,24 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::factorize_greedy_parallel(
     #endif
 
     {
-        lpf_it_t it_cur = lpf_beg();
-        lpf_it_t it_lst = it_cur;
-        lpf lpf_lst = next_lpf(it_cur);
+        lpf_pos_t cur_lpf_pos = lpf_beg();
+        lpf_pos_t lst_lpf_pos = cur_lpf_pos;
+        lpf lpf_lst = next_lpf(cur_lpf_pos);
         lpf lpf_cur;
         pos_t cur_len_gaps = lpf_lst.beg;
         pos_t cur_blk_beg = 0;
 
         for (pos_t blk = 0; blk < num_blks; blk++) {
             while (cur_len_gaps <= cur_blk_beg) {
-                lpf_cur = next_lpf(it_cur);
+                lpf_cur = next_lpf(cur_lpf_pos);
                 cur_len_gaps += lpf_cur.beg - lpf_lst.end;
-                it_lst = it_cur;
+                lst_lpf_pos = cur_lpf_pos;
                 lpf_lst = lpf_cur;
             }
 
             blk_info.emplace_back(block_info_t {
-                .i_p = it_lst.i_p,
-                .i = it_lst.i,
+                .i_p = lst_lpf_pos.i_p,
+                .i = lst_lpf_pos.i,
                 .beg = lpf_lst.beg - (cur_len_gaps - cur_blk_beg) });
 
             cur_blk_beg += blk_size;
@@ -216,10 +216,10 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::factorize_greedy_parallel(
 
             if (i_p < blks) {
                 if (cur_blk == 0) {
-                    if (i_p == 0) factorize_block<true, lpf_it_t>(next_lpf, 0, blks);
+                    if (i_p == 0) factorize_block<true, next_lpf_t>(next_lpf, 0, blks);
                 } else {
                     pos_t blk_idx = cur_blk + i_p;
-                    factorize_block<false, lpf_it_t>(next_lpf, blk_idx, blk_idx + 1);
+                    factorize_block<false, next_lpf_t>(next_lpf, blk_idx, blk_idx + 1);
                 }
             }
         }
@@ -236,11 +236,11 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::factorize_greedy_parallel(
                     assert(T[f.src + j] == T[cur_pos + j]);
                 }
 
-                cur_pos += std::max<pos_t>(1, f.len);
+                cur_pos += f.length();
                 #endif
             }
 
-            num_phr += vec.size();
+            num_fact += vec.size();
             vec.clear();
         }
 

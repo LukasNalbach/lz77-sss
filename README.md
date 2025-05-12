@@ -2,10 +2,10 @@
 This repository contains implementations of Lempel-Ziv 77 (LZ77) algorithms [1] based on string synchronizing sets [2].
 
 ## CLI Build Instructions
-This implementation has been tested on Ubuntu 24.04 with gcc-12, g++-12, zstd, p7zip-full, gzip, bzip2, xz-utils, lz4, libtbb-dev and libomp-dev installed. [bsc](https://github.com/IlyaGrebnov/libbsc) has to be built and installed manually.
+This implementation has been tested on Ubuntu 24.04 with gcc-12, g++-12, zstd, p7zip-full, gzip, bzip2, xz-utils, lz4, libgtest-dev, libtbb-dev and libomp-dev installed. [bsc](https://github.com/IlyaGrebnov/libbsc) has to be built and installed manually.
 
 ```shell
-clone https://github.com/LukasNalbach/lz77-sss.git
+git clone --recurse-submodules https://github.com/LukasNalbach/lz77-sss.git
 mkdir build
 cd build
 cmake ..
@@ -17,30 +17,30 @@ This creates the following executables in the build/ folder.
 
 ## CLI Programs
 ### Compression Tools
-- lz77_sss_3-aprx (LZ77 3-Approximation)
-- lz77_sss_1_5-aprx (LZ77 LPF/LNF Approximation)
-- lz77_sss_exact (LZ77 Exact Algorithm without interval sampling)
-- lz77_sss_exact-smpl (LZ77 Exact Algorithm with interval sampling)
-- lz77_sss_decode (decodes/reverts the factorization output by one of the above executables)
+- lz77-sss-3-aprx (LZ77 3-approximation)
+- lz77-sss-lpf-lnf-aprx (LZ77 LPF/LNF Approximation)
+- lz77-sss-exact (LZ77 Exact Algorithm without interval sampling)
+- lz77-sss-exact-smpl (LZ77 Exact Algorithm with interval sampling)
+- lz77-sss-decode (decodes/reverts the factorization output by one of the above executables)
 - ssszip ((de-)compression tool with an interface that is similar to state-of-the-art compressors)
 
 ### Benchmark Tools
-- lz77_sss_bench (benchmarks all LZ77 algorithms)
-- lz77_sss_bench-tau (benchmarks the LZ77 3-Approximation with different values for tau)
-- gen_range_queries (generates range query data for a given text)
-- bench_range_queries (benchmarks all range data structures using generated query data)
+- lz77-sss-bench (benchmarks all LZ77 algorithms)
+- lz77-sss-bench-tau (benchmarks the LZ77 3-approximation with different values for tau)
+- gen-range-queries (generates range query data for a given text)
+- bench-range-queries (benchmarks all range data structures using generated query data)
 - zip-bench (benchmarks lz4, xz, 7zip, gzip, bzip2, zstd and bsc)
 
 ### Examples
-- lz77_sss_example (the C++ example from below)
+- lz77-sss-example (the C++ example from below)
 
 ### Test Executables
-- test-decomposed_range
-- test-dynamic_range
-- test-lz77_sss
-- test-rk61_substring
-- test-sample_index
-- test-static_weighted_range
+- test-decomposed-range
+- test-dynamic-range
+- test-lz77-sss
+- test-rabin-karp-substring
+- test-sample-index
+- test-static-weighted-range
 
 ## ssszip Interface
 ```
@@ -75,13 +75,13 @@ int main()
 {
     // generate a random string
     std::string input = random_repetitive_string(10000, 200000);
-    std::cout << "input size: " << input.size() << std::endl;
+    std::cout << "input length: " << input.size() << std::endl;
     
     // compute an approximate LZ77 factorization
     std::vector<lz77_sss<>::factor> factorization;
     lz77_sss<>::factorize_approximate<>(input.data(), input.size(), [&](auto f){factorization.emplace_back(f);});
-    std::cout << "number of factors: " << factorization.size() << std::endl;
-    std::cout << "compression ratio: " << input.size() / (double) factorization.size() << std::endl;
+    std::cout << "num. of factors: " << factorization.size() << std::endl;
+    std::cout << "input length / num. of factors: " << input.size() / (double) factorization.size() << std::endl;
 
     // decode the factorization
     std::string input_decoded;

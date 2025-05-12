@@ -32,18 +32,16 @@ int main(int argc, char** argv)
         }
     }
 
-    input_file.seekg(0, std::ios::end);
-    uint64_t n = input_file.tellg();
-    input_file.seekg(0, std::ios::beg);
+    uint64_t n = std::filesystem::file_size(argv[1]);
     auto t0 = now();
-    std::cout << "reading T (" << format_size(n) << ")" << std::flush;
+    std::cout << "reading input (" << format_size(n) << ")" << std::flush;
     std::string T;
     no_init_resize_with_excess(T, n, 4 * lz77_sss<>::default_tau);
     read_from_file(input_file, T.data(), n);
     input_file.close();
     log_runtime(t0);
-    output_file << n;
-    std::cout << std::endl << "running LZ77 SSS exact algorithm (without samples):" << std::endl;
+    output_file.write((char*) &n, 5);
+    std::cout << "running LZ77 SSS exact algorithm (without samples):" << std::endl;
 
     if (n <= std::numeric_limits<uint32_t>::max()) {
         lz77_sss<uint32_t>::factorize_exact<
@@ -58,4 +56,5 @@ int main(int argc, char** argv)
     }
 
     output_file.close();
+    return 0;
 }

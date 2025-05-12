@@ -65,12 +65,13 @@ void log_algorithm(
     std::string alg_name, uint64_t time,
     uint64_t mem_peak, uint64_t num_factors)
 {
-    double comp_ratio = n / (double)num_factors;
+    double comp_ratio = n / (double) num_factors;
 
     std::cout << ", in ~ " << format_time(time) << std::endl;
     std::cout << "throughput: " << format_throughput(n, time) << std::endl;
     std::cout << "peak memory consumption: " << format_size(mem_peak) << std::endl;
-    std::cout << "compression ratio: " << comp_ratio << std::endl;
+    std::cout << "num. of factors: " << num_factors << std::endl;
+    std::cout << "input length / num. of factors: " << comp_ratio << std::endl;
 
     if (result_file_path != "") {
         result_file << "RESULT"
@@ -121,7 +122,7 @@ int main(int argc, char** argv)
     n = input_file.tellg();
     input_file.seekg(0, std::ios::beg);
     auto t0 = now();
-    std::cout << "reading T (" << format_size(n) << ")" << std::flush;
+    std::cout << "reading input (" << format_size(n) << ")" << std::flush;
     no_init_resize_with_excess(T, n, 4 * lz77_sss<>::default_tau);
     read_from_file(input_file, T.data(), n);
     input_file.close();

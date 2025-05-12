@@ -24,14 +24,14 @@ protected:
     std::array<sidx_t, 257> C_S = { 0 };
     std::array<range_ds_t<sidx_t>, 256> R_c;
 
-    void to_internal(uint8_t uc, point_t& p) const
+    inline void to_internal(uint8_t uc, point_t& p) const
     {
         sidx_t rnk_c = C_S[uc];
         p.x -= rnk_c;
         p.y -= rnk_c;
     }
 
-    void to_internal(uint8_t uc,
+    inline void to_internal(uint8_t uc,
         sidx_t& x1, sidx_t& x2,
         sidx_t& y1, sidx_t& y2) const
     {
@@ -42,7 +42,7 @@ protected:
         y2 -= rnk_c;
     }
 
-    void to_external(uint8_t uc, point_t& p) const
+    inline void to_external(uint8_t uc, point_t& p) const
     {
         sidx_t rnk_c = C_S[uc];
         p.x += rnk_c;
@@ -124,7 +124,7 @@ public:
         return bytes;
     }
 
-    void insert(char c, point_t p)
+    inline void insert(char c, point_t p)
         requires(is_dynamic())
     {
         uint8_t uc = char_to_uchar(c);

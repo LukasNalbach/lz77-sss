@@ -1,6 +1,36 @@
 #include <fstream>
 #include <lz77_sss/lz77_sss.hpp>
 
+uint64_t n;
+std::fstream input_file;
+std::fstream output_file;
+
+template <typename pos_t>
+void decode()
+{
+    using factor = lz77_sss<pos_t>::factor;
+    factor f;
+    pos_t pos_input = 5;
+    pos_t pos_output = 0;
+    uint64_t buff_size = std::max<uint64_t>(32 * 1024, n / 1000);
+    std::string buff;
+
+    while (pos_output < n) {
+        input_file >> f;
+        pos_input += factor::size_of();
+
+        if (f.len == 0) {
+            output_file.write((char*) &f.src, 1);
+            pos_input++;
+            pos_output++;
+        } else {
+            copy_buffered(output_file, output_file,
+                buff, f.src, pos_output, f.len, buff_size);
+            pos_output += f.len;
+        }
+    }
+}
+
 int main(int argc, char** argv)
 {
     if (argc != 3) {
@@ -8,36 +38,37 @@ int main(int argc, char** argv)
         exit(-1);
     }
 
-    std::ifstream input_file(argv[1]);
-    std::ofstream output_file(argv[2]);
+    input_file.open(argv[1], std::ios::in);
 
     if (!input_file.good()) {
         std::cout << "error: could not read <input_file>" << std::endl;
         exit(-1);
     }
 
+    std::string output_file_name = argv[2];
+    if (std::filesystem::exists(output_file_name)) std::filesystem::remove(output_file_name);
+    output_file.open(output_file_name, std::ios::in | std::ios::out | std::ios::app);
+
     if (!output_file.good()) {
         std::cout << "error: could not write to <output_file>" << std::endl;
         exit(-1);
     }
 
-    uint64_t n;
-    input_file >> n;
-    std::cout << "decoding T (" << format_size(n) << ")" << std::flush;
-    std::string T;
-    no_init_resize_with_excess(T, n, 4 * lz77_sss<>::default_tau);
-    auto time = now();
+    input_file.read((char*) &n, 5);
+    std::cout << "decoding (" << format_size(n) << ")" << std::flush;
+    auto t1 = now();
 
     if (n <= std::numeric_limits<uint32_t>::max()) {
-        lz77_sss<uint32_t>::decode(std::istream_iterator<lz77_sss<uint32_t>::factor>(input_file), T.data(), n);
+        decode<uint32_t>();
     } else {
-        lz77_sss<uint64_t>::decode(std::istream_iterator<lz77_sss<uint64_t>::factor>(input_file), T.data(), n);
+        decode<uint64_t>();
     }
 
     input_file.close();
-    time = log_runtime(time);
-    std::cout << "writing T to the output file" << std::flush;
-    write_to_file(output_file, T.data(), n);
-    time = log_runtime(time);
     output_file.close();
+    auto t2 = now();
+    log_runtime(t1, t2);
+    std::cout << "throughput: " << format_throughput(n, time_diff_ns(t1, t2)) << std::endl;
+    std::cout << "peak memory consumption: " << format_size(malloc_count_peak()) << std::endl;
+    return 0;
 }

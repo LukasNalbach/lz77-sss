@@ -36,7 +36,7 @@ int main(int argc, char** argv)
     uint64_t n = input_file.tellg();
     input_file.seekg(0, std::ios::beg);
     auto t0 = now();
-    std::cout << "reading T (" << format_size(n) << ")" << std::flush;
+    std::cout << "reading input (" << format_size(n) << ")" << std::flush;
     std::string T;
     no_init_resize_with_excess(T, n, 4 * lz77_sss<>::default_tau);
     read_from_file(input_file, T.data(), n);

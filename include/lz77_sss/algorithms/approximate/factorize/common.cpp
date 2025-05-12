@@ -36,18 +36,18 @@ inline lz77_sss<pos_t>::factor lz77_sss<pos_t>::factorizer<tau, char_t>::longest
 
 template <typename pos_t>
 template <uint64_t tau, typename char_t>
-template <factorize_mode fact_mode>
-void lz77_sss<pos_t>::factorizer<tau, char_t>::factorize(output_it_t& output)
+template <factorize_mode fact_mode, typename output_fnc_t>
+void lz77_sss<pos_t>::factorizer<tau, char_t>::factorize(output_fnc_t output)
 {
-    std::function<lpf_arr_it_t()> lpf_beg = [&]() {
-        lpf_arr_it_t lpf_it { .i_p = 0, .i = 0 };
-        while (LPF[lpf_it.i_p].empty()) lpf_it.i_p++;
-        return lpf_it;
+    auto lpf_beg = [&]() {
+        lpf_pos_t lpf_pos { .i_p = 0, .i = 0 };
+        while (LPF[lpf_pos.i_p].empty()) lpf_pos.i_p++;
+        return lpf_pos;
     };
 
-    std::function<lpf(lpf_arr_it_t&)> next_lpf = [&](lpf_arr_it_t& lpf_it) {
-        uint16_t& i_p = lpf_it.i_p;
-        uint32_t& i = lpf_it.i;
+    auto next_lpf = [&](lpf_pos_t& lpf_pos) {
+        uint16_t& i_p = lpf_pos.i_p;
+        uint32_t& i = lpf_pos.i;
 
         lpf phr = LPF[i_p][i++];
 

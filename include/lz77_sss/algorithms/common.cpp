@@ -49,6 +49,6 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::build_lce()
         std::cout << "tau = " << tau;
         std::cout << ", SA_S size: " << format_size(bytes_ssa) << std::endl;
         std::cout << "peak memory consumption: " << format_size(malloc_count_peak() - baseline_memory_alloc) << std::endl;
-        std::cout << "input size / SSS size = " << n / (double)size_sss << std::endl;
+        std::cout << "input length / SSS size = " << n / (double)size_sss << std::endl;
     }
 }

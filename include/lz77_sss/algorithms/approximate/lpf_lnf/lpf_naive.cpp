@@ -13,8 +13,8 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::build_LPF_naive()
     }
 
     const std::vector<pos_t>& S = LCE.get_sync_set();
-    const std::vector<uint32_t>& SSA_S = LCE.get_ssa();
-    const std::vector<uint32_t>& ISSA_S = LCE.get_issa();
+    const std::vector<uint32_t>& SA_S = LCE.get_ssa();
+    const std::vector<uint32_t>& ISA_S = LCE.get_issa();
     pos_t s = S.size();
 
     #pragma omp parallel num_threads(p)
@@ -33,8 +33,8 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::build_LPF_naive()
             pos_t src;
             pos_t len = 0;
 
-            if (PSV_S[ISSA_S[i]] != s) {
-                pos_t src_cur = S[SSA_S[PSV_S[ISSA_S[i]]]];
+            if (PSV_S[ISA_S[i]] != s) {
+                pos_t src_cur = S[SA_S[PSV_S[ISA_S[i]]]];
                 pos_t len_cur = LCE_R(src_cur, S[i]);
 
                 #ifndef NDEBUG
@@ -51,8 +51,8 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::build_LPF_naive()
                 }
             }
 
-            if (NSV_S[ISSA_S[i]] != s) {
-                pos_t src_cur = S[SSA_S[NSV_S[ISSA_S[i]]]];
+            if (NSV_S[ISA_S[i]] != s) {
+                pos_t src_cur = S[SA_S[NSV_S[ISA_S[i]]]];
                 pos_t len_cur = LCE_R(src_cur, S[i]);
 
                 #ifndef NDEBUG
