@@ -91,9 +91,9 @@ if(LZ77_SSS_BUILD_EXAMPLES)
 endif()
 
 if(LZ77_SSS_BUILD_TESTS)
+  add_subdirectory("${CMAKE_SOURCE_DIR}/external/googletest/")
+  include(GoogleTest)
   enable_testing()
-  find_package(GTest REQUIRED)
-  include_directories(${GTEST_INCLUDE_DIR})
 
   add_executable(test-lz77-sss "${CMAKE_SOURCE_DIR}/tests/test_lz77_sss.cpp")
   target_link_libraries(test-lz77-sss PRIVATE gtest_main lz77_sss)

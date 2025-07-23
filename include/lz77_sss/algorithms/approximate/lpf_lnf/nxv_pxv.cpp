@@ -11,7 +11,7 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::build_PSV_NSV_S()
     }
 
     const std::vector<pos_t>& S = LCE.get_sync_set();
-    const std::vector<uint32_t>& SA_S = LCE.get_ssa();
+    const std::vector<uint32_t>& SA_S = LCE.get_sa_s();
     pos_t s = S.size();
 
     #ifndef NDEBUG
@@ -65,8 +65,8 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::build_PGV_NGV_S()
     }
 
     const std::vector<pos_t>& S = LCE.get_sync_set();
-    const std::vector<uint32_t>& SA_S = LCE.get_ssa();
-    const std::vector<uint32_t>& ISA_S = LCE.get_issa();
+    const std::vector<uint32_t>& SA_S = LCE.get_sa_s();
+    const std::vector<uint32_t>& ISA_S = LCE.get_isa_s();
     pos_t s = S.size();
 
     #ifndef NDEBUG

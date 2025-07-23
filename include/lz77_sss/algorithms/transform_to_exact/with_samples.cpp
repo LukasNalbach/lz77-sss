@@ -7,7 +7,7 @@ template <uint64_t tau, typename char_t>
 template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t>
 void lz77_sss<pos_t>::factorizer<tau, char_t>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::
     extend_right_with_samples(
-        const interval_t& spa_iv,
+        const interval_t& pa_c_iv,
         pos_t i, pos_t j, pos_t e, sidx_t& x_c, factor& f)
 {
     const auto& rks = idx_C.rab_karp_substr();
@@ -26,8 +26,8 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::exact_factorizer<sidx_t, transf_m
             return smpl_lens_right[x];
         });
 
-    interval_t ssa_iv;
-    interval_t ssa_iv_nxt { .b = 1, .e = 0 };
+    interval_t sa_c_iv;
+    interval_t sa_c_iv_nxt { .b = 1, .e = 0 };
     pos_t lce_r = 0;
     pos_t lce_r_nxt = 0;
     uint64_t fp_right = 0;
@@ -37,16 +37,16 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::exact_factorizer<sidx_t, transf_m
         pos_t len_add = lce_r_tmp - lce_r;
         uint64_t fp_add = rks.substring(j + lce_r, len_add);
         uint64_t fp_tmp = rks.concat(fp_right, fp_add, len_add);
-        auto [ssa_iv_tmp, result] = idx_C.ssa_interval(x, j, fp_tmp);
+        auto [sa_c_iv_tmp, result] = idx_C.sa_s_interval(x, j, fp_tmp);
 
         if (result) {
-            if (intersect(spa_iv, ssa_iv_tmp, i, j, lce_l, lce_r_tmp, x_c, f)) {
-                ssa_iv = ssa_iv_tmp;
+            if (intersect(pa_c_iv, sa_c_iv_tmp, i, j, lce_l, lce_r_tmp, x_c, f)) {
+                sa_c_iv = sa_c_iv_tmp;
                 fp_right = fp_tmp;
                 lce_r = lce_r_tmp;
                 return true;
             } else {
-                ssa_iv_nxt = ssa_iv_tmp;
+                sa_c_iv_nxt = sa_c_iv_tmp;
             }
         }
 
@@ -58,8 +58,8 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::exact_factorizer<sidx_t, transf_m
         return;
     }
 
-    query_context_t qc_right = idx_C.query_right(ssa_iv, j, lce_r);
-    query_context_t qc_right_nxt = ssa_iv_nxt.empty() ? idx_C.query() : idx_C.query_right(ssa_iv_nxt, j, lce_r_nxt);
+    query_context_t qc_right = idx_C.query_right(sa_c_iv, j, lce_r);
+    query_context_t qc_right_nxt = sa_c_iv_nxt.empty() ? idx_C.query() : idx_C.query_right(sa_c_iv_nxt, j, lce_r_nxt);
     assert(x_res < 0 || qc_right.match_length() >= smpl_lens_right[x_res]);
     pos_t lce_r_max = lce_r_nxt == 0 ? e - j : (lce_r_nxt - 1);
 
@@ -76,7 +76,7 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::exact_factorizer<sidx_t, transf_m
         }
 
         if (result) {
-            if (intersect(spa_iv, qc_right_tmp.interval(),
+            if (intersect(pa_c_iv, qc_right_tmp.interval(),
                     i, j, lce_l, lce_r_tmp, x_c, f)) {
                 qc_right = qc_right_tmp;
                 return true;
@@ -170,8 +170,8 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::exact_factorizer<sidx_t, transf_m
                 pos_t k = smpl_lens_left[x] - 1;
                 if (k >= max_k) break;
                 pos_t j = i + k;
-                auto [spa_iv, result] = idx_C.spa_interval(x, j, fp_left[k]);
-                if (result) extend_right_with_samples(spa_iv, i, j, e, x_c, f);
+                auto [pa_c_iv, result] = idx_C.pa_s_interval(x, j, fp_left[k]);
+                if (result) extend_right_with_samples(pa_c_iv, i, j, e, x_c, f);
             }
 
             for (pos_t k = 2; k < max_k; k++) {

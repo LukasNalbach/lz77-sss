@@ -579,7 +579,7 @@ std::string random_repetitive_string(uint32_t min_size, uint32_t max_size)
         case repetition: {
             uint32_t repetition_length = std::min<uint32_t>(
                 target_input_size - input.size(), repetition_length_distrib(mt));
-            uint32_t repstition_source = std::rand() % input.size();
+            uint32_t repstition_source = std::uniform_int_distribution<uint32_t>(0, input.size() - 1)(mt);
 
             for (uint32_t i = 0; i < repetition_length; i++)
                 input.push_back(input[repstition_source + i]);

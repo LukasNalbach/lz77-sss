@@ -18,7 +18,7 @@ sample_index<pos_t, sidx_t, char_t, lce_r_t>::sxa_interval(
         if (!occurs2<dir>(pos_patt)) [[unlikely]] {
             return { { 0, 0 }, false };
         } else {
-            return { xiv_s2<dir>(pos_patt), true };
+            return { xiv_s_2<dir>(pos_patt), true };
         }
     }
 
@@ -114,16 +114,14 @@ bool sample_index<pos_t, sidx_t, char_t, lce_r_t>::extend(
         if (pat_len_idx >= 1) {
             if (fp_smpl == std::numeric_limits<std::size_t>::max()) {
                 fp_nxt_smpl = rks.template substring<dir>(pos_patt, len_nxt_smpl);
+            } else if constexpr (dir == LEFT) {
+                fp_nxt_smpl = rks.concat(
+                    rks.template substring<LEFT>(pos_patt - len_smpl, len_diff),
+                    fp_smpl, len_smpl);
             } else {
-                if constexpr (dir == LEFT) {
-                    fp_nxt_smpl = rks.concat(
-                        rks.template substring<LEFT>(pos_patt - len_smpl, len_diff),
-                        fp_smpl, len_smpl);
-                } else {
-                    fp_nxt_smpl = rks.concat(
-                        fp_smpl, rks.template substring<RIGHT>(pos_patt + len_smpl, len_diff),
-                        len_diff);
-                }
+                fp_nxt_smpl = rks.concat(
+                    fp_smpl, rks.template substring<RIGHT>(pos_patt + len_smpl, len_diff),
+                    len_diff);
             }
         }
 

@@ -20,8 +20,8 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::exact_factorizer<sidx_t, transf_m
     C.emplace_back(0);
 
     par_sect.resize(p + 1);
-    par_sect[0] = sect_info {.beg = 0, .phr_idx = 0};
-    par_sect[p] = sect_info {.beg = n, .phr_idx = num_fact};
+    par_sect[0] = sect_info_t {.beg = 0, .phr_idx = 0};
+    par_sect[p] = sect_info_t {.beg = n, .phr_idx = num_fact};
 
     sidx_t phr_nxt = num_fact / p;
     uint16_t i_p = 1;
@@ -42,7 +42,7 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::exact_factorizer<sidx_t, transf_m
         C.emplace_back(end_cur);
 
         if (phr == phr_nxt) {
-            par_sect[i_p++] = sect_info {.beg = end_lst + 1, .phr_idx = phr};
+            par_sect[i_p++] = sect_info_t {.beg = end_lst + 1, .phr_idx = phr};
             phr_nxt = i_p == p ? num_fact : (i_p * (num_fact / p));
         }
 
@@ -56,7 +56,7 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::exact_factorizer<sidx_t, transf_m
         log_phase("sample_set", time_diff_ns(time, now()));
         std::cout << " (" << format_size(c * sizeof(pos_t)) << ")";
         time = log_runtime(time);
-        std::cout << "num. of samples / num. of phrases = " << c / (double) num_fact << std::endl;
+        std::cout << "num. of samples / num. of aprx. factors = " << c / (double) num_fact << std::endl;
     }
 }
 
@@ -229,21 +229,21 @@ template <typename pos_t>
 template <uint64_t tau, typename char_t>
 template <typename sidx_t, transform_mode transf_mode, template <typename> typename range_ds_t>
 bool lz77_sss<pos_t>::factorizer<tau, char_t>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::intersect(
-    const interval_t& spa_iv, const interval_t& ssa_iv,
+    const interval_t& pa_c_iv, const interval_t& sa_c_iv,
     pos_t i, pos_t j, pos_t lce_l, pos_t lce_r, sidx_t& x_c, factor& f)
 {
     point_t p;
     bool result = false;
 
-    pos_t spa_rng = spa_iv.e - spa_iv.b + 1;
-    pos_t ssa_rng = ssa_iv.e - ssa_iv.b + 1;
+    pos_t pa_s_rng = pa_c_iv.e - pa_c_iv.b + 1;
+    pos_t sa_s_rng = sa_c_iv.e - sa_c_iv.b + 1;
 
-    if (transf_mode != naive && std::min<pos_t>(spa_rng, ssa_rng) <= range_scan_threshold) {
+    if (transf_mode != naive && std::min<pos_t>(pa_s_rng, sa_s_rng) <= range_scan_threshold) {
         adjust_xc(x_c, j);
 
-        if (spa_rng <= ssa_rng) {
-            for (sidx_t x = spa_iv.b; x <= spa_iv.e; x++) {
-                if (idx_C.pa_s(x) < x_c && ssa_iv.b <= Pi[x] && Pi[x] <= ssa_iv.e) {
+        if (pa_s_rng <= sa_s_rng) {
+            for (sidx_t x = pa_c_iv.b; x <= pa_c_iv.e; x++) {
+                if (idx_C.pa_s(x) < x_c && sa_c_iv.b <= Pi[x] && Pi[x] <= sa_c_iv.e) {
                     p.x = x;
                     p.y = Pi[x];
                     result = true;
@@ -251,8 +251,8 @@ bool lz77_sss<pos_t>::factorizer<tau, char_t>::exact_factorizer<sidx_t, transf_m
                 }
             }
         } else {
-            for (sidx_t y = ssa_iv.b; y <= ssa_iv.e; y++) {
-                if (idx_C.sa_s(y) < x_c && spa_iv.b <= Psi[y] && Psi[y] <= spa_iv.e) {
+            for (sidx_t y = sa_c_iv.b; y <= sa_c_iv.e; y++) {
+                if (idx_C.sa_s(y) < x_c && pa_c_iv.b <= Psi[y] && Psi[y] <= pa_c_iv.e) {
                     p.x = Psi[y];
                     p.y = y;
                     result = true;
@@ -267,10 +267,10 @@ bool lz77_sss<pos_t>::factorizer<tau, char_t>::exact_factorizer<sidx_t, transf_m
         bool is_insert = false;
         char c = T[j];
         uint64_t weight = x_c;
-        uint64_t x_1 = spa_iv.b;
-        uint64_t x_2 = spa_iv.e;
-        uint64_t y_1 = ssa_iv.b;
-        uint64_t y_2 = ssa_iv.e;
+        uint64_t x_1 = pa_c_iv.b;
+        uint64_t x_2 = pa_c_iv.e;
+        uint64_t y_1 = sa_c_iv.b;
+        uint64_t y_2 = sa_c_iv.e;
 
         queries_file.write((char*) &is_insert, 1);
         queries_file.write((char*) &c, 1);
@@ -284,31 +284,31 @@ bool lz77_sss<pos_t>::factorizer<tau, char_t>::exact_factorizer<sidx_t, transf_m
         if constexpr (range_ds_t<sidx_t>::is_decomposed()) {
             std::tie(p, result) = R.lighter_point_in_range(
                 T[j], x_c,
-                spa_iv.b, spa_iv.e,
-                ssa_iv.b, ssa_iv.e);
+                pa_c_iv.b, pa_c_iv.e,
+                sa_c_iv.b, sa_c_iv.e);
         } else {
             std::tie(p, result) = R.lighter_point_in_range(
                 x_c,
-                spa_iv.b, spa_iv.e,
-                ssa_iv.b, ssa_iv.e);
+                pa_c_iv.b, pa_c_iv.e,
+                sa_c_iv.b, sa_c_iv.e);
         }
     } else {
         if constexpr (range_ds_t<sidx_t>::is_decomposed()) {
             std::tie(p, result) = R.point_in_range(
                 T[j],
-                spa_iv.b, spa_iv.e,
-                ssa_iv.b, ssa_iv.e);
+                pa_c_iv.b, pa_c_iv.e,
+                sa_c_iv.b, sa_c_iv.e);
         } else {
             std::tie(p, result) = R.point_in_range(
-                spa_iv.b, spa_iv.e,
-                ssa_iv.b, ssa_iv.e);
+                pa_c_iv.b, pa_c_iv.e,
+                sa_c_iv.b, sa_c_iv.e);
         }
     }
 
     if (result) {
         #ifndef NDEBUG
-        assert(spa_iv.b <= p.x && p.x <= spa_iv.e);
-        assert(ssa_iv.b <= p.y && p.y <= ssa_iv.e);
+        assert(pa_c_iv.b <= p.x && p.x <= pa_c_iv.e);
+        assert(sa_c_iv.b <= p.y && p.y <= sa_c_iv.e);
         #endif
 
         pos_t lce = lce_l + lce_r - 1;
