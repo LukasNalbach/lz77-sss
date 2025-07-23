@@ -71,9 +71,9 @@ protected:
     template <direction dir>
     struct xiv_s_hash {
         sample_index* idx = nullptr;
-        pos_t len, s;
+        pos_t len;
         xiv_s_hash() = default;
-        xiv_s_hash(sample_index* idx, pos_t len) : idx(idx), len(len), s(idx->num_samples()) { }
+        xiv_s_hash(sample_index* idx, pos_t len) : idx(idx), len(len) { }
 
         inline std::size_t operator()(const interval_t& iv) const
         {
@@ -84,9 +84,9 @@ protected:
     template <direction dir>
     struct xiv_s_eq {
         sample_index* idx = nullptr;
-        pos_t len, s;
+        pos_t len;
         xiv_s_eq() = default;
-        xiv_s_eq(sample_index* idx, const pos_t len) : idx(idx), len(len), s(idx->num_samples()) { }
+        xiv_s_eq(sample_index* idx, const pos_t len) : idx(idx), len(len) { }
 
         inline bool operator()(const interval_t& iv_1, const interval_t& iv_2) const
         {
@@ -159,26 +159,25 @@ protected:
         }
     }
 
-    template <typename T1, direction dir, pos_t offs, typename T2>
+    template <typename T1, direction dir, typename T2>
     inline static T1 val_offs(const T2* ptr, pos_t p)
     {
         if constexpr (dir == LEFT) {
-            static constexpr pos_t offs_l = (sizeof(T1) - 1) + offs;
-            return *reinterpret_cast<const T1*>(&ptr[p - offs_l]);
+            return *reinterpret_cast<const T1*>(&ptr[p - (sizeof(T1) - 1)]);
         } else {
-            return *reinterpret_cast<const T1*>(&ptr[p + offs]);
+            return *reinterpret_cast<const T1*>(&ptr[p]);
         }
     }
 
     inline const interval_t& siv_s_1(pos_t pos_char) const
     {
-        return SIV_S_1[val_offs<uint8_t, RIGHT, 0>(T, pos_char)];
+        return SIV_S_1[val_offs<uint8_t, RIGHT>(T, pos_char)];
     }
 
     template <direction dir>
-    inline const interval_t& xiv_s2(pos_t pos_patt) const
+    inline const interval_t& xiv_s_2(pos_t pos_patt) const
     {
-        return XIV_S_2[dir][val_offs<uint16_t, dir, 0>(T, pos_patt)];
+        return XIV_S_2[dir][val_offs<uint16_t, dir>(T, pos_patt)];
     }
 
     inline bool occurs1(pos_t pos_char) const
@@ -195,7 +194,7 @@ protected:
             if (pos_patt >= n - 1) [[unlikely]] return false;
         }
 
-        return xiv_s2<dir>(pos_patt).b != no_occ;
+        return xiv_s_2<dir>(pos_patt).b != no_occ;
     }
 
     template <direction dir>
@@ -283,7 +282,7 @@ public:
         #endif
 
         if (log) {
-            std::cout << "building PA_S" << std::flush;
+            std::cout << "building PA_C" << std::flush;
         }
 
         no_init_resize(PA_S, s);
@@ -306,10 +305,10 @@ public:
         #endif
 
         if (log) {
-            log_phase("pa_s", time_diff_ns(time, now()));
+            log_phase("pa_c", time_diff_ns(time, now()));
             std::cout << " (" << format_size(s * sizeof(sidx_t)) << ")" << std::flush;
             time = log_runtime(time);
-            std::cout << "building SA_S" << std::flush;
+            std::cout << "building SA_C" << std::flush;
         }
 
         no_init_resize(SA_S, s);
@@ -332,7 +331,7 @@ public:
         #endif
 
         if (log) {
-            log_phase("sa_s", time_diff_ns(time, now()));
+            log_phase("sa_c", time_diff_ns(time, now()));
             std::cout << " (" << format_size(s * sizeof(sidx_t)) << ")" << std::flush;
             time = log_runtime(time);
         }
@@ -466,14 +465,14 @@ public:
         pos_t pat_len_idx, pos_t pos_patt,
         std::size_t hash = std::numeric_limits<std::size_t>::max()) const;
 
-    inline std::pair<interval_t, bool> spa_interval(
+    inline std::pair<interval_t, bool> pa_s_interval(
         pos_t pat_len_idx, pos_t pos_patt,
         std::size_t hash = std::numeric_limits<std::size_t>::max()) const
     {
         return sxa_interval<LEFT>(pat_len_idx, pos_patt, hash);
     }
 
-    inline std::pair<interval_t, bool> ssa_interval(
+    inline std::pair<interval_t, bool> sa_s_interval(
         pos_t pat_len_idx, pos_t pos_patt,
         std::size_t hash = std::numeric_limits<std::size_t>::max()) const
     {

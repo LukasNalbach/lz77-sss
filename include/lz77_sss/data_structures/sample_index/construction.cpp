@@ -8,7 +8,7 @@ void sample_index<pos_t, sidx_t, char_t, lce_r_t>::build_xa_s_1_2_intervals(uint
     auto time = now();
 
     if (log) {
-        std::cout << "precomputing SPA1/2 and SSA1/2 intervals" << std::flush;
+        std::cout << "precomputing PA_C- and SA_C intervals for all 1- and 2-mers" << std::flush;
     }
 
     #pragma omp parallel for num_threads(p)
@@ -86,7 +86,7 @@ void sample_index<pos_t, sidx_t, char_t, lce_r_t>::build_samples(pos_t max_smpl_
     auto time = now();
 
     if (log) {
-        std::cout << "building LC" << (dir == LEFT ? "S" : "P") << "_S" << std::flush;
+        std::cout << "building LC" << (dir == LEFT ? "S" : "P") << "_C" << std::flush;
     }
 
     std::vector<pos_t> LCX_S;
@@ -104,7 +104,7 @@ void sample_index<pos_t, sidx_t, char_t, lce_r_t>::build_samples(pos_t max_smpl_
 
     if (log) {
         time = log_runtime(time);
-        std::cout << "sorting LC" << (dir == LEFT ? "S" : "P") << "_S" << std::flush;
+        std::cout << "sorting LC" << (dir == LEFT ? "S" : "P") << "_C" << std::flush;
     }
 
     uint64_t baseline = malloc_count_current();
@@ -157,8 +157,8 @@ void sample_index<pos_t, sidx_t, char_t, lce_r_t>::build_samples(pos_t max_smpl_
             << " lengths in the range [" << smpl_pat_lens[dir][2]
             << ", " << smpl_pat_lens[dir].back() << "]";
         time = log_runtime(time);
-        std::cout << "sampling S" << (dir == LEFT ? "P" : "S")
-            << "A intervals" << std::flush;
+        std::cout << "sampling " << (dir == LEFT ? "P" : "S")
+            << "A_C intervals" << std::flush;
     }
 
     std::vector<sidx_t> s_p(p + 1);
@@ -184,13 +184,13 @@ void sample_index<pos_t, sidx_t, char_t, lce_r_t>::build_samples(pos_t max_smpl_
         }
     }
 
-    struct __attribute__((packed)) sxa_iv_fp_t {
+    struct __attribute__((packed)) interval_fp_t {
         interval_t iv;
         uint32_t fp;
     };
 
-    std::vector<std::vector<std::vector<sxa_iv_fp_t>>> XIV_S_vec(num_pat_lens,
-        std::vector<std::vector<sxa_iv_fp_t>>(p));
+    std::vector<std::vector<std::vector<interval_fp_t>>> XIV_S_vec(num_pat_lens,
+        std::vector<std::vector<interval_fp_t>>(p));
 
     #pragma omp parallel num_threads(p)
     {
@@ -233,7 +233,7 @@ void sample_index<pos_t, sidx_t, char_t, lce_r_t>::build_samples(pos_t max_smpl_
                 pos_t pos_im1 = S[XA_S<dir>(i - 1)];
 
                 if (is_pos_in_T<dir>(pos_im1, len - 1)) {
-                    XIV_S_vec[j][i_p].emplace_back(sxa_iv_fp_t {
+                    XIV_S_vec[j][i_p].emplace_back(interval_fp_t {
                         .iv = { .b = xiv_s_b[j], .e = i - 1 },
                         .fp = rks.template substring<dir>(pos_im1, len) });
                 }
@@ -247,8 +247,8 @@ void sample_index<pos_t, sidx_t, char_t, lce_r_t>::build_samples(pos_t max_smpl_
     for (uint64_t j = 2; j < num_pat_lens; j++) {
         XIV_S<dir>()[j].reserve(pat_len_rank[j]);
 
-        for (std::vector<sxa_iv_fp_t>& vec : XIV_S_vec[j]) {
-            for (sxa_iv_fp_t& val : vec) {
+        for (std::vector<interval_fp_t>& vec : XIV_S_vec[j]) {
+            for (interval_fp_t& val : vec) {
                 XIV_S<dir>()[j].emplace_with_hash(val.fp,
                     interval_t { .b = val.iv.b, .e = val.iv.e });
             }
@@ -283,7 +283,7 @@ void sample_index<pos_t, sidx_t, char_t, lce_r_t>::build_samples(pos_t max_smpl_
             pos_t pos_im1 = S[XA_S<dir>(i - 1)];
 
             if (is_pos_in_T<dir>(pos_im1, 1)) {
-                uint16_t pat = val_offs<uint16_t, dir, 0>(T, pos_im1);
+                uint16_t pat = val_offs<uint16_t, dir>(T, pos_im1);
                 assert(XIV_S_2[dir][pat].b == xiv_s_b[1]);
                 assert(XIV_S_2[dir][pat].e == i - 1);
             }
@@ -291,7 +291,7 @@ void sample_index<pos_t, sidx_t, char_t, lce_r_t>::build_samples(pos_t max_smpl_
             xiv_s_b[1] = i;
 
             if (dir == LEFT && lcx < 1) {
-                uint8_t pat = val_offs<uint8_t, RIGHT, 0>(T, pos_im1);
+                uint8_t pat = val_offs<uint8_t, RIGHT>(T, pos_im1);
                 assert(SIV_S_1[pat].b == xiv_s_b[0]);
                 assert(SIV_S_1[pat].e == i - 1);
                 xiv_s_b[0] = i;
@@ -301,7 +301,7 @@ void sample_index<pos_t, sidx_t, char_t, lce_r_t>::build_samples(pos_t max_smpl_
     #endif
 
     if (log) {
-        std::string phase = dir == LEFT ? "spa_samples" : "ssa_samples";
+        std::string phase = dir == LEFT ? "pa_c_samples" : "sa_c_samples";
         log_phase(phase, time_diff_ns(time, now()));
         std::cout << " (" << format_size(malloc_count_current() - baseline) << ")";
         time = log_runtime(time);

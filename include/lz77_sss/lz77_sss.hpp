@@ -353,25 +353,22 @@ protected:
                 build_LPF_naive();
             } else if constexpr (phr_mode == lpf_opt) {
                 build_lce();
-                build_LPF_opt([&](uint16_t i_p, lpf p) {
-                    LPF[i_p].emplace_back(p);});
+                build_LPF_opt();
             } else {
                 if (log) std::cout << "reversing input" << std::flush;
                 std::reverse(T, T + n);
                 if (log) time = log_runtime(time);
                 build_lce();
-                build_LNF_all<phr_mode>([&](uint16_t i_p, lpf p) {
-                    LPF[i_p].emplace_back(p);});
+                build_LNF_all<phr_mode>();
                 LCE = lce_t();
                 if (log) std::cout << "reversing input" << std::flush;
                 std::reverse(T, T + n);
                 if (log) time = log_runtime(time);
                 build_lce();
-                build_LPF_all<phr_mode>([&](uint16_t i_p, lpf p) {
-                    LPF[i_p].emplace_back(p);});
+                build_LPF_all<phr_mode>();
             }
 
-            LCE.delete_ssa();
+            LCE.delete_sa_s();
 
             if constexpr (phr_mode == lpf_lnf_naive || phr_mode == lpf_lnf_opt) {
                 if (log) {
@@ -486,14 +483,13 @@ protected:
 
         void build_LPF_naive();
 
-        template <typename lpf_it_t>
-        void build_LPF_opt(lpf_it_t lpf_it);
+        void build_LPF_opt();
 
-        template <phrase_mode phr_mode, typename lpf_it_t>
-        void build_LNF_all(lpf_it_t lpf_it);
+        template <phrase_mode phr_mode>
+        void build_LNF_all();
         
-        template <phrase_mode phr_mode, typename lpf_it_t>
-        void build_LPF_all(lpf_it_t lpf_it);
+        template <phrase_mode phr_mode>
+        void build_LPF_all();
 
         void get_phrase_info();
 
@@ -557,12 +553,12 @@ protected:
             pos_t delta = 0;
             pos_t& num_fact;
 
-            struct sect_info {
+            struct sect_info_t {
                 pos_t beg;
                 sidx_t phr_idx;
             };
 
-            std::vector<sect_info> par_sect;
+            std::vector<sect_info_t> par_sect;
 
             std::vector<pos_t> C;
             sample_index_t idx_C;
@@ -664,7 +660,7 @@ protected:
             inline void adjust_xc(sidx_t& gap_idx, pos_t pos);
 
             bool intersect(
-                const interval_t& spa_iv, const interval_t& ssa_iv,
+                const interval_t& pa_c_iv, const interval_t& sa_c_iv,
                 pos_t i, pos_t j, pos_t lce_l, pos_t lce_r, sidx_t& x_c, factor& f);
 
             template <typename output_fnc_t>
@@ -674,7 +670,7 @@ protected:
             void transform_to_exact_without_samples(output_fnc_t output);
 
             void extend_right_with_samples(
-                const interval_t& spa_iv,
+                const interval_t& pa_c_iv,
                 pos_t i, pos_t j, pos_t e, sidx_t& x_c, factor& f);
 
             template <typename output_fnc_t>

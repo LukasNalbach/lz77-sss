@@ -151,15 +151,15 @@ class lce_classic_for_sss {
     return m_lcp[m_rmq.rmq_shifted(m_isa[l], m_isa[r])];
   }
 
-  const std::vector<uint32_t>& get_ssa() {
+  const std::vector<uint32_t>& get_sa_s() {
     return m_sa;
   }
 
-  const std::vector<uint32_t>& get_issa() {
+  const std::vector<uint32_t>& get_isa_s() {
     return m_isa;
   }
 
-  void delete_ssa() {
+  void delete_sa_s() {
     m_sa.clear();
     m_sa.shrink_to_fit();
   }

@@ -4,8 +4,7 @@
 
 template <typename pos_t>
 template <uint64_t tau, typename char_t>
-template <typename lpf_it_t>
-void lz77_sss<pos_t>::factorizer<tau, char_t>::build_LPF_opt(lpf_it_t lpf_it)
+void lz77_sss<pos_t>::factorizer<tau, char_t>::build_LPF_opt()
 {
     build_PSV_NSV_S();
 
@@ -14,8 +13,8 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::build_LPF_opt(lpf_it_t lpf_it)
     }
 
     const std::vector<pos_t>& S = LCE.get_sync_set();
-    const std::vector<uint32_t>& SA_S = LCE.get_ssa();
-    const std::vector<uint32_t>& ISA_S = LCE.get_issa();
+    const std::vector<uint32_t>& SA_S = LCE.get_sa_s();
+    const std::vector<uint32_t>& ISA_S = LCE.get_isa_s();
     pos_t s = S.size();
 
     #pragma omp parallel num_threads(p)
@@ -114,7 +113,7 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::build_LPF_opt(lpf_it_t lpf_it)
                 }
 
                 if (phr.end - phr.beg > 1) {
-                    lpf_it(i_p, phr);
+                    LPF[i_p].emplace_back(phr);
                 }
             }
         }

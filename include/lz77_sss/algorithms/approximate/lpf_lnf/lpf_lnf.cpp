@@ -4,8 +4,8 @@
 
 template <typename pos_t>
 template <uint64_t tau, typename char_t>
-template <phrase_mode phr_mode, typename lpf_it_t>
-void lz77_sss<pos_t>::factorizer<tau, char_t>::build_LPF_all(lpf_it_t lpf_it)
+template <phrase_mode phr_mode>
+void lz77_sss<pos_t>::factorizer<tau, char_t>::build_LPF_all()
 {
     build_PSV_NSV_S();
 
@@ -14,8 +14,8 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::build_LPF_all(lpf_it_t lpf_it)
     }
 
     const std::vector<pos_t>& S = LCE.get_sync_set();
-    const std::vector<uint32_t>& SA_S = LCE.get_ssa();
-    const std::vector<uint32_t>& ISA_S = LCE.get_issa();
+    const std::vector<uint32_t>& SA_S = LCE.get_sa_s();
+    const std::vector<uint32_t>& ISA_S = LCE.get_isa_s();
     pos_t s = S.size();
 
     #pragma omp parallel num_threads(p)
@@ -59,7 +59,7 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::build_LPF_all(lpf_it_t lpf_it)
 
                     if (end - beg > 1) [[likely]] {
                         lst_sm_phr = { beg, end, src };
-                        lpf_it(i_p, { beg, end, src });
+                        LPF[i_p].emplace_back(lst_sm_phr);
                     }
                 }
             }
@@ -89,7 +89,7 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::build_LPF_all(lpf_it_t lpf_it)
 
                     if (end - beg > 1) [[likely]] {
                         lst_gr_phr = { beg, end, src };
-                        lpf_it(i_p, { beg, end, src });
+                        LPF[i_p].emplace_back(lst_gr_phr);
                     }
                 }
             }
@@ -109,8 +109,8 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::build_LPF_all(lpf_it_t lpf_it)
 
 template <typename pos_t>
 template <uint64_t tau, typename char_t>
-template <phrase_mode phr_mode, typename lpf_it_t>
-void lz77_sss<pos_t>::factorizer<tau, char_t>::build_LNF_all(lpf_it_t lpf_it)
+template <phrase_mode phr_mode>
+void lz77_sss<pos_t>::factorizer<tau, char_t>::build_LNF_all()
 {
     build_PGV_NGV_S();
 
@@ -119,8 +119,8 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::build_LNF_all(lpf_it_t lpf_it)
     }
 
     const std::vector<pos_t>& S = LCE.get_sync_set();
-    const std::vector<uint32_t>& SA_S = LCE.get_ssa();
-    const std::vector<uint32_t>& ISA_S = LCE.get_issa();
+    const std::vector<uint32_t>& SA_S = LCE.get_sa_s();
+    const std::vector<uint32_t>& ISA_S = LCE.get_isa_s();
     pos_t s = S.size();
 
     #pragma omp parallel num_threads(p)
@@ -165,7 +165,7 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::build_LNF_all(lpf_it_t lpf_it)
                     if (end - beg > 1) [[likely]] {
                         lst_sm_phr = { beg, end, src };
 
-                        lpf_it(i_p, {
+                        LPF[i_p].emplace_back(lpf {
                             .beg = n - end,
                             .end = n - beg,
                             .src = n - (src + (end - beg))
@@ -199,8 +199,8 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::build_LNF_all(lpf_it_t lpf_it)
 
                     if (end - beg > 1) [[likely]] {
                         lst_gr_phr = { beg, end, src };
-
-                        lpf_it(i_p, {
+                        
+                        LPF[i_p].emplace_back(lpf {
                             .beg = n - end,
                             .end = n - beg,
                             .src = n - (src + (end - beg))

@@ -214,16 +214,16 @@ class lce_sss {
     return m_sync_set.get_sss();
   }
 
-  const std::vector<uint32_t>& get_ssa() {
-    return m_fp_lce.get_ssa();
+  const std::vector<uint32_t>& get_sa_s() {
+    return m_fp_lce.get_sa_s();
   }
 
-  const std::vector<uint32_t>& get_issa() {
-    return m_fp_lce.get_issa();
+  const std::vector<uint32_t>& get_isa_s() {
+    return m_fp_lce.get_isa_s();
   }
 
-  void delete_ssa() {
-    return m_fp_lce.delete_ssa();
+  void delete_sa_s() {
+    return m_fp_lce.delete_sa_s();
   }
 
  private:
