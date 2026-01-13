@@ -1,15 +1,15 @@
 [submodule "external/lz77"]
     path = external/lz77
-    url = https://github.com:pdinklag/lz77.git
+    url = https://github.com/pdinklag/lz77.git
 [submodule "external/sparse-map"]
 	path = external/sparse-map
-	url = https://github.com:Tessil/sparse-map.git
+	url = https://github.com/Tessil/sparse-map.git
 [submodule "external/fp"]
 	path = external/fp
-	url = https://github.com:pdinklag/fp.git
+	url = https://github.com/pdinklag/fp.git
 [submodule "external/lce"]
 	path = external/lce
-	url = https://github.com:LukasNalbach/lce.git
+	url = https://github.com/LukasNalbach/lce.git
 [submodule "external/googletest"]
 	path = external/googletest
 	url = https://github.com/google/googletest.git
