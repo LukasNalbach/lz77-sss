@@ -263,7 +263,7 @@ void sample_index<pos_t, sidx_t, char_t, lce_r_t>::build_samples(pos_t max_smpl_
         }
     }
 
-    #pragma omp parallel for num_threads(p)
+    #pragma omp parallel for num_threads(p) schedule(dynamic, 1)
     for (uint64_t j = 2; j < num_pat_lens; j++) {
         XIV_S<dir>()[j].reserve(pat_len_ranks[j]);
 

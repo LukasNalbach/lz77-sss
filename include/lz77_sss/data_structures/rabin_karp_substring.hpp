@@ -62,10 +62,13 @@ public:
         sqrt_n = std::ceil(std::sqrt(double(n)));
         std::random_device rd;
         std::mt19937_64 mt(rd());
-        std::uniform_int_distribution<fp_t> distrib(257, mers_prim);
-        do {b = distrib(mt);} while (std::has_single_bit(b));
-        const pos_t num_blks = div_ceil<pos_t>(n, s);
 
+        fp_t base_max = (mers_exp > 32)
+              ? ((fp_t{1} << (63 - std::bit_width(mers_prim))) - 1)
+              : mers_prim - 1;
+
+        b = std::uniform_int_distribution<fp_t>(257, base_max)(mt);
+        const pos_t num_blks = div_ceil<pos_t>(n, s);
         no_init_resize(b_pow_leq_sqrt_n, sqrt_n + 1);
         no_init_resize(b_pow_step_sqrt_n, sqrt_n + 1);
         b_pow_leq_sqrt_n[0] = 1;

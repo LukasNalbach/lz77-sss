@@ -78,7 +78,7 @@ public:
         for (uint16_t c = 256; c > 0; c--) C_S[c] = C_S[c - 1];
         C_S[0] = 0;
 
-        #pragma omp parallel for num_threads(p)
+        #pragma omp parallel for num_threads(p) schedule(dynamic, 1)
         for (uint16_t c = 0; c < 256; c++) {
             P_c[c].reserve(C_S[c + 1] - C_S[c]);
         }

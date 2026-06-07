@@ -42,14 +42,10 @@ public:
         h_mod_mask = size_h - 1;
         no_init_resize(H, size_h);
         std::fill(H.begin(), H.end(), std::numeric_limits<pos_t>::max());
-        std::random_device rd;
-        std::mt19937_64 mt(rd());
-        std::uniform_int_distribution<fp_t> distrib(257, (fp_t(1) << 107) - 1);
 
         for_constexpr<0, num_patt_lens, 1>([&](auto i) {
-            fp_t base;
-            do {base = distrib(mt);} while (std::has_single_bit(base));
-            rolling_hash[i] = new rolling_hash_t(fp_t{patt_lens[i]}, base);
+            rolling_hash[i] = new rolling_hash_t(
+                fp_t { patt_lens[i] });
         });
 
         reinit(0);
