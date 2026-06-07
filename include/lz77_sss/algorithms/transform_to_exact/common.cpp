@@ -22,7 +22,7 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::exact_factorizer<sidx_t, transf_m
     num_par_sect = p == 1 ? 1 : (pos_t{p} * num_par_sect_per_thr);
     par_sect.resize(num_par_sect + 1);
     par_sect[0] = sect_info_t {.beg = 0, .phr_idx = 0};
-    par_sect[p] = sect_info_t {.beg = n, .phr_idx = num_fact};
+    par_sect[num_par_sect] = sect_info_t {.beg = n, .phr_idx = num_fact};
 
     sidx_t phr_nxt = num_fact / num_par_sect;
     uint16_t sect = 1;

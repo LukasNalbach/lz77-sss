@@ -618,9 +618,9 @@ protected:
                 }
 
                 if (range_ds_t<sidx_t>::is_dynamic()) {
-                    p = 1;
-                    par_sect.resize(p + 1);
-                    par_sect[p] = {.beg = n, .phr_idx = num_fact};
+                    num_par_sect = 1;
+                    par_sect.resize(2);
+                    par_sect[1] = {.beg = n, .phr_idx = num_fact};
                 }
 
                 if (p > 1) {
