@@ -555,10 +555,10 @@ std::string random_repetitive_string(uint32_t min_size, uint32_t max_size)
     double run_repetitiveness = prob_distrib(mt);
 
     std::uniform_int_distribution<uint32_t> repetition_length_distrib(
-        1, (repetition_repetitiveness * target_input_size) / 100);
+        1, std::max((repetition_repetitiveness * target_input_size) / 100, 1.0));
 
     std::uniform_int_distribution<uint32_t> run_length_distrib(
-        1, (run_repetitiveness * target_input_size) / 200);
+        1, std::max((run_repetitiveness * target_input_size) / 200, 1.0));
 
     std::discrete_distribution<uint8_t> next_operation_distrib({
         2 - (repetition_repetitiveness + run_repetitiveness),
@@ -608,4 +608,10 @@ static void log_phase(std::string phase, uint64_t time) {
         result_file << " " << phase << "=" << time;
     }
     #endif
+}
+
+template <typename T>
+static bool contains(const std::vector<T>& vec, const T& val)
+{
+    return std::find(vec.begin(), vec.end(), val) != vec.end();
 }

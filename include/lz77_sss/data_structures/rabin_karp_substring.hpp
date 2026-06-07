@@ -27,12 +27,14 @@ protected:
     std::vector<fp_t> fps;
     std::vector<fp_t> b_pow_leq_sqrt_n;
     std::vector<fp_t> b_pow_step_sqrt_n;
-
+    
     inline static fp_t mod(const fp_conc_t val)
     {
-        const fp_conc_t v = val + 1;
-        const fp_t z = ((v >> mers_exp) + v) >> mers_exp;
-        return (val + z) & mers_prim;
+        fp_conc_t res_wide = (val >> mers_exp) + (val & mers_prim);
+        res_wide = (res_wide >> mers_exp) + (res_wide & mers_prim);
+        fp_t res = (fp_t)res_wide;
+        res -= mers_prim & -(fp_t)(res >= mers_prim);
+        return res;
     }
 
     inline fp_t b_pow(const pos_t exp) const
@@ -61,7 +63,7 @@ public:
         std::random_device rd;
         std::mt19937_64 mt(rd());
         std::uniform_int_distribution<fp_t> distrib(257, mers_prim);
-        b = distrib(mt);
+        do {b = distrib(mt);} while (std::has_single_bit(b));
         const pos_t num_blks = div_ceil<pos_t>(n, s);
 
         no_init_resize(b_pow_leq_sqrt_n, sqrt_n + 1);
@@ -104,9 +106,8 @@ public:
         for (uint16_t i_p = 1; i_p < p; i_p++) {
             blk_fps[i_p] = concat(blk_fps[i_p - 1], blk_fps[i_p], s * blks_per_thr);
         }
-
-        fps.resize(num_blks + 1);
-        no_init_resize(fps, num_blks);
+        
+        no_init_resize(fps, num_blks + 1);
         fps[0] = 0;
 
         #pragma omp parallel num_threads(p)
