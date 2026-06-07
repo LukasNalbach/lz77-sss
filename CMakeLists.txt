@@ -29,11 +29,7 @@ add_subdirectory("${CMAKE_SOURCE_DIR}/external/lce/")
 add_subdirectory("${CMAKE_SOURCE_DIR}/external/fp/")
 add_subdirectory("${CMAKE_SOURCE_DIR}/external/sparse-map/")
 
-set_target_properties(
-  ips4o_example benchmark_lce benchmark_pred benchmark_lce
-  gen_sss gen_queries gen_sa_lcp test_lce test_pred test_rmq
-  test_rolling_hash test_string_synchronizing_set
-  PROPERTIES EXCLUDE_FROM_ALL 1 EXCLUDE_FROM_DEFAULT_BUILD 1)
+set_target_properties(ips4o_example PROPERTIES EXCLUDE_FROM_ALL 1 EXCLUDE_FROM_DEFAULT_BUILD 1)
 
 add_library(lz77_sss INTERFACE)
 target_include_directories(lz77_sss INTERFACE "${CMAKE_SOURCE_DIR}/include/")
