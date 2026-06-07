@@ -117,15 +117,13 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::exact_factorizer<sidx_t, transf_m
         }
     }
 
-    #pragma omp parallel num_threads(p)
-    {
-        uint16_t i_p = omp_get_thread_num();
-
-        pos_t b = par_sect[i_p].beg;
-        pos_t e = par_sect[i_p + 1].beg;
+    #pragma omp parallel for num_threads(p) schedule(dynamic, 1)
+    for (pos_t sect = 0; sect < num_par_sect; sect++) {
+        pos_t b = par_sect[sect].beg;
+        pos_t e = par_sect[sect + 1].beg;
 
         std::ifstream aprx_ifile(aprx_file_name);
-        aprx_ifile.seekg(par_sect[i_p].phr_idx *
+        aprx_ifile.seekg(par_sect[sect].phr_idx *
             lz77_sss<pos_t>::factor::size_of(), std::ios::beg);
         std::istream_iterator<factor> aprx_it(aprx_ifile);
         lz77_sss<pos_t>::factor f_aprx = *aprx_it++;
@@ -136,7 +134,7 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::exact_factorizer<sidx_t, transf_m
         sidx_t x_r = 0;
         pos_t num_phr_thr = 0;
         std::ofstream fact_ofile;
-        if (p > 1) fact_ofile.open(fact_file_name + "_" + std::to_string(i_p));
+        if (p > 1) fact_ofile.open(fact_file_name + "_" + std::to_string(sect));
         std::ostream_iterator<factor> fact_it(fact_ofile);
         std::vector<uint64_t> fp_left(delta);
 

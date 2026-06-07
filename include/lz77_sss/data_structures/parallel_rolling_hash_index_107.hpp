@@ -44,12 +44,9 @@ public:
         no_init_resize(H_old, size_h);
         no_init_resize(H_new, size_h);
 
-        uint64_t num_blks = H_new.size() / (sizeof(uint128_t) / sizeof(pos_t));
-        uint128_t* blks_new = reinterpret_cast<uint128_t*>(H_new.data());
-
         #pragma omp parallel for num_threads(num_threads)
-        for (uint64_t i = 0; i < num_blks; i++) {
-            blks_new[i] = std::numeric_limits<uint128_t>::max();
+        for (uint64_t i = 0; i < H_new.size(); i++) {
+            H_new[i] = std::numeric_limits<pos_t>::max();
         }
 
         for_constexpr<0, num_patt_lens, 1>([&](auto i) {
@@ -65,13 +62,9 @@ public:
 
     void overwrite(uint16_t p)
     {
-        uint128_t* blks_old = reinterpret_cast<uint128_t*>(H_old.data());
-        uint128_t* blks_new = reinterpret_cast<uint128_t*>(H_new.data());
-        uint64_t num_blks = H_new.size() / (sizeof(uint128_t) / sizeof(pos_t));
-
         #pragma omp parallel for num_threads(p)
-        for (uint64_t i = 0; i < num_blks; i++) {
-            blks_old[i] = blks_new[i];
+        for (uint64_t i = 0; i < H_new.size(); i++) {
+            H_old[i] = H_new[i];
         }
     }
 

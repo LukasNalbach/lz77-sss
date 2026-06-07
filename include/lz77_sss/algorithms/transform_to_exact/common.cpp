@@ -19,12 +19,13 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::exact_factorizer<sidx_t, transf_m
     C.reserve(num_fact + n / delta);
     C.emplace_back(0);
 
-    par_sect.resize(p + 1);
+    num_par_sect = p == 1 ? 1 : (pos_t{p} * num_par_sect_per_thr);
+    par_sect.resize(num_par_sect + 1);
     par_sect[0] = sect_info_t {.beg = 0, .phr_idx = 0};
     par_sect[p] = sect_info_t {.beg = n, .phr_idx = num_fact};
 
-    sidx_t phr_nxt = num_fact / p;
-    uint16_t i_p = 1;
+    sidx_t phr_nxt = num_fact / num_par_sect;
+    uint16_t sect = 1;
     pos_t end_cur = 0;
     pos_t end_lst = 0;
     pos_t smpl_lst;
@@ -42,8 +43,8 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::exact_factorizer<sidx_t, transf_m
         C.emplace_back(end_cur);
 
         if (phr == phr_nxt) {
-            par_sect[i_p++] = sect_info_t {.beg = end_lst + 1, .phr_idx = phr};
-            phr_nxt = i_p == p ? num_fact : (i_p * (num_fact / p));
+            par_sect[sect++] = sect_info_t {.beg = end_lst + 1, .phr_idx = phr};
+            phr_nxt = sect == num_par_sect ? num_fact : (sect * (num_fact / num_par_sect));
         }
 
         end_lst = end_cur;
@@ -337,8 +338,8 @@ template <typename output_fnc_t>
 void lz77_sss<pos_t>::factorizer<tau, char_t>::exact_factorizer<sidx_t, transf_mode, range_ds_t>::
     combine_factorizations(output_fnc_t output)
 {
-    for (uint16_t i_p = 0; i_p < p; i_p++) {
-        std::string fact_file_name_thr = fact_file_name + "_" + std::to_string(i_p);
+    for (uint16_t sect = 0; sect < num_par_sect; sect++) {
+        std::string fact_file_name_thr = fact_file_name + "_" + std::to_string(sect);
         std::ifstream fact_ifile(fact_file_name_thr);
         std::istream_iterator<factor> fact_it(fact_ifile);
 

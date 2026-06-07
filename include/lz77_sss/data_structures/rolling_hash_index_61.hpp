@@ -47,12 +47,10 @@ public:
 
         std::random_device rd;
         std::mt19937_64 mt(rd());
-        std::uniform_int_distribution<fp_t> distrib(257, (fp_t(1) << 61) - 1);
+        std::uniform_int_distribution<fp_t> base_distrib(257, (fp_t{1} << 57) - 1);
 
         for_constexpr<0, num_patt_lens, 1>([&](auto i) {
-            fp_t base;
-            do {base = distrib(mt);} while (std::has_single_bit(base));
-            rolling_hash[i] = new rolling_hash_t(base, patt_lens[i]);
+            rolling_hash[i] = new rolling_hash_t(base_distrib(mt), patt_lens[i]);
         });
 
         reinit(0);

@@ -66,6 +66,7 @@ public:
     static constexpr uint64_t           min_rh_index_size        = 1 << 20;
     static constexpr uint64_t           max_rh_index_size        = 1 << 30;
     static constexpr double             min_rel_rh_index_size    = 0.1;
+    static constexpr uint64_t           num_par_sect_per_thr     = 16;
 
     using entry_t = std::pair<double, std::array<pos_t, num_patt_lens>>;
     static constexpr double infty = std::numeric_limits<double>::max();
@@ -552,6 +553,7 @@ protected:
             pos_t c = 0;
             pos_t delta = 0;
             pos_t& num_fact;
+            pos_t num_par_sect;
 
             struct sect_info_t {
                 pos_t beg;
