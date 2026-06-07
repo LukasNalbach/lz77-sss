@@ -129,7 +129,7 @@ void sample_index<pos_t, sidx_t, char_t, lce_r_t>::build_samples(pos_t max_smpl_
     if (lcx_s_rng_min >= lcx_s_rng_max) return;
     uint64_t num_pat_lens = std::min<uint64_t>(max_smpl_len - 2,
         2 + std::floor((2.0 * max_num_samples) / double { lcx_s_rng_min + lcx_s_rng_max }));
-    std::vector<sidx_t> pat_len_rank(num_pat_lens, 0);
+    std::vector<sidx_t> pat_len_ranks(num_pat_lens, 0);
 
     for (uint64_t i = 2; i < num_pat_lens; i++) {
         double rel_lcx_s_rnk = (i - 1) / double { num_pat_lens - 2 };
@@ -145,7 +145,27 @@ void sample_index<pos_t, sidx_t, char_t, lce_r_t>::build_samples(pos_t max_smpl_
             xiv_s_hash<dir>(this, len),
             xiv_s_eq<dir>(this, len)));
 
-        pat_len_rank[i] = lcx_s_rnk;
+        pat_len_ranks[i] = lcx_s_rnk;
+    }
+
+    pos_t max_ivs_to_add = max_num_samples * 0.2;
+
+    if (pat_len_ranks[2] < max_ivs_to_add) {
+        pos_t added_ivs = 0;
+
+        for (pos_t len = 3; true; len++) {
+            if (contains(smpl_pat_lens[dir], len)) continue;
+            
+            pos_t lcx_s_rnk = bin_search_min_geq<pos_t, sidx_t>(len,
+                0, s - 1, [&](sidx_t i) {return LCX_S_sorted[i];});
+            if (len > max_smpl_len || added_ivs + lcx_s_rnk > max_ivs_to_add) break;
+
+            added_ivs += lcx_s_rnk;
+            smpl_pat_lens[dir].insert(smpl_pat_lens[dir].begin() + len - 1, len);
+            pat_len_ranks.insert(pat_len_ranks.begin() + len - 1, lcx_s_rnk);
+            XIV_S<dir>().insert(XIV_S<dir>().begin() + len - 1,
+                xiv_s_map_t<dir>(0, xiv_s_hash<dir>(this, len), xiv_s_eq<dir>(this, len)));
+        }
     }
 
     num_pat_lens = smpl_pat_lens[dir].size();
@@ -245,7 +265,7 @@ void sample_index<pos_t, sidx_t, char_t, lce_r_t>::build_samples(pos_t max_smpl_
 
     #pragma omp parallel for num_threads(p)
     for (uint64_t j = 2; j < num_pat_lens; j++) {
-        XIV_S<dir>()[j].reserve(pat_len_rank[j]);
+        XIV_S<dir>()[j].reserve(pat_len_ranks[j]);
 
         for (std::vector<interval_fp_t>& vec : XIV_S_vec[j]) {
             for (interval_fp_t& val : vec) {
