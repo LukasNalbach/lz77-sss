@@ -69,7 +69,9 @@ public:
         // this can also be done in O(n) time, but requires more space
         ips4o::parallel::sort(points.begin(), points.end(),
             [&](const point_t& p1, const point_t& p2) {
-                return window_index(p1) < window_index(p2);
+                pos_t wx_1 = window_index(p1);
+                pos_t wx_2 = window_index(p2);
+                return wx_1 == wx_2 ? p1.weight < p2.weight : wx_1 < wx_2;
             });
 
         this->points = std::move(points);

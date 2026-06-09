@@ -5,8 +5,8 @@ std::string result_file_path;
 std::ofstream result_file;
 #define LZ77_SSS_BENCH 1
 
-#include <lz77/gzip9_factorizer.hpp>
 #include <lz77/lpf_factorizer.hpp>
+#include <lz77/kkp2_factorizer.hpp>
 #include <lz77_sss/lz77_sss.hpp>
 
 uint16_t max_threads = 0;
@@ -125,34 +125,22 @@ int main(int argc, char** argv)
     input_file.close();
     log_runtime(t0);
 
-    std::cout << std::endl << "running naive LZ77 SSS 3-approximation:" << std::endl;
-    run_sss_approximate<greedy_naive, lpf_naive>("fact_sss_aprx", 1);
-    std::filesystem::remove("fact_sss_aprx");
-
     std::cout << std::endl << "running LZ77 SSS 3-approximation:" << std::endl;
     run_sss_approximate<greedy, lpf_opt>("fact_sss_aprx", max_threads);
-    std::filesystem::remove("fact_sss_aprx");
-    
-    std::cout << std::endl << "running naive LZ77 SSS LPF/LNF-approximation:" << std::endl;
-    run_sss_approximate<greedy_naive, lpf_lnf_naive>("fact_sss_aprx", max_threads);
-    std::filesystem::remove("fact_sss_aprx");
-    
-    std::cout << std::endl << "running LZ77 SSS LPF/LNF-approximation:" << std::endl;
-    run_sss_approximate<greedy, lpf_lnf_opt>("fact_sss_aprx", max_threads);
     std::filesystem::remove("fact_sss_aprx");
     
     std::cout << std::endl << "running naive LZ77 SSS exact algorithm:" << std::endl;
     run_sss_exact<greedy, lpf_opt, naive,
         static_weighted_square_grid>("fact_sss_exact", 1);
     std::filesystem::remove("fact_sss_exact");
-    
-    std::cout << std::endl << "running LZ77 SSS exact algorithm (with samples):" << std::endl;
-    run_sss_exact<greedy, lpf_opt, with_samples,
-        decomposed_static_weighted_square_grid>("fact_sss_exact", max_threads);
-    std::filesystem::remove("fact_sss_exact");
 
     std::cout << std::endl << "running LZ77 SSS exact algorithm (without samples):" << std::endl;
     run_sss_exact<greedy, lpf_opt, without_samples,
+        decomposed_static_weighted_square_grid>("fact_sss_exact", max_threads);
+    std::filesystem::remove("fact_sss_exact");
+    
+    std::cout << std::endl << "running LZ77 SSS exact algorithm (with samples):" << std::endl;
+    run_sss_exact<greedy, lpf_opt, with_samples,
         decomposed_static_weighted_square_grid>("fact_sss_exact", max_threads);
     std::filesystem::remove("fact_sss_exact");
 
@@ -171,20 +159,20 @@ int main(int argc, char** argv)
     std::filesystem::remove("fact_lpf");
     log_algorithm("lpf", time, mem_peak, num_factors);
 
+    std::cout << std::endl << "running LZ77 KKP2 algorithm" << std::flush;
     baseline_memory_alloc = malloc_count_current();
-    std::cout << std::endl << "running gzip -9" << std::flush;
-    std::ofstream file_gz9("fact_gz9");
+    std::ofstream file_kkp2("fact_kkp2");
     malloc_count_reset_peak();
-    auto t3 = now();
-    lz77::Gzip9Factorizer().factorize(T.begin(), T.end(),
-        std::ostream_iterator<lz77::Factor>(file_gz9, ""));
-    auto t4 = now();
-    num_factors = file_gz9.tellp() / sizeof(lz77::Factor);
-    time = time_diff_ns(t3, t4);
+    t1 = now();
+    lz77::KKP2Factorizer().factorize(T.begin(), T.end(),
+        std::ostream_iterator<lz77::Factor>(file_kkp2, ""));
+    t2 = now();
+    num_factors = file_kkp2.tellp() / sizeof(lz77::Factor);
+    time = time_diff_ns(t1, t2);
     mem_peak = malloc_count_peak() - baseline_memory_alloc;
-    file_gz9.close();
-    std::filesystem::remove("fact_gz9");
-    log_algorithm("gz9", time, mem_peak, num_factors);
+    file_kkp2.close();
+    std::filesystem::remove("fact_kkp2");
+    log_algorithm("lpf", time, mem_peak, num_factors);
     
     return 0;
 }
