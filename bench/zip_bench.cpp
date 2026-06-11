@@ -33,44 +33,65 @@ uint64_t peak_memory_usage()
     return atol(log_file_str.substr(beg, len).c_str());
 }
 
-void bench(std::string encoder, bool use_multiple_threads, uint32_t bsc_block_size = 0)
+void bench(std::string encoder, bool use_multiple_threads, uint32_t param = 0)
 {
+    std::string encoder_log_name = encoder + (param != 0 ? ("_" + std::to_string(param)) : "");
+
     uint32_t min_threads_local = use_multiple_threads ? min_threads : 1;
     uint32_t max_threads_local = use_multiple_threads ? max_threads : 1;
 
     for (uint16_t num_threads = min_threads_local; num_threads <= max_threads_local; num_threads *= 2) {
-        std::cout << "benchmarking " << encoder << " using " << num_threads << " threads" << std::flush;
+        std::cout << "benchmarking " << encoder_log_name <<  " using " << num_threads << " threads" << std::flush;
         std::string output_file_path = input_file_path + ".compressed";
         std::filesystem::remove(output_file_path);
+        std::string num_thr_str = std::to_string(num_threads);
         std::string cpu_list;
+
         for (uint32_t i = 0; i < num_threads; i++)
             if (num_threads == omp_get_max_threads())
                 cpu_list += std::to_string(i) + ",";
             else
                 cpu_list += std::to_string(2 * i) + ",";
         cpu_list.resize(cpu_list.length() - 1);
-        std::string cmd = "(/usr/bin/time -v taskset -c " + cpu_list + " " + encoder +
-            (encoder == "7z" ? (
-                " a -m0=lzma2 -mmt" + std::to_string(num_threads) + " " +
+        std::string cmd = "/usr/bin/time -v taskset -c " + cpu_list + " " +
+            (encoder == "alz" ? "env OMP_NUM_THREADS=" + num_thr_str + " " : "") + encoder +
+            (encoder == "alz" ? (
+                " " + input_file_path + " -o " + output_file_path +
+                " -s " + std::to_string(param) + " > /dev/null"
+            ) : (encoder == "7z" ? (
+                " a -m0=lzma2 -mmt" + num_thr_str + " " +
                 output_file_path + " " + input_file_path + " > /dev/null"
             ) : (encoder == "bsc" ? (
                 " e " + input_file_path + " " + output_file_path + " -b" +
-                std::to_string(bsc_block_size) + " > /dev/null"
+                std::to_string(param) + " -e2 > /dev/null"
             ) : (
                 " -k -c -q" +
-                (encoder == "xz" ? " -T " + std::to_string(num_threads) : "") +
-                (encoder == "zstd" ? " -T" + std::to_string(num_threads) : "") +
-                " " + input_file_path + " > " + output_file_path)))
-            + ") 2> " + log_file_path;
+                (encoder == "xz" ? " -T " + num_thr_str : "") +
+                (encoder == "zstd" ? " -T" + num_thr_str : "") +
+                " " + input_file_path + " > " + output_file_path))))
+            + " 2> " + log_file_path;
         auto t1 = now();
         system(cmd.c_str());
         auto t2 = now();
 
         uint64_t memory_peak_compress = peak_memory_usage() * 1000;
         uint64_t time_compress = time_diff_ns(t1, t2);
+
+        if (encoder == "alz") {
+            std::filesystem::rename(output_file_path, output_file_path + ".alz");
+            cmd = "(/usr/bin/time -v taskset -c " + cpu_list + " bsc e " + output_file_path +
+                ".alz " + output_file_path + " -b2047 -e2 > /dev/null) 2> " + log_file_path;
+
+            t1 = now();
+            system(cmd.c_str());
+            t2 = now();
+
+            memory_peak_compress = std::max(memory_peak_compress, peak_memory_usage() * 1000);
+            time_compress += time_diff_ns(t1, t2);
+        }
+
         uint64_t bytes_compressed = std::filesystem::file_size(output_file_path);
         double compression_ratio = bytes_input / (double)bytes_compressed;
-        std::string encoder_log_name = encoder + (encoder == "bsc" ? ("_" + std::to_string(bsc_block_size)) : "");
         std::cout << std::endl;
         std::cout << "time: " << format_time(time_compress) << std::endl;
         std::cout << "throughput: " << format_throughput(bytes_input, time_compress) << std::endl;
@@ -96,23 +117,40 @@ void bench(std::string encoder, bool use_multiple_threads, uint32_t bsc_block_si
                 << std::endl;
         }
 
-        if (num_threads != 1) continue;
+        if (num_threads != min_threads_local) continue;
+        uint64_t memory_peak_decompress = 0;
+        uint64_t time_decompress = 0;
         std::cout << "decompressing" << std::flush;
-        std::string cmd2 = "(/usr/bin/time -v " + encoder +
+
+        if (encoder == "alz") {
+            std::string cmd2 = "(/usr/bin/time -v taskset -c " + cpu_list + " bsc d " +
+                output_file_path + " " + output_file_path + ".alz > /dev/null) 2> " + log_file_path;
+
+            t1 = now();
+            system(cmd2.c_str());
+            t2 = now();
+
+            memory_peak_decompress = peak_memory_usage() * 1000;
+            time_decompress = time_diff_ns(t1, t2);
+        }
+
+        std::string cmd3 = "(/usr/bin/time -v " + encoder +
+            (encoder == "alz" ?
+                (" " + output_file_path + " -d -o " + tmp_file_path + " > /dev/null") :
             (encoder == "7z" ?
                 (" e -o/tmp/ " + output_file_path + " " + text_name + " > /dev/null") :
             (encoder == "bsc" ? (
                 (" d " + output_file_path + " " + tmp_file_path + " > /dev/null")
-            ) : (" -c -d -q " + output_file_path + " > " + tmp_file_path)))
+            ) : (" -c -d -q " + output_file_path + " > " + tmp_file_path))))
             + ") 2> " + log_file_path;
         t1 = now();
-        system(cmd2.c_str());
+        system(cmd3.c_str());
         t2 = now();
 
         std::filesystem::remove(tmp_file_path);
         std::filesystem::remove(output_file_path);
-        uint64_t memory_peak_decompress = peak_memory_usage() * 1000;
-        uint64_t time_decompress = time_diff_ns(t1, t2);
+        memory_peak_decompress = std::max(memory_peak_decompress, peak_memory_usage() * 1000);
+        time_decompress += time_diff_ns(t1, t2);
         std::cout << std::endl;
         std::cout << "time: " << format_time(time_decompress) << std::endl;
         std::cout << "throughput: " << format_throughput(bytes_input, time_decompress) << std::endl;
@@ -166,10 +204,16 @@ int main(int argc, char** argv)
         + "/log_" + random_alphanumeric_string(10);
     tmp_file_path = std::filesystem::temp_directory_path().string() + "/" + text_name;
 
-    bench("bsc", true, 25);
-    bench("bsc", true, 12);
-    bench("bsc", true, 6);
-    bench("bsc", true, 3);
+    
+    bench("alz", true, 4);
+    bench("alz", true, 6);
+    bench("alz", true, 8);
+    
+    bench("bsc", true, 32);
+    bench("bsc", true, 128);
+    bench("bsc", true, 512);
+    bench("bsc", true, 2047);
+
     bench("lz4", false);
     bench("7z", true);
     bench("gzip", false);

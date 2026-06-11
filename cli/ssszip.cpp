@@ -36,7 +36,7 @@ void help(std::string message)
         std::cout << " -d                decompress <input_file> (with extension .ssszip.<encoder>)" << std::endl;
         std::cout << " -o <output_file>  output file path (default: <input_file>.ssszip.<encoder>)" << std::endl;
         std::cout << " -t <threads>      number of threads to use (default: all)" << std::endl;
-        std::cout << " -e <encoder>      name of the encoder binary (default: zstd)" << std::endl;
+        std::cout << " -e <encoder>      name of the encoder binary (default: bsc)" << std::endl;
         std::cout << " -0/-1/-2/...      encoding quality (default: 4)" << std::endl;
         std::cout << " -k                keep (don't delete) <input file>" << std::endl;
         std::cout << " -q                quiet mode (disables all logs)" << std::endl;
@@ -55,40 +55,36 @@ void parse_args(char** argv, int argc)
     if (arg == "-k") {
         keep_input_file = true;
     } else if (arg == "-q") {
-        if (logs != 1)
-            help("error: -q and -v cannot be combined");
+        if (logs != 1) help("error: -q and -v cannot be combined");
         logs = 0;
     } else if (arg == "-v") {
-        if (logs != 1)
-            help("error: -q and -v cannot be combined");
+        if (logs != 1) help("error: -q and -v cannot be combined");
         logs = 2;
     } else if (arg == "-d") {
         decompress = true;
     } else if (arg == "-o") {
-        if (arg_idx >= argc - 1)
-            help("error: missing parameter after -o option");
+        if (arg_idx >= argc - 1) help("error: missing parameter after -o option");
         output_file_path = argv[arg_idx++];
     } else if (arg == "-r") {
-        if (arg_idx >= argc - 1)
-            help("error: missing parameter after -r option");
+        if (arg_idx >= argc - 1) help("error: missing parameter after -r option");
         result_file_path = argv[arg_idx++];
     } else if (arg == "-t") {
-        if (arg_idx >= argc - 1)
-            help("error: missing parameter after -t option");
+        if (arg_idx >= argc - 1) help("error: missing parameter after -t option");
         num_threads = std::max<uint16_t>(1, atoi(argv[arg_idx++]));
-        if (num_threads > omp_get_max_threads())
-            help("error: requested too many threads");
+        if (num_threads > omp_get_max_threads()) help("error: requested too many threads");
     } else if (arg == "-e") {
-        if (arg_idx >= argc - 1)
-            help("error: missing parameter after -e option");
+        if (arg_idx >= argc - 1) help("error: missing parameter after -e option");
         encoder = argv[arg_idx++];
     } else if (arg == "-h") {
         help("");
-    } else if (2 <= arg.length() && arg.length() <= 3 && arg[0] == '-' &&
-        ('0' <= arg[1] && arg[1] <= '9') && (arg.length() == 2 || ('0' <= arg[2] && arg[2] <= '9'))) {
-        encoding_quality = arg[1] - '0';
-        if (arg.length() == 3)
-            encoding_quality = 10 * encoding_quality + arg[2] - '0';
+    } else if (arg[0] == '-') {
+        
+        for (uint32_t i = 1; i < arg.size(); i++) {
+            if (!std::isdigit(arg[i]))
+                help("error: unrecognized '" + arg + "' option");
+        }
+
+        encoding_quality = std::stoi(arg.substr(1));
     } else {
         help("error: unrecognized '" + arg + "' option");
     }
@@ -220,12 +216,16 @@ void encode()
     }
 
     cpu_list.resize(cpu_list.length() - 1);
-    std::string cmd = "(/usr/bin/time -v taskset -c " + cpu_list + " " +
-        encoder + " -c" + (logs <= 1 ? " -q" : " -v") +
-        " -" + std::to_string(encoding_quality) +
-        (encoder == "xz" ? " -T " + std::to_string(num_threads) : "") +
-        (encoder == "zstd" ? " -T" + std::to_string(num_threads) : "") +
-        " " + tmp_file_path + " > " + output_file_path + ") 2> " + log_file_path;
+    std::string cmd = "(/usr/bin/time -v taskset -c " + cpu_list + " " + encoder +
+        (encoder == "bsc" ? (
+            " e " + tmp_file_path + " " + output_file_path + " -b" +
+            std::to_string(encoding_quality) + " -e2 1> " + log_file_path
+        ) : (std::string(" -c") + (logs <= 1 ? " -q" : " -v") +
+            " -" + std::to_string(encoding_quality) +
+            (encoder == "xz" ? " -T " + std::to_string(num_threads) : "") +
+            (encoder == "zstd" ? " -T" + std::to_string(num_threads) : "") +
+            " " + tmp_file_path + " > " + output_file_path
+        )) + ") 2> " + log_file_path;
     system(cmd.c_str());
     t3 = now();
     
@@ -342,8 +342,11 @@ void decode()
     if (logs == 2) std::cout << "decompressing gapped factorization ("
         << format_size(bytes_compressed) << ")" << std::flush;
 
-    std::string cmd = "(/usr/bin/time -v " + encoder + " -d -c -q " +
-        input_file_path + " > " + tmp_file_path + ") 2> " + log_file_path;
+    std::string cmd = "(/usr/bin/time -v " + encoder +
+        (encoder == "bsc" ? (" d " + input_file_path + " " +
+            tmp_file_path + " 1> " + log_file_path
+        ) : (" -d -c -q " + input_file_path + " > " + tmp_file_path
+        )) + ") 2> " + log_file_path;
     system(cmd.c_str());
     if (logs == 2) log_runtime(t1);
 
