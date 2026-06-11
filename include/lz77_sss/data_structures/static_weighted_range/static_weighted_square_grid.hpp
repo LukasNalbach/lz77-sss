@@ -93,39 +93,64 @@ public:
     {
         pos_t xw_1 = x1 / win_size;
         pos_t xw_2 = x2 / win_size;
-
         pos_t yw_1 = y1 / win_size;
         pos_t yw_2 = y2 / win_size;
+ 
+        pos_t xi_1 = xw_1 + (x1 % win_size != 0);
+        pos_t yi_1 = yw_1 + (y1 % win_size != 0);
+        pos_t xi_2 = xw_2 + (x2 % win_size == (win_size - 1));
+        pos_t yi_2 = yw_2 + (y2 % win_size == (win_size - 1));
+        bool has_contained_cells = xi_1 < xi_2 && yi_1 < yi_2;
+ 
+        if (has_contained_cells) {
+            pos_t w_idx = grid_index(xi_1, yi_1);
+            pos_t nxt_row_offs = grid_width - (xi_2 - xi_1);
+ 
+            for (pos_t y_w = yi_1; y_w < yi_2; y_w++) {
+                for (pos_t x_w = xi_1; x_w < xi_2; x_w++) {
+                    const window& w = grid[w_idx];
+                    if (w.len != 0 && points[w.beg].weight < weight)
+                        return { p, true };
+                    w_idx++;
+                }
+ 
+                w_idx += nxt_row_offs;
+            }
+        }
 
         pos_t w_idx = grid_index(xw_1, yw_1);
         pos_t nxt_row_offs = grid_width - (xw_2 - xw_1 + 1);
-
+ 
         for (pos_t y_w = yw_1; y_w <= yw_2; y_w++) {
-            for (pos_t x_w = xw_1; x_w <= xw_2; x_w++) {
-                const window& w = grid[w_idx];
-
-                if (w.len != 0) {
-                    pos_t b = w.beg;
-                    pos_t e = w.beg + w.len;
-
-                    for (pos_t i = b; i < e; i++) {
-                        const point_t& p = points[i];
-
-                        if (p.weight < weight &&
-                            x1 <= p.x && p.x <= x2 &&
-                            y1 <= p.y && p.y <= y2
-                        ) {
-                            return { p, true };
-                        }
-                    }
+            bool y_contained = has_contained_cells && yi_1 <= y_w && y_w < yi_2;
+            pos_t x_w = xw_1;
+ 
+            while (x_w <= xw_2) {
+                if (y_contained && x_w == xi_1) {
+                    w_idx += xi_2 - xi_1;
+                    x_w = xi_2;
+                    continue;
                 }
-
+ 
+                const window& w = grid[w_idx];
+                pos_t e = w.beg + w.len;
+ 
+                for (pos_t i = w.beg; i < e; i++) {
+                    const point_t& p = points[i];
+                    if (p.weight >= weight) break;
+ 
+                    if (x1 <= p.x && p.x <= x2 &&
+                        y1 <= p.y && p.y <= y2
+                    ) return { p, true };
+                }
+ 
                 w_idx++;
+                x_w++;
             }
-
+ 
             w_idx += nxt_row_offs;
         }
-
+ 
         return { { 0, 0 }, false };
     }
 

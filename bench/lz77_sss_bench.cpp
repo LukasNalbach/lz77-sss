@@ -172,7 +172,7 @@ int main(int argc, char** argv)
     mem_peak = malloc_count_peak() - baseline_memory_alloc;
     file_kkp2.close();
     std::filesystem::remove("fact_kkp2");
-    log_algorithm("lpf", time, mem_peak, num_factors);
+    log_algorithm("kkp2", time, mem_peak, num_factors);
     
     return 0;
 }
