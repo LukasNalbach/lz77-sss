@@ -5,6 +5,7 @@ std::ofstream result_file;
 
 #define SSSZIP 1
 #include <lz77_sss/lz77_sss.hpp>
+#include <lz77_sss/misc/vbyte.hpp>
 
 using time_point_t = std::chrono::steady_clock::time_point;
 static constexpr uint64_t min_lpf_len = 64;
@@ -103,6 +104,11 @@ void encode_gapped()
     pos_t gap_beg = 0;
     factor gap_lst { .src = 0, .len = 0 };
 
+    auto write_factor = [&](factor f) {
+        encode_vbyte<pos_t>(tmp_ofile, f.src);
+        encode_vbyte<pos_t>(tmp_ofile, f.len);
+    };
+
     auto output = [&](factor f) {
         if (f.len == 0) {
             if (gap) {
@@ -120,15 +126,15 @@ void encode_gapped()
             gap = true;
         } else {
             if (gap) {
-                tmp_ofile << gap_lst;
+                write_factor(gap_lst);
                 tmp_ofile.write(&input[gap_beg], gap_lst.src);
                 gaps_length += gap_lst.src;
             }
 
-            tmp_ofile << factor {
+            write_factor(factor {
                 .src = i - f.src,
                 .len = f.len
-            };
+            });
 
             i += f.len;
             gap = false;
@@ -140,7 +146,7 @@ void encode_gapped()
         { .num_threads = num_threads, .log = logs == 2 });
 
     if (gap) {
-        tmp_ofile << gap_lst;
+        write_factor(gap_lst);
         tmp_ofile.write(&input[gap_beg], gap_lst.src);
         gaps_length += gap_lst.src;
     }
@@ -276,18 +282,18 @@ void decode_gapped(std::fstream& tmp_input_file)
     if (logs == 2) std::cout << "reverting gapped factorization ("
         << format_size(bytes_gapped) << ")" << std::flush;
     std::string buff;
-    pos_t pos_input = 9;
     pos_t pos_output = 0;
     factor f;
 
     while (pos_output < bytes_input) {
-        tmp_input_file >> f;
-        pos_input += factor::size_of();
+        f.src = decode_vbyte<pos_t>(tmp_input_file);
+        f.len = decode_vbyte<pos_t>(tmp_input_file);
 
         if (f.len == 0) {
+            uint64_t pos_input = tmp_input_file.tellg();
             copy_buffered(tmp_input_file, output_file,
                 buff, pos_input, pos_output, f.src, buff_size);
-            pos_input += f.src;
+            tmp_input_file.seekg(pos_input + f.src, std::ios::beg);
             pos_output += f.src;
         } else {
             copy_buffered(output_file, output_file,

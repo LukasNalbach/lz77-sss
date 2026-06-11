@@ -109,8 +109,12 @@ public:
             for (pos_t y_w = yi_1; y_w < yi_2; y_w++) {
                 for (pos_t x_w = xi_1; x_w < xi_2; x_w++) {
                     const window& w = grid[w_idx];
-                    if (w.len != 0 && points[w.beg].weight < weight)
-                        return { p, true };
+
+                    if (w.len != 0) {
+                        const point_t& p = points[w.beg];
+                        if (p.weight < weight) return { p, true };
+                    }
+                        
                     w_idx++;
                 }
  
