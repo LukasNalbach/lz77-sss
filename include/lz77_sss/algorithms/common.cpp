@@ -3,26 +3,26 @@
 #include <lz77_sss/lz77_sss.hpp>
 
 template <typename pos_t>
-template <std::input_iterator fact_it_t, typename char_t>
-void lz77_sss<pos_t>::decode(fact_it_t fact_it, char_t* output, pos_t output_size)
+template <std::input_iterator fact_it_t, typename out_it_t>
+void lz77_sss<pos_t>::decode(fact_it_t fact_it, out_it_t out_it, pos_t output_size)
 {
+    using char_t = std::iter_value_t<out_it_t>;
     factor f;
-    char_t* output_it = output;
-    char_t* end = output + output_size;
+    pos_t pos = 0;
 
-    while (output_it < end) {
+    while (pos < output_size) {
         f = *fact_it++;
 
         if (f.len == 0) {
-            *output_it++ = unsigned_to_char<pos_t, char_t>(f.src);
+            out_it[pos] = unsigned_to_char<pos_t, char_t>(f.src);
+            pos++;
         } else {
             #ifndef NDEBUG
             assert(f.src < output_size);
             #endif
 
-            for (pos_t i = 0; i < f.len; i++) {
-                *output_it++ = output[f.src + i];
-            }
+            for (pos_t i = 0; i < f.len; i++) out_it[pos + i] = out_it[f.src + i];
+            pos += f.len;
         }
     }
 }

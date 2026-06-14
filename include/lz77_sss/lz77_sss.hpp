@@ -173,8 +173,8 @@ public:
         factorizer<tau, char_t>(input, input_size, params).template factorize<exact, fact_mode, phr_mode, transf_mode, range_ds_t>(output);
     }
     
-    template <std::input_iterator fact_it_t, typename char_t>
-    static void decode(fact_it_t fact_it, char_t* output, pos_t output_size);
+    template <std::input_iterator fact_it_t, typename out_it_t>
+    static void decode(fact_it_t fact_it, out_it_t out_it, pos_t output_size);
 
 protected:
     struct lpf {
@@ -319,7 +319,7 @@ protected:
 
             if (log && fact_mode != skip_phrases) {
                 uint64_t time_total = time_diff_ns(time_start, now());
-                uint64_t mem_peak = malloc_count_peak() - baseline_memory_alloc;
+                uint64_t mem_peak = malloc_count_peak() - baseline_memory_alloc + n;
                 double comp_ratio = n / (double) num_fact;
 
                 std::cout << "num. of factors: " << num_fact << std::endl;

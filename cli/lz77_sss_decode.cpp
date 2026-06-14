@@ -1,5 +1,6 @@
 #include <fstream>
 #include <lz77_sss/lz77_sss.hpp>
+#include <lz77_sss/misc/block_huffman.hpp>
 
 uint64_t n;
 std::fstream input_file;
@@ -9,19 +10,20 @@ template <typename pos_t>
 void decode()
 {
     using factor = lz77_sss<pos_t>::factor;
+
+    bit_reader reader(input_file);
+    huffman len_huff, dist_huff;
+    huff_factor_iterator<factor> it(reader, len_huff, dist_huff, n);
     factor f;
-    pos_t pos_input = 5;
     pos_t pos_output = 0;
     uint64_t buff_size = std::max<uint64_t>(32 * 1024, n / 1000);
     std::string buff;
 
     while (pos_output < n) {
-        input_file >> f;
-        pos_input += factor::size_of();
+        f = *it++;
 
         if (f.len == 0) {
             output_file.write((char*) &f.src, 1);
-            pos_input++;
             pos_output++;
         } else {
             copy_buffered(output_file, output_file,
@@ -39,6 +41,8 @@ int main(int argc, char** argv)
     }
 
     input_file.open(argv[1], std::ios::in);
+    uint64_t input_file_size = std::filesystem::file_size(argv[1]);
+    std::cout << "input file size: " << format_size(input_file_size) << std::endl;
 
     if (!input_file.good()) {
         std::cout << "error: could not read <input_file>" << std::endl;
@@ -64,11 +68,10 @@ int main(int argc, char** argv)
         decode<uint64_t>();
     }
 
-    input_file.close();
-    output_file.close();
     auto t2 = now();
     log_runtime(t1, t2);
     std::cout << "throughput: " << format_throughput(n, time_diff_ns(t1, t2)) << std::endl;
     std::cout << "peak memory consumption: " << format_size(malloc_count_peak()) << std::endl;
+    std::cout << "compression ratio: " << n / (double) input_file_size << std::endl;
     return 0;
 }

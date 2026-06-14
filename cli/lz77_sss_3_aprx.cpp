@@ -1,5 +1,6 @@
 #include <fstream>
 #include <lz77_sss/lz77_sss.hpp>
+#include <lz77_sss/misc/block_huffman.hpp>
 
 int main(int argc, char** argv)
 {
@@ -40,21 +41,25 @@ int main(int argc, char** argv)
     read_from_file(input_file, T.data(), n);
     input_file.close();
     log_runtime(t0);
-    output_file.write((char*) &n, 5);
     std::cout << "running LZ77 SSS 3-approximation:" << std::endl;
+
+    huff_writer writer(output_file, n);
+    auto output = [&](auto f) { writer.add(f); };
 
     if (n <= std::numeric_limits<uint32_t>::max()) {
         lz77_sss<uint32_t>::factorize_approximate<
-            greedy, lpf_opt>(T.data(), n,
-                [&](auto f){output_file << f;},
+            greedy, lpf_opt>(T.data(), n, output,
                 { .num_threads = p, .log = true });
     } else {
         lz77_sss<uint64_t>::factorize_approximate<
-            greedy, lpf_opt>(T.data(), n,
-                [&](auto f){output_file << f;},
+            greedy, lpf_opt>(T.data(), n, output,
                 { .num_threads = p, .log = true });
     }
 
+    writer.finish();
     output_file.close();
+    uint64_t output_file_size = std::filesystem::file_size(argv[2]);
+    std::cout << "output file size: " << format_size(output_file_size) << std::endl;
+    std::cout << "compression ratio: " << n / (double) output_file_size << std::endl;
     return 0;
 }
