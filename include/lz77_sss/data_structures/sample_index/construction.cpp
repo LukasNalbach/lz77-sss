@@ -1,3 +1,29 @@
+/**
+ * part of LukasNalbach/lz77-sss
+ *
+ * MIT License
+ *
+ * Copyright (c) Lukas Nalbach
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
 #pragma once
 
 #include <lz77_sss/data_structures/sample_index/sample_index.hpp>
@@ -128,12 +154,12 @@ void sample_index<pos_t, sidx_t, char_t, lce_r_t>::build_samples(pos_t max_smpl_
     XIV_S<dir>().resize(2);
     if (lcx_s_rng_min >= lcx_s_rng_max) return;
     uint64_t num_pat_lens = std::min<uint64_t>(max_smpl_len - 2,
-        2 + std::floor((2.0 * max_num_samples) / double { lcx_s_rng_min + lcx_s_rng_max }));
+        2 + std::floor((2.0 * max_num_samples) / (double)(lcx_s_rng_min + lcx_s_rng_max)));
     std::vector<sidx_t> pat_len_ranks(num_pat_lens, 0);
 
     for (uint64_t i = 2; i < num_pat_lens; i++) {
-        double rel_lcx_s_rnk = (i - 1) / double { num_pat_lens - 2 };
-        pos_t lcx_s_rnk = std::floor(double { lcx_s_rng_min } + rel_lcx_s_rnk * lcx_s_rng);
+        double rel_lcx_s_rnk = (i - 1) / (double)(num_pat_lens - 2);
+        pos_t lcx_s_rnk = std::floor((double)(lcx_s_rng_min) + rel_lcx_s_rnk * lcx_s_rng);
         pos_t len = std::max(LCX_S_sorted[lcx_s_rnk], smpl_pat_lens[dir].back() + 1);
         if (len > max_smpl_len) break;
 

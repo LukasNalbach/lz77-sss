@@ -1,3 +1,29 @@
+/**
+ * part of LukasNalbach/lz77-sss
+ *
+ * MIT License
+ *
+ * Copyright (c) Lukas Nalbach
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
 #pragma once
 
 #include <lz77_sss/lz77_sss.hpp>
@@ -22,6 +48,15 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::build_PSV_NSV_S()
 
     no_init_resize(PSV_S, s);
     no_init_resize(NSV_S, s);
+
+    if (s == 0) [[unlikely]] {
+        if (log) {
+            log_phase("nsv_psv", time_diff_ns(time, now()));
+            time = log_runtime(time);
+        }
+        return;
+    }
+
     PSV_S[0] = s;
     NSV_S[s - 1] = s;
 
@@ -66,7 +101,7 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::build_PGV_NGV_S()
 
     const std::vector<pos_t>& S = LCE.get_sync_set();
     const std::vector<uint32_t>& SA_S = LCE.get_sa_s();
-    const std::vector<uint32_t>& ISA_S = LCE.get_isa_s();
+    [[maybe_unused]] const std::vector<uint32_t>& ISA_S = LCE.get_isa_s();
     pos_t s = S.size();
 
     #ifndef NDEBUG
@@ -77,6 +112,15 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::build_PGV_NGV_S()
 
     no_init_resize(PGV_S, s);
     no_init_resize(NGV_S, s);
+
+    if (s == 0) [[unlikely]] {
+        if (log) {
+            log_phase("ngv_pgv", time_diff_ns(time, now()));
+            time = log_runtime(time);
+        }
+        return;
+    }
+
     PGV_S[0] = s;
     NGV_S[s - 1] = s;
 

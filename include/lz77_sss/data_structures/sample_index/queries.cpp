@@ -1,3 +1,29 @@
+/**
+ * part of LukasNalbach/lz77-sss
+ *
+ * MIT License
+ *
+ * Copyright (c) Lukas Nalbach
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
 #pragma once
 
 #include <lz77_sss/data_structures/sample_index/sample_index.hpp>
@@ -52,12 +78,14 @@ bool sample_index<pos_t, sidx_t, char_t, lce_r_t>::extend(
         return true;
     }
 
+    use_interval_samples = use_interval_samples && num_sampled_pattern_lengths<dir>() > 0;
+
     sidx_t b;
     sidx_t e;
     pos_t lce_b;
     pos_t lce_e;
 
-    pos_t pat_len_idx;
+    pos_t pat_len_idx = 0;
     pos_t len_smpl;
     std::size_t fp_smpl = std::numeric_limits<std::size_t>::max();
 
@@ -109,7 +137,7 @@ bool sample_index<pos_t, sidx_t, char_t, lce_r_t>::extend(
     ) {
         pos_t len_nxt_smpl = sampled_pattern_lengths<dir>()[pat_len_idx + 1];
         pos_t len_diff = len_nxt_smpl - len_smpl;
-        std::size_t fp_nxt_smpl;
+        std::size_t fp_nxt_smpl = std::numeric_limits<std::size_t>::max();
 
         if (pat_len_idx >= 1) {
             if (fp_smpl == std::numeric_limits<std::size_t>::max()) {

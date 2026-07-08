@@ -1,6 +1,34 @@
+/**
+ * part of LukasNalbach/lz77-sss
+ *
+ * MIT License
+ *
+ * Copyright (c) Lukas Nalbach
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
 #include <gtest/gtest.h>
 #include <ips4o.hpp>
 #include <lz77_sss/data_structures/sample_index/sample_index.hpp>
+
+#include "test-progress.hpp"
 
 using lce_r_t = lce::ds::lce_naive_wordwise_xor<char>;
 
@@ -71,39 +99,52 @@ void test_query(sample_index<>& index)
     occurrences.clear();
 }
 
-TEST(test_sample_index, fuzzy_test)
+void test_extend_locate(bool build_interval_samples)
 {
-    auto start_time = now();
+    uint16_t num_threads = std::uniform_int_distribution<uint16_t>(1, omp_get_max_threads())(gen);
 
-    while (time_diff_min(start_time, now()) < 60) {
-        // generate a random string
-        input = random_repetitive_string(1, 100000);
+    // generate a random string
+    input = random_repetitive_string(1, 10000);
 
-        // choose a random average sample rate
-        avg_sample_rate = avg_sample_rate_distrib(gen);
-        std::uniform_int_distribution<uint32_t> sample_distance_distrib(1, 2 * avg_sample_rate);
+    // choose a random average sample rate
+    avg_sample_rate = avg_sample_rate_distrib(gen);
+    std::uniform_int_distribution<uint32_t> sample_distance_distrib(1, 2 * avg_sample_rate);
 
-        // compute a random sampling of text positions
-        sampling.emplace_back(std::min<uint32_t>(
-            input.size() - 1, sample_distance_distrib(gen)));
-        
-        while (sampling.back() + 2 * avg_sample_rate < input.size()) {
-            sampling.emplace_back(sampling.back() + sample_distance_distrib(gen));
-        }
+    // compute a random sampling of text positions
+    sampling.emplace_back(std::min<uint32_t>(
+        input.size() - 1, sample_distance_distrib(gen)));
 
-        // build the sample-index
-        sample_index<> index;
-        index.build(input.data(), input.size(), sampling, lce_r_t(input), true, 64, omp_get_max_threads());
-
-        // perform random queries and check their correctness
-        for (uint32_t i = 0; i < 1000; i++) {
-            if (prob_distrib(gen) < 0.5) {
-                test_query<LEFT>(index);
-            } else {
-                test_query<RIGHT>(index);
-            }
-        }
-
-        sampling.clear();
+    while (sampling.back() + 2 * avg_sample_rate < input.size()) {
+        sampling.emplace_back(sampling.back() + sample_distance_distrib(gen));
     }
+
+    // build the sample-index
+    sample_index<> index;
+    index.build(input.data(), input.size(), sampling, lce_r_t(input),
+        build_interval_samples, 64, num_threads);
+
+    // perform random queries and check their correctness
+    for (uint32_t i = 0; i < 1000; i++) {
+        if (prob_distrib(gen) < 0.5) {
+            test_query<LEFT>(index);
+        } else {
+            test_query<RIGHT>(index);
+        }
+    }
+
+    sampling.clear();
+}
+
+TEST(test_sample_index, with_interval_samples)
+{
+    run_fuzz("sample-index", {
+        { "with-interval-samples", [](uint64_t) { test_extend_locate(true); }, false },
+    }, fuzz_iterations(2000));
+}
+
+TEST(test_sample_index, without_interval_samples)
+{
+    run_fuzz("sample-index", {
+        { "without-interval-samples", [](uint64_t) { test_extend_locate(false); }, false },
+    }, fuzz_iterations(2000));
 }

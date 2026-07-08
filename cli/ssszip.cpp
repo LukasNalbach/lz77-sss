@@ -1,3 +1,29 @@
+/**
+ * part of LukasNalbach/lz77-sss
+ *
+ * MIT License
+ *
+ * Copyright (c) Lukas Nalbach
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
 #include <fstream>
 
 std::string result_file_path;
@@ -232,7 +258,7 @@ void encode()
             (encoder == "zstd" ? " -T" + std::to_string(num_threads) : "") +
             " " + tmp_file_path + " > " + output_file_path
         )) + ") 2> " + log_file_path;
-    system(cmd.c_str());
+    if (system(cmd.c_str())) {}
     t3 = now();
     
     uint64_t time_encode = time_diff_ns(t2, t3);
@@ -353,7 +379,7 @@ void decode()
             tmp_file_path + " 1> " + log_file_path
         ) : (" -d -c -q " + input_file_path + " > " + tmp_file_path
         )) + ") 2> " + log_file_path;
-    system(cmd.c_str());
+    if (system(cmd.c_str())) {}
     if (logs == 2) log_runtime(t1);
 
     std::fstream tmp_input_file(tmp_file_path, std::ios::in);

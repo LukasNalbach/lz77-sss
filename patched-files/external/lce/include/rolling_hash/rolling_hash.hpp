@@ -9,9 +9,11 @@
 #pragma once
 #include <assert.h>
 
+#include <array>
 #include <bit>
 #include <iterator>
 #include <random>
+#include <vector>
 
 #include "rolling_hash/mersenne_modular_arithmetic.hpp"
 #include "rolling_hash/modular_arithmetic.hpp"
@@ -108,13 +110,18 @@ class rk_prime {
     return m_base;
   }
 
+  static constexpr size_t byte_size() {
+    return sizeof(rk_prime) + sizeof(uint128_t) * 256 * 256;
+  }
+
  private:
   static constexpr uint128_t m_prime = (uint128_t{1} << t_prime_exp) - 1;
   uint128_t m_tau;
   uint128_t m_fp;
 
   uint128_t m_base;
-  uint128_t m_char_influence[256][256] = {};
+  std::vector<std::array<uint128_t, 256>> m_char_influence =
+      std::vector<std::array<uint128_t, 256>>(256);
 
   // Return a random number that will be used as the base.
   inline static uint64_t random64(uint64_t min, uint64_t max) {

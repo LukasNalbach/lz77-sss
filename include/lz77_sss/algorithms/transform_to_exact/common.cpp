@@ -1,3 +1,29 @@
+/**
+ * part of LukasNalbach/lz77-sss
+ *
+ * MIT License
+ *
+ * Copyright (c) Lukas Nalbach
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
 #pragma once
 
 #include <lz77_sss/lz77_sss.hpp>
@@ -12,7 +38,7 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::exact_factorizer<sidx_t, transf_m
         std::cout << "building C" << std::flush;
     }
 
-    std::ifstream aprx_ifile(aprx_file_name);
+    std::ifstream aprx_ifile(aprx_file_name, std::ios::binary);
     std::istream_iterator<factor> aprx_it(aprx_ifile);
     aprx_it++;
 
@@ -22,7 +48,7 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::exact_factorizer<sidx_t, transf_m
     num_par_sect = p == 1 ? 1 : (pos_t{p} * num_par_sect_per_thr);
     par_sect.resize(num_par_sect + 1);
     par_sect[0] = sect_info_t {.beg = 0, .phr_idx = 0};
-    par_sect[num_par_sect] = sect_info_t {.beg = n, .phr_idx = num_fact};
+    par_sect[num_par_sect] = sect_info_t {.beg = n, .phr_idx = (sidx_t)(num_fact)};
 
     sidx_t phr_nxt = num_fact / num_par_sect;
     uint16_t sect = 1;
@@ -340,7 +366,7 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::exact_factorizer<sidx_t, transf_m
 {
     for (uint16_t sect = 0; sect < num_par_sect; sect++) {
         std::string fact_file_name_thr = fact_file_name + "_" + std::to_string(sect);
-        std::ifstream fact_ifile(fact_file_name_thr);
+        std::ifstream fact_ifile(fact_file_name_thr, std::ios::binary);
         std::istream_iterator<factor> fact_it(fact_ifile);
 
         while (fact_it != std::istream_iterator<factor>()) {

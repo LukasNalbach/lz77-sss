@@ -1,3 +1,29 @@
+/**
+ * part of LukasNalbach/lz77-sss
+ *
+ * MIT License
+ *
+ * Copyright (c) Lukas Nalbach
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
 #pragma once
 
 #include <algorithm>
@@ -7,9 +33,12 @@
 #include <functional>
 #include <iostream>
 #include <string>
-#include <unistd.h>
 #include <vector>
 #include <random>
+
+#ifndef _WIN32
+#include <unistd.h>
+#endif
 
 #include <malloc_count/malloc_count.h>
 #include <omp.h>
@@ -214,7 +243,7 @@ public:
     template <typename U>
     struct rebind { };
     template <typename U>
-    void construct(U* ptr) noexcept(std::is_nothrow_default_constructible<U>::value) { ::new (static_cast<void*>(ptr)) U; }
+    void construct(U* ptr) noexcept(std::is_nothrow_default_constructible<U>::value) { ::new ((void*)(ptr)) U; }
     template <typename U, typename... Args>
     void construct(U* ptr, Args&&... args) { }
 };
@@ -383,7 +412,7 @@ std::string random_alphanumeric_string(uint64_t length)
 
     std::random_device rd;
     std::mt19937 gen(rd());
-    std::uniform_int_distribution<uint8_t> char_idx_distrib(0, possible_chars.size() - 1);
+    std::uniform_int_distribution<unsigned int> char_idx_distrib(0, possible_chars.size() - 1);
     
     std::string str_rand;
     str_rand.reserve(length);
@@ -538,18 +567,26 @@ T sum(std::vector<T> vec)
     return sum;
 }
 
+template <typename gen_t>
+uint64_t random_log_uniform_size(uint64_t min_size, uint64_t max_size, gen_t& gen)
+{
+    std::uniform_real_distribution<double> log_distrib(
+        std::log((double) std::max<uint64_t>(1, min_size)),
+        std::log((double) std::max<uint64_t>(1, max_size)));
+    return std::clamp<uint64_t>((uint64_t) std::llround(std::exp(log_distrib(gen))), min_size, max_size);
+}
+
 std::string random_repetitive_string(uint32_t min_size, uint32_t max_size)
 {
     std::random_device rd;
     std::mt19937 mt(rd());
     std::uniform_real_distribution<double> prob_distrib(0.0, 1.0);
-    std::uniform_int_distribution<uint32_t> input_size_distrib(min_size, max_size);
 
-    std::uniform_int_distribution<char> char_distrib(
+    std::uniform_int_distribution<int> char_distrib(
         std::numeric_limits<char>::min(),
         std::numeric_limits<char>::max());
 
-    uint32_t target_input_size = input_size_distrib(mt);
+    uint32_t target_input_size = random_log_uniform_size(min_size, max_size, mt);
     enum string_construction_operation { new_character = 0, repetition = 1, run = 2 };
     double repetition_repetitiveness = prob_distrib(mt);
     double run_repetitiveness = prob_distrib(mt);
@@ -560,7 +597,7 @@ std::string random_repetitive_string(uint32_t min_size, uint32_t max_size)
     std::uniform_int_distribution<uint32_t> run_length_distrib(
         1, std::max((run_repetitiveness * target_input_size) / 200, 1.0));
 
-    std::discrete_distribution<uint8_t> next_operation_distrib({
+    std::discrete_distribution<int> next_operation_distrib({
         2 - (repetition_repetitiveness + run_repetitiveness),
         repetition_repetitiveness,
         run_repetitiveness });
@@ -602,7 +639,7 @@ std::string random_repetitive_string(uint32_t min_size, uint32_t max_size)
     return input;
 }
 
-static void log_phase(std::string phase, uint64_t time) {
+[[maybe_unused]] static void log_phase([[maybe_unused]] std::string phase, [[maybe_unused]] uint64_t time) {
     #if defined(LZ77_SSS_BENCH) || defined(SSSZIP)
     if (result_file_path != "") {
         result_file << " " << phase << "=" << time;

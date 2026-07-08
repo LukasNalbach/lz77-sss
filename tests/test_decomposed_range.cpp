@@ -1,3 +1,29 @@
+/**
+ * part of LukasNalbach/lz77-sss
+ *
+ * MIT License
+ *
+ * Copyright (c) Lukas Nalbach
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
 #include <gtest/gtest.h>
 #include <ips4o.hpp>
 #include <lz77_sss/data_structures/dynamic_range/dynamic_square_grid.hpp>
@@ -7,13 +33,13 @@
 #include <lz77_sss/data_structures/static_weighted_range/static_weighted_square_grid.hpp>
 #include <lz77_sss/data_structures/static_weighted_range/static_weighted_striped_square.hpp>
 
+#include "test-progress.hpp"
+
 using point_t = static_weighted_range<>::point_t;
 using lce_r_t = lce::ds::lce_naive_wordwise_xor<char>;
 
-std::random_device rd;
-std::mt19937 gen(rd());
-std::uniform_int_distribution<uint32_t> input_size_distrib(10000, 100000);
-std::uniform_int_distribution<uint32_t> avg_sample_rate_distrib(1, 10);
+thread_local std::mt19937 gen(std::random_device{}());
+thread_local std::uniform_int_distribution<uint32_t> avg_sample_rate_distrib(1, 10);
 
 struct query {
     char chr;
@@ -28,8 +54,10 @@ void test()
 {
     using point_t = typename range_ds_t<uint32_t>::point_t;
 
+    uint16_t num_threads = std::uniform_int_distribution<uint16_t>(1, omp_get_max_threads())(gen);
+
     // choose a random input length
-    uint32_t input_size = input_size_distrib(gen);
+    uint32_t input_size = random_log_uniform_size(1, 10000, gen);
 
     // generate a random string
     std::string input = random_repetitive_string(input_size, input_size);
@@ -48,7 +76,7 @@ void test()
 
     // build a sample index (SA_S and PA_S)
     sample_index<> index;
-    index.build(input.data(), input_size, sampling, lce_r_t(input), false);
+    index.build(input.data(), input_size, sampling, lce_r_t(input), false, 32, num_threads);
 
     // build the points-array
     std::vector<point_t> points;
@@ -56,7 +84,7 @@ void test()
 
     for (uint32_t i = 0; i < num_samples; i++) {
         if constexpr (range_ds_t<uint32_t>::is_static()) {
-            points.emplace_back(point_t { .weight = i });
+            points.emplace_back(point_t { .x = 0, .y = 0, .weight = i });
         } else {
             points.emplace_back(point_t { });
         }
@@ -69,7 +97,6 @@ void test()
 
     // generate random queries
     std::vector<query> queries;
-    std::uniform_int_distribution<uint8_t> uchar_distrib(0, 255);
     std::array<std::uniform_int_distribution<uint32_t>, 256> query_range_distrib;
     std::array<uint32_t, 257> c_array = { 0 };
     std::vector<uint8_t> used_uchars;
@@ -88,12 +115,14 @@ void test()
         }
     }
 
-    std::uniform_int_distribution<uint8_t>
+    std::uniform_int_distribution<unsigned int>
         uchar_idx_distrib(0, used_uchars.size() - 1);
 
     for (uint16_t c = 0; c < 256; c++) {
-        query_range_distrib[c] = std::uniform_int_distribution<uint32_t>(
-            c_array[c], c_array[c + 1] - 1);
+        if (c_array[c] != c_array[c + 1]) {
+            query_range_distrib[c] = std::uniform_int_distribution<uint32_t>(
+                c_array[c], c_array[c + 1] - 1);
+        }
     }
 
     for (uint32_t i = 0; i < num_samples; i++) {
@@ -126,7 +155,7 @@ void test()
     }
 
     // build the range data structure
-    range_ds_t<uint32_t> ds(input.data(), sampling, points);
+    range_ds_t<uint32_t> ds(input.data(), sampling, points, num_threads);
 
     // verify that all queries are answered correctly
     for (uint32_t i = 0; i < num_samples; i++) {
@@ -157,20 +186,37 @@ void test()
     }
 }
 
-TEST(test_decomposed_range, fuzzy_test)
+TEST(test_decomposed_range, decomposed_static_weighted_kd_tree)
 {
-    auto start_time = now();
+    run_fuzz("decomposed-range", {
+        { "decomposed-static-weighted-kd-tree", [](uint64_t) { test<decomposed_static_weighted_kd_tree>(); }, false },
+    }, fuzz_iterations(3000));
+}
 
-    while (time_diff_min(start_time, now()) < 60) {
-        std::string input;
-        std::vector<uint32_t> samples;
+TEST(test_decomposed_range, decomposed_static_weighted_square_grid)
+{
+    run_fuzz("decomposed-range", {
+        { "decomposed-static-weighted-square-grid", [](uint64_t) { test<decomposed_static_weighted_square_grid>(); }, false },
+    }, fuzz_iterations(3000));
+}
 
-        switch (std::rand() % 5) {
-            case 0: test<decomposed_static_weighted_kd_tree>(); break;
-            case 1: test<decomposed_static_weighted_square_grid>(); break;
-            case 2: test<decomposed_static_weighted_striped_square>(); break;
-            case 3: test<decomposed_dynamic_square_grid>(); break;
-            case 4: test<decomposed_semi_dynamic_square_grid>(); break;
-        }
-    }
+TEST(test_decomposed_range, decomposed_static_weighted_striped_square)
+{
+    run_fuzz("decomposed-range", {
+        { "decomposed-static-weighted-striped-square", [](uint64_t) { test<decomposed_static_weighted_striped_square>(); }, false },
+    }, fuzz_iterations(3000));
+}
+
+TEST(test_decomposed_range, decomposed_dynamic_square_grid)
+{
+    run_fuzz("decomposed-range", {
+        { "decomposed-dynamic-square-grid", [](uint64_t) { test<decomposed_dynamic_square_grid>(); }, false },
+    }, fuzz_iterations(3000));
+}
+
+TEST(test_decomposed_range, decomposed_semi_dynamic_square_grid)
+{
+    run_fuzz("decomposed-range", {
+        { "decomposed-semi-dynamic-square-grid", [](uint64_t) { test<decomposed_semi_dynamic_square_grid>(); }, false },
+    }, fuzz_iterations(3000));
 }
