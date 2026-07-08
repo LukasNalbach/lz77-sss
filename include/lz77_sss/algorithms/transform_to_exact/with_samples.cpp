@@ -1,3 +1,29 @@
+/**
+ * part of LukasNalbach/lz77-sss
+ *
+ * MIT License
+ *
+ * Copyright (c) Lukas Nalbach
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
 #pragma once
 
 #include <lz77_sss/lz77_sss.hpp>
@@ -122,7 +148,7 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::exact_factorizer<sidx_t, transf_m
         pos_t b = par_sect[sect].beg;
         pos_t e = par_sect[sect + 1].beg;
 
-        std::ifstream aprx_ifile(aprx_file_name);
+        std::ifstream aprx_ifile(aprx_file_name, std::ios::binary);
         aprx_ifile.seekg(par_sect[sect].phr_idx *
             lz77_sss<pos_t>::factor::size_of(), std::ios::beg);
         std::istream_iterator<factor> aprx_it(aprx_ifile);
@@ -134,7 +160,7 @@ void lz77_sss<pos_t>::factorizer<tau, char_t>::exact_factorizer<sidx_t, transf_m
         sidx_t x_r = 0;
         pos_t num_phr_thr = 0;
         std::ofstream fact_ofile;
-        if (p > 1) fact_ofile.open(fact_file_name + "_" + std::to_string(sect));
+        if (p > 1) fact_ofile.open(fact_file_name + "_" + std::to_string(sect), std::ios::binary);
         std::ostream_iterator<factor> fact_it(fact_ofile);
         std::vector<uint64_t> fp_left(delta);
 

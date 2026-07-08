@@ -1,3 +1,29 @@
+/**
+ * part of LukasNalbach/lz77-sss
+ *
+ * MIT License
+ *
+ * Copyright (c) Lukas Nalbach
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
 #pragma once
 
 #include <lz77_sss/data_structures/decomposed_range.hpp>
@@ -39,10 +65,10 @@ public:
 
     semi_dynamic_square_grid(
         const std::vector<point_t>& points,
-        pos_t pos_max, uint16_t p = 1,
+        pos_t pos_max, [[maybe_unused]] uint16_t p = 1,
         pos_t win_size = 16384)
-        : pos_max(pos_max)
-        , win_size(win_size)
+        : win_size(win_size)
+        , pos_max(pos_max)
     {
         #if defined(BENCH_RANGE_QUERIES)
         this->win_size = cur_win_size;
@@ -50,7 +76,7 @@ public:
 
         grid_width = div_ceil(pos_max, this->win_size);
         pos_t num_win = grid_width * grid_width;
-        grid.resize(num_win, { .len = 0 });
+        grid.resize(num_win, { .beg = 0, .len = 0 });
         pos_t p_idx = 0;
 
         #pragma omp parallel for num_threads(p)
@@ -68,19 +94,19 @@ public:
         this->points.resize(points.size(), { });
     }
 
-    inline pos_t size() const override
+    inline pos_t size() const
     {
         return num_points;
     }
 
-    inline uint64_t size_in_bytes() const override
+    inline uint64_t size_in_bytes() const
     {
         return sizeof(this) +
             grid.size() * sizeof(window) +
             points.size() * sizeof(point_t);
     }
 
-    inline void insert(point_t p) override
+    inline void insert(point_t p)
     {
         window& w = grid[window_index(p)];
         points[w.beg + w.len] = p;
@@ -89,7 +115,7 @@ public:
     }
 
     std::tuple<point_t, bool> point_in_range(
-        pos_t x1, pos_t x2, pos_t y1, pos_t y2) const override
+        pos_t x1, pos_t x2, pos_t y1, pos_t y2) const
     {
         pos_t xw_1 = x1 / win_size;
         pos_t xw_2 = x2 / win_size;

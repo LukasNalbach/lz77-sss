@@ -2,7 +2,12 @@ cmake_minimum_required(VERSION 3.14)
 project(lce)
 
 set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -mcx16")
+if(NOT DEFINED LZ77_SSS_MARCH_NATIVE OR LZ77_SSS_MARCH_NATIVE)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native")
+endif()
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mcx16")
+endif()
 
 find_package(OpenMP REQUIRED)
 

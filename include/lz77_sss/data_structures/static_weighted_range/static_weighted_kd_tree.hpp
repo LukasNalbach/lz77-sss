@@ -1,3 +1,29 @@
+/**
+ * part of LukasNalbach/lz77-sss
+ *
+ * MIT License
+ *
+ * Copyright (c) Lukas Nalbach
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
 
 #include <algorithm>
 #include <limits>
@@ -16,7 +42,7 @@ public:
 
     static_weighted_kd_tree(
         std::vector<point_t>& points,
-        pos_t pos_max, uint16_t p = 1)
+        [[maybe_unused]] pos_t pos_max, uint16_t p = 1)
     {
         nodes.resize(points.size(), {});
         int32_t max_level = std::ceil(std::log2(p));
@@ -32,17 +58,17 @@ public:
     }
 
     std::tuple<point_t, bool> lighter_point_in_range(
-        pos_t weight, pos_t x1, pos_t x2, pos_t y1, pos_t y2) const override
+        pos_t weight, pos_t x1, pos_t x2, pos_t y1, pos_t y2) const
     {
         return lighter_point_in_range<true>(weight, 0, size(), x1, x2, y1, y2);
     }
 
-    inline pos_t size() const override
+    inline pos_t size() const
     {
         return nodes.size();
     }
 
-    inline uint64_t size_in_bytes() const override
+    inline uint64_t size_in_bytes() const
     {
         return sizeof(this) + nodes.size() * sizeof(node_t);
     }

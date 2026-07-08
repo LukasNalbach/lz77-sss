@@ -9,9 +9,15 @@ target_include_directories(tlx_clp PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/tlx)
 
 add_subdirectory(fmt)
 
-add_library(malloc_count malloc_count/malloc_count.c)
+if(LZ77_SSS_MALLOC_COUNT_STUB AND (NOT LZ77_SSS_USE_MALLOC_COUNT OR WIN32))
+  add_library(malloc_count "${LZ77_SSS_MALLOC_COUNT_STUB}")
+  target_compile_definitions(malloc_count PUBLIC LZ77_SSS_USE_MALLOC_COUNT=0)
+else()
+  add_library(malloc_count malloc_count/malloc_count.c)
+  target_link_libraries(malloc_count ${CMAKE_DL_LIBS})
+  target_compile_definitions(malloc_count PUBLIC LZ77_SSS_USE_MALLOC_COUNT=1)
+endif()
 target_include_directories(malloc_count PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(malloc_count ${CMAKE_DL_LIBS})
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/modular_arithmetic)
 

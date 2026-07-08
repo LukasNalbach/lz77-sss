@@ -1,3 +1,29 @@
+/**
+ * part of LukasNalbach/lz77-sss
+ *
+ * MIT License
+ *
+ * Copyright (c) Lukas Nalbach
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
 #pragma once
 
 #include <cstdint>
@@ -92,7 +118,21 @@ public:
             }
         }
 
-        if (s >= n) return;
+        if (s >= n) {
+            no_init_resize(fps, num_blks + 1);
+            fps[0] = 0;
+            fp_t fp = 0;
+
+            for (pos_t blk = 0; blk < num_blks; blk++) {
+                pos_t beg = blk * s;
+                pos_t end = std::min<pos_t>(beg + s, n);
+                fp = concat(fp, substring_naive<RIGHT>(beg, end - beg), end - beg);
+                fps[blk + 1] = fp;
+            }
+
+            return;
+        }
+
         pos_t blks_per_thr = num_blks / p;
         std::vector<fp_t> blk_fps;
         no_init_resize(blk_fps, p + 1);

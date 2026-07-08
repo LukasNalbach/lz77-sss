@@ -1,3 +1,29 @@
+/**
+ * part of LukasNalbach/lz77-sss
+ *
+ * MIT License
+ *
+ * Copyright (c) Lukas Nalbach
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
 #pragma once
 
 #include <filesystem>
@@ -92,7 +118,8 @@ public:
     static uint64_t get_target_gap_idx_size(uint64_t n, double rel_len_gaps)
     {
         return std::min<uint64_t>(max_rh_index_size, std::max<uint64_t>({min_rh_index_size,
-            malloc_count_peak() - malloc_count_current(), (n / 3.0) * rel_len_gaps}));
+            malloc_count_peak() - malloc_count_current(),
+            (uint64_t)((n / 3.0) * rel_len_gaps)}));
     }
 
     static uint64_t get_max_smpl_len_right(double aprx_comp_ratio)
@@ -293,7 +320,7 @@ protected:
                 static_assert(fact_mode != skip_phrases);
                 std::string aprx_file_name = std::filesystem::temp_directory_path().string()
                     + "/aprx_" + random_alphanumeric_string(10);
-                std::ofstream ofile_aprx(aprx_file_name);
+                std::ofstream ofile_aprx(aprx_file_name, std::ios::binary);
                 std::ostream_iterator<factor> ofile_aprx_it(ofile_aprx, "");
                 compute_approximation<fact_mode, phr_mode>([&](factor f) { *ofile_aprx_it++ = f; });
                 ofile_aprx.close();
@@ -389,12 +416,12 @@ protected:
             }
 
             if constexpr (fact_mode == skip_phrases) {
-                LPF[p - 1].emplace_back(lpf { .beg = n, .end = n + 1 });
+                LPF[p - 1].emplace_back(lpf { .beg = n, .end = n + 1, .src = 0 });
             } else {
                 if (log) std::cout << "computing LPF statistics" << std::flush;
 
                 get_phrase_info();
-                LPF[p - 1].emplace_back(lpf { .beg = n, .end = n + 1 });
+                LPF[p - 1].emplace_back(lpf { .beg = n, .end = n + 1, .src = 0 });
 
                 len_gaps = n - len_lpf_phr;
                 double lpf_phr_per_sync = num_lpf / (double)size_sss;
@@ -576,7 +603,7 @@ protected:
 
             exact_factorizer(char_t* T, pos_t n, const lce_t& LCE, std::string aprx_file_name,
                 pos_t delta, pos_t& num_fact, uint16_t p, bool log
-            ) : log(log), p(p), T(T), LCE(LCE), aprx_file_name(aprx_file_name), n(n), delta(delta), num_fact(num_fact) { }
+            ) : aprx_file_name(aprx_file_name), log(log), p(p), T(T), LCE(LCE), n(n), delta(delta), num_fact(num_fact) { }
 
             template <typename output_fnc_t>
             void transform_to_exact(output_fnc_t output)
@@ -620,7 +647,7 @@ protected:
                 if (range_ds_t<sidx_t>::is_dynamic()) {
                     num_par_sect = 1;
                     par_sect.resize(2);
-                    par_sect[1] = {.beg = n, .phr_idx = num_fact};
+                    par_sect[1] = {.beg = n, .phr_idx = (sidx_t)(num_fact)};
                 }
 
                 if (p > 1) {
