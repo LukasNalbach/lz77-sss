@@ -31,8 +31,8 @@ std::string result_file_path;
 std::ofstream result_file;
 #define LZ77_SSS_BENCH 1
 
-#include <lz77/lpf_factorizer.hpp>
-#include <lz77/kkp2_factorizer.hpp>
+#include <lz77/lpf.hpp>
+#include <lz77/kkp2.hpp>
 #include <lz77_sss/lz77_sss.hpp>
 
 uint16_t max_threads = 0;
@@ -89,7 +89,8 @@ void run_sss_exact(std::string file_name, uint16_t max_threads)
 
 void log_algorithm(
     std::string alg_name, uint64_t time,
-    uint64_t mem_peak, uint64_t num_factors)
+    uint64_t mem_peak, uint64_t num_factors,
+    uint16_t num_threads = 1)
 {
     double comp_ratio = n / (double)num_factors;
 
@@ -103,6 +104,7 @@ void log_algorithm(
             << " text_name=" << text_name
             << " n=" << n
             << " alg=" << alg_name
+            << " num_threads=" << num_threads
             << " num_factors=" << num_factors
             << " comp_ratio=" << comp_ratio
             << " time=" << time
@@ -170,35 +172,39 @@ int main(int argc, char** argv)
         decomposed_static_weighted_square_grid>("fact_sss_exact", max_threads);
     std::filesystem::remove("fact_sss_exact");
 
-    std::cout << std::endl << "running LZ77 LPF algorithm" << std::flush;
-    uint64_t baseline_memory_alloc = malloc_count_current();
-    std::ofstream file_lpf("fact_lpf");
-    malloc_count_reset_peak();
-    auto t1 = now();
-    lz77::LPFFactorizer().factorize(T.begin(), T.end(),
-        std::ostream_iterator<lz77::Factor>(file_lpf, ""));
-    auto t2 = now();
-    uint64_t num_factors = file_lpf.tellp() / sizeof(lz77::Factor);
-    uint64_t time = time_diff_ns(t1, t2);
-    uint64_t mem_peak = malloc_count_peak() - baseline_memory_alloc;
-    file_lpf.close();
-    std::filesystem::remove("fact_lpf");
-    log_algorithm("lpf", time, mem_peak, num_factors);
+    for (uint16_t num_threads = 1; num_threads <= max_threads; num_threads *= 2) {
+        std::cout << std::endl << "running LZ77 LPF algorithm (" << num_threads << " threads)" << std::flush;
+        uint64_t baseline_memory_alloc = malloc_count_current();
+        std::ofstream file_lpf("fact_lpf");
+        malloc_count_reset_peak();
+        auto t1 = now();
+        lz77::parallel_lpf_factorizer().factorize(T.begin(), T.end(),
+            std::ostream_iterator<lz77::factor>(file_lpf, ""), num_threads, "fact_lpf_tmp");
+        auto t2 = now();
+        uint64_t num_factors = file_lpf.tellp() / sizeof(lz77::factor);
+        uint64_t time = time_diff_ns(t1, t2);
+        uint64_t mem_peak = malloc_count_peak() - baseline_memory_alloc;
+        file_lpf.close();
+        std::filesystem::remove("fact_lpf");
+        log_algorithm("lpf", time, mem_peak, num_factors, num_threads);
+    }
 
-    std::cout << std::endl << "running LZ77 KKP2 algorithm" << std::flush;
-    baseline_memory_alloc = malloc_count_current();
-    std::ofstream file_kkp2("fact_kkp2");
-    malloc_count_reset_peak();
-    t1 = now();
-    lz77::KKP2Factorizer().factorize(T.begin(), T.end(),
-        std::ostream_iterator<lz77::Factor>(file_kkp2, ""));
-    t2 = now();
-    num_factors = file_kkp2.tellp() / sizeof(lz77::Factor);
-    time = time_diff_ns(t1, t2);
-    mem_peak = malloc_count_peak() - baseline_memory_alloc;
-    file_kkp2.close();
-    std::filesystem::remove("fact_kkp2");
-    log_algorithm("kkp2", time, mem_peak, num_factors);
-    
+    for (uint16_t num_threads = 1; num_threads <= max_threads; num_threads *= 2) {
+        std::cout << std::endl << "running LZ77 KKP2 algorithm (" << num_threads << " threads)" << std::flush;
+        uint64_t baseline_memory_alloc = malloc_count_current();
+        std::ofstream file_kkp2("fact_kkp2");
+        malloc_count_reset_peak();
+        auto t1 = now();
+        lz77::parallel_kkp2_factorizer().factorize(T.begin(), T.end(),
+            std::ostream_iterator<lz77::factor>(file_kkp2, ""), num_threads, "fact_kkp2_tmp");
+        auto t2 = now();
+        uint64_t num_factors = file_kkp2.tellp() / sizeof(lz77::factor);
+        uint64_t time = time_diff_ns(t1, t2);
+        uint64_t mem_peak = malloc_count_peak() - baseline_memory_alloc;
+        file_kkp2.close();
+        std::filesystem::remove("fact_kkp2");
+        log_algorithm("kkp2", time, mem_peak, num_factors, num_threads);
+    }
+
     return 0;
 }

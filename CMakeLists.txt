@@ -107,7 +107,6 @@ if(WIN32 AND LZ77_SSS_WINDOWS_TBB_ROOT)
 endif()
 
 set(CMAKE_POLICY_VERSION_MINIMUM 3.10)
-add_subdirectory("${CMAKE_SOURCE_DIR}/external/lz77/")
 add_subdirectory("${CMAKE_SOURCE_DIR}/external/lce/")
 add_subdirectory("${CMAKE_SOURCE_DIR}/external/fp/")
 add_subdirectory("${CMAKE_SOURCE_DIR}/external/sparse-map/")
@@ -123,7 +122,7 @@ endforeach()
 
 add_library(lz77_sss INTERFACE)
 target_include_directories(lz77_sss INTERFACE "${CMAKE_SOURCE_DIR}/include/")
-target_link_libraries(lz77_sss INTERFACE malloc_count lce lz77 fp sparse_map OpenMP::OpenMP_CXX)
+target_link_libraries(lz77_sss INTERFACE malloc_count lce libsais fp sparse_map OpenMP::OpenMP_CXX)
 
 if(WIN32 AND LZ77_SSS_WIN_TBB_LIB)
   target_link_libraries(lz77_sss INTERFACE "${LZ77_SSS_WIN_TBB_LIB}")
