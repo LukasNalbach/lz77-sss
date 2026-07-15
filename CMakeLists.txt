@@ -114,11 +114,14 @@ unset(CMAKE_POLICY_VERSION_MINIMUM)
 
 set_target_properties(ips4o_example PROPERTIES EXCLUDE_FROM_ALL 1 EXCLUDE_FROM_DEFAULT_BUILD 1)
 
-foreach(_la_target example tests)
+foreach(_la_target example tests
+        test-lce test-pred test-rmq test-rolling-hash test-string-synchronizing-set)
   if(TARGET ${_la_target})
     set_target_properties(${_la_target} PROPERTIES EXCLUDE_FROM_ALL 1 EXCLUDE_FROM_DEFAULT_BUILD 1)
   endif()
 endforeach()
+
+set_property(DIRECTORY "${CMAKE_SOURCE_DIR}/external/lce" PROPERTY TEST_INCLUDE_FILES "")
 
 add_library(lz77_sss INTERFACE)
 target_include_directories(lz77_sss INTERFACE "${CMAKE_SOURCE_DIR}/include/")
