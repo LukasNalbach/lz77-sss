@@ -31,7 +31,7 @@ class rk_prime {
     if (base == 0) {
       uint64_t max =
           (t_prime_exp > 64)
-              ? ((uint64_t{1} << (127 - std::bit_width(m_prime))) - 1)
+              ? ((uint64_t{1} << (127 - mersenne::bit_width(m_prime))) - 1)
               : m_prime - 1;
       m_base = static_cast<uint128_t>(random64(257, max));
     } else {
@@ -39,7 +39,7 @@ class rk_prime {
     }
     // prime should be mersenne and (prime*base + prime) should not overflow
     static_assert(t_prime_exp == 107 || t_prime_exp == 61 || t_prime_exp == 89);
-    assert(std::bit_width(m_prime) + std::bit_width(m_base) <= 127);
+    assert(mersenne::bit_width(m_prime) + mersenne::bit_width(m_base) <= 127);
 
     fill_influence_table();
   }

@@ -37,6 +37,9 @@ class lce_classic_for_sss {
                       t_index_type const* reduced_fps, size_t reduced_fps_size,
                       std::vector<t_index_type> const& sss)
       : m_size(reduced_fps_size) {
+    if (reduced_fps_size == 0) {
+      return;
+    }
     m_sa.resize(reduced_fps_size);
     // sort sa
 #ifdef LCE_BENCHMARK_INTERNAL
@@ -79,7 +82,7 @@ class lce_classic_for_sss {
     m_lcp.resize(m_sa.size());
     m_lcp[0] = 0;
     uint16_t p = std::min<uint16_t>(omp_get_num_threads(), reduced_fps_size);
-    
+
 #pragma omp parallel num_threads(p)
     {
       const int t = omp_get_thread_num();

@@ -32,7 +32,8 @@ class lce_classic {
  public:
   typedef t_char_type char_type;
   static_assert(sizeof(char_type) <= 16);
-  static_assert(std::is_unsigned_v<char_type>);
+  static_assert(std::is_unsigned_v<char_type> ||
+                std::is_same_v<char_type, __uint128_t>);
 
   lce_classic() : m_text(nullptr), m_size(0) {
   }
@@ -78,7 +79,6 @@ class lce_classic {
     // build lcp
     m_lcp.resize(sa.size());
     m_lcp[0] = 0;
-    size_t current_lcp = 0;
 
 #pragma omp parallel
     {

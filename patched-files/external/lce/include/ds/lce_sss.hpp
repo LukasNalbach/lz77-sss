@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include <bit>
 #include <chrono>
 #include <cmath>
 #include <memory>
@@ -34,15 +35,13 @@ namespace lce::ds {
 template <typename t_char_type = uint8_t, uint64_t t_tau = 1024,
           typename t_index_type = uint32_t, bool t_prefer_long = false>
 class lce_sss {
-  static_assert(sizeof(t_char_type) == 1);
  public:
   typedef t_char_type char_type;
+  static_assert(sizeof(char_type) == 1);
   __extension__ typedef unsigned __int128 uint128_t;
   lce_sss() : m_text(nullptr), m_size(0) {}
 
   lce_sss(char_type const* text, size_t size) : m_text(text), m_size(size) {
-    assert(sizeof(t_char_type) == 1);
-
 #ifdef LCE_BENCHMARK_INTERNAL
     lce::util::timer t;
 #ifdef LCE_BENCHMARK_SPACE
