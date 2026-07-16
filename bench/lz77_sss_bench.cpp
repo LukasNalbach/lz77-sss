@@ -189,22 +189,20 @@ int main(int argc, char** argv)
         log_algorithm("lpf", time, mem_peak, num_factors, num_threads);
     }
 
-    for (uint16_t num_threads = 1; num_threads <= max_threads; num_threads *= 2) {
-        std::cout << std::endl << "running LZ77 KKP2 algorithm (" << num_threads << " threads)" << std::flush;
-        uint64_t baseline_memory_alloc = malloc_count_current();
-        std::ofstream file_kkp2("fact_kkp2");
-        malloc_count_reset_peak();
-        auto t1 = now();
-        lz77::parallel_kkp2_factorizer().factorize(T.begin(), T.end(),
-            std::ostream_iterator<lz77::factor>(file_kkp2, ""), num_threads, "fact_kkp2_tmp");
-        auto t2 = now();
-        uint64_t num_factors = file_kkp2.tellp() / sizeof(lz77::factor);
-        uint64_t time = time_diff_ns(t1, t2);
-        uint64_t mem_peak = malloc_count_peak() - baseline_memory_alloc;
-        file_kkp2.close();
-        std::filesystem::remove("fact_kkp2");
-        log_algorithm("kkp2", time, mem_peak, num_factors, num_threads);
-    }
+    std::cout << std::endl << "running LZ77 KKP2 algorithm" << std::flush;
+    uint64_t baseline_memory_alloc = malloc_count_current();
+    std::ofstream file_kkp2("fact_kkp2");
+    malloc_count_reset_peak();
+    auto t1 = now();
+    lz77::kkp2_factorizer().factorize(T.begin(), T.end(),
+        std::ostream_iterator<lz77::factor>(file_kkp2, ""));
+    auto t2 = now();
+    uint64_t num_factors = file_kkp2.tellp() / sizeof(lz77::factor);
+    uint64_t time = time_diff_ns(t1, t2);
+    uint64_t mem_peak = malloc_count_peak() - baseline_memory_alloc;
+    file_kkp2.close();
+    std::filesystem::remove("fact_kkp2");
+    log_algorithm("kkp2", time, mem_peak, num_factors);
 
     return 0;
 }
