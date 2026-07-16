@@ -39,7 +39,6 @@
 #include <lz77_sss/data_structures/dynamic_range/semi_dynamic_square_grid.hpp>
 #include <lz77_sss/data_structures/parallel_rolling_hash_index_107.hpp>
 #include <lz77_sss/data_structures/rolling_hash_index_107.hpp>
-#include <lz77_sss/data_structures/rolling_hash_index_61.hpp>
 #include <lz77_sss/data_structures/sample_index/sample_index.hpp>
 #include <lz77_sss/data_structures/static_weighted_range/static_weighted_kd_tree.hpp>
 #include <lz77_sss/data_structures/static_weighted_range/static_weighted_square_grid.hpp>

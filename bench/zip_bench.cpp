@@ -230,16 +230,8 @@ int main(int argc, char** argv)
         + "/log_" + random_alphanumeric_string(10);
     tmp_file_path = std::filesystem::temp_directory_path().string() + "/" + text_name;
 
-    
-    bench("alz", true, 4);
-    bench("alz", true, 6);
     bench("alz", true, 8);
-    
-    bench("bsc", true, 32);
-    bench("bsc", true, 128);
-    bench("bsc", true, 512);
     bench("bsc", true, 2047);
-
     bench("lz4", false);
     bench("7z", true);
     bench("gzip", false);
