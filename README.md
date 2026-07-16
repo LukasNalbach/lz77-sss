@@ -97,6 +97,54 @@ int main()
 }
 ```
 
+## Reproducing the Measurements From the Paper
+The measurements in the paper were performed on the following three 50 GiB inputs:
+
+| File | Description | Link |
+|---|---|---|
+| chr19.50Gi | repeated human chromosome 19 | [drive.google.com](https://drive.google.com/file/d/1kErl5gp-e509Y34tLbrsRB4wDfM2gPHu/view?usp=sharing) |
+| sars2.50Gi | SARS-CoV-2 genomes | [drive.google.com](https://drive.google.com/file/d/132omEsl7xcjNuHaWiDd6HM233SWzwFcU/view?usp=sharing) |
+| dewiki.50Gi | German Wikipedia dump | [drive.google.com](https://drive.google.com/file/d/1y1ajO7JI3QVQAg_ud1rXkgRgihy0laQl/view?usp=sharing) |
+
+Download the three files (e.g. into a `texts/` folder), for example using [gdown](https://github.com/wkentaro/gdown):
+```shell
+pip install gdown
+mkdir -p texts
+gdown 1kErl5gp-e509Y34tLbrsRB4wDfM2gPHu -O texts/chr19.50Gi
+gdown 132omEsl7xcjNuHaWiDd6HM233SWzwFcU -O texts/sars2.50Gi
+gdown 1y1ajO7JI3QVQAg_ud1rXkgRgihy0laQl -O texts/dewiki.50Gi
+```
+
+Then build the CLI programs as described in [CLI Build Instructions](#cli-build-instructions) and run the benchmarks with the `lz77-sss-bench` and `zip-bench` executables in the `build/bench/` folder.
+
+### lz77-sss-bench
+Benchmarks all LZ77 algorithms on a given text.
+```shell
+build/bench/lz77-sss-bench <file> <max_threads> <result_file>
+```
+- `<file>`: input text (e.g. `texts/chr19.50Gi`)
+- `<max_threads>` (optional): maximum number of threads to use (default: all available)
+- `<result_file>` (optional): file the results are appended to
+
+### zip-bench
+Benchmarks lz4, xz, 7zip, gzip, bzip2, zstd and bsc on a given text.
+```shell
+build/bench/zip-bench <input_file> <min_threads> <max_threads> <result_file>
+```
+- `<input_file>`: input text (e.g. `texts/chr19.50Gi`)
+- `<min_threads>`: minimum number of threads to use
+- `<max_threads>`: maximum number of threads to use
+- `<result_file>` (optional): file the results are appended to
+
+### Running all measurements
+To reproduce the measurements for all three texts using all available threads and collecting the results in `results.txt`:
+```shell
+for text in texts/chr19.50Gi texts/sars2.50Gi texts/dewiki.50Gi; do
+    build/bench/lz77-sss-bench "$text" $(nproc) results.txt
+    build/bench/zip-bench "$text" 1 $(nproc) results.txt
+done
+```
+
 ### References
 [1] Jonas Ellert. Sublinear Time Lempel-Ziv (LZ77) Factorization. In String Processing and Information Retrieval (SPIRE) 2023, pages 171-187. ([springer.com](https://link.springer.com/chapter/10.1007/978-3-031-43980-3_14))
 
