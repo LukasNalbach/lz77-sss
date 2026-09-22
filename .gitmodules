@@ -7,3 +7,6 @@
 [submodule "external/googletest"]
 	path = external/googletest
 	url = https://github.com/google/googletest.git
+[submodule "external/alz"]
+	path = external/alz
+	url = https://github.com/pdinklag/alz.git
