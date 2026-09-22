@@ -1,0 +1,465 @@
+% IMPORT-DATA results results/results-zip.txt
+
+\hspace*{-5pt}%
+\begin{tikzpicture}[marks]
+\begin{groupplot}[
+    group style={group size=3 by 1, horizontal sep=22pt},
+    throughput_style, xmode=log, ymode=log,
+    width=140pt, height=84pt,
+    ytick={0.1,1,10,100,1000,10000},
+]
+
+\nextgroupplot[
+    title={sars2},
+    xmin=1.043e-05, xmax=7.191, ymin=3.177, ymax=3918,
+    ylabel={comp.\ thr.\ [MB/s]},
+    xlabel={},
+]
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name='sars2.50Gi' AND encoder='ssszip_bsc' AND type='compress'
+%% ORDER BY num_threads
+\addplot[ssszip_bsc] coordinates { (1.17445,28.9986) (1.17443,174.38) };
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name='sars2.50Gi' AND encoder='gzip' AND type='compress'
+%% ORDER BY num_threads
+\addplot[gzip] coordinates { (2.144e-05,9.75643) };
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name='sars2.50Gi' AND encoder='bzip2' AND type='compress'
+%% ORDER BY num_threads
+\addplot[bzip2] coordinates { (0.00016456,10.4455) };
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name='sars2.50Gi' AND encoder='xz' AND type='compress'
+%% ORDER BY num_threads
+\addplot[xz] coordinates { (0.00194744,5.75068) (0.0766994,173.296) };
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name='sars2.50Gi' AND encoder='lz4' AND type='compress'
+%% ORDER BY num_threads
+\addplot[lz4] coordinates { (0.000144,498.719) };
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name='sars2.50Gi' AND encoder='zstd' AND type='compress'
+%% ORDER BY num_threads
+\addplot[zstd] coordinates { (0.00073776,880.628) (0.00637016,2276.67) };
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name='sars2.50Gi' AND encoder='7z' AND type='compress'
+%% ORDER BY num_threads
+\addplot[7z] coordinates { (0.003874,5.4668) (0.0752062,80.6502) };
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name='sars2.50Gi' AND encoder='alz_8' AND type='compress'
+%% ORDER BY num_threads
+\addplot[alz_8] coordinates { (1.11094,34.5721) (1.11409,111.451) };
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name='sars2.50Gi' AND encoder='bsc_2047' AND type='compress'
+%% ORDER BY num_threads
+\addplot[bsc_2047] coordinates { (3.49951,11.9709) (3.49927,332.996) };
+
+\annotatenear{1.17445,28.9986, -8pt, -7pt, 490}
+\annotatenear{1.17443,174.38, 0pt, 9pt, 490}
+\annotatenear{2.144e-05,9.75643, 3pt, 8pt, 5.75}
+\annotatenear{0.00016456,10.4455, 3pt, 8pt, 18.4}
+\annotatenear{0.00194744,5.75068, -3pt, 8pt, 244}
+\annotatenear{0.0766994,173.296, 3pt, 8pt, 208}
+\annotatenear{0.000144,498.719, 3pt, 8pt, 2.98}
+\annotatenear{0.00073776,880.628, 0pt, 9pt, 55.6}
+\annotatenear{0.00637016,2276.67, 0pt, -9pt, 55.6}
+\annotatenear{0.003874,5.4668, 11pt, -2pt, 255}
+\annotatenear{0.0752062,80.6502, 3pt, -8pt, 235}
+\annotatenear{1.11094,34.5721, -10pt, 4pt, 614}
+\annotatenear{1.11409,111.451, -11pt, 0pt, 614}
+\annotatenear{3.49951,11.9709, -3pt, -8pt, 413}
+\annotatenear{3.49927,332.996, 2pt, 9pt, 413}
+
+\nextgroupplot[
+    title={chr19},
+    xmin=1.018e-05, xmax=9.655, ymin=0.485, ymax=3312,
+    xlabel={},
+]
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name='chr19.50Gi' AND encoder='ssszip_bsc' AND type='compress'
+%% ORDER BY num_threads
+\addplot[ssszip_bsc] coordinates { (1.19183,28.2124) (1.19183,155.297) };
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name='chr19.50Gi' AND encoder='gzip' AND type='compress'
+%% ORDER BY num_threads
+\addplot[gzip] coordinates { (2.128e-05,6.34436) };
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name='chr19.50Gi' AND encoder='bzip2' AND type='compress'
+%% ORDER BY num_threads
+\addplot[bzip2] coordinates { (0.00016448,12.387) };
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name='chr19.50Gi' AND encoder='xz' AND type='compress'
+%% ORDER BY num_threads
+\addplot[xz] coordinates { (0.00194712,1.05123) (0.082741,31.3711) };
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name='chr19.50Gi' AND encoder='lz4' AND type='compress'
+%% ORDER BY num_threads
+\addplot[lz4] coordinates { (0.000144,355.041) };
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name='chr19.50Gi' AND encoder='zstd' AND type='compress'
+%% ORDER BY num_threads
+\addplot[zstd] coordinates { (0.00084048,167.869) (0.00770056,1689.17) };
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name='chr19.50Gi' AND encoder='7z' AND type='compress'
+%% ORDER BY num_threads
+\addplot[7z] coordinates { (0.00387408,0.951095) (0.0805718,15.2577) };
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name='chr19.50Gi' AND encoder='alz_8' AND type='compress'
+%% ORDER BY num_threads
+\addplot[alz_8] coordinates { (1.10759,32.5531) (1.26674,47.2694) };
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name='chr19.50Gi' AND encoder='bsc_2047' AND type='compress'
+%% ORDER BY num_threads
+\addplot[bsc_2047] coordinates { (4.61909,6.87248) (4.61883,179.245) };
+
+\annotatenear{1.19183,28.2124, -4pt, -10pt, 441}
+\annotatenear{1.19183,155.297, 2pt, 9pt, 441}
+\annotatenear{2.128e-05,6.34436, 3pt, 8pt, 3.65}
+\annotatenear{0.00016448,12.387, 3pt, 8pt, 4.08}
+\annotatenear{0.00194712,1.05123, -2pt, 11pt, 4.67}
+\annotatenear{0.082741,31.3711, 3pt, 8pt, 4.64}
+\annotatenear{0.000144,355.041, 3pt, 8pt, 1.92}
+\annotatenear{0.00084048,167.869, -3pt, -8pt, 3.53}
+\annotatenear{0.00770056,1689.17, 2pt, -11pt, 3.53}
+\annotatenear{0.00387408,0.951095, 13pt, -2pt, 4.65}
+\annotatenear{0.0805718,15.2577, 2pt, -11pt, 4.64}
+\annotatenear{1.10759,32.5531, -11pt, 0pt, 386}
+\annotatenear{1.26674,47.2694, 11pt, 0pt, 386}
+\annotatenear{4.61909,6.87248, -3pt, -8pt, 15.7}
+\annotatenear{4.61883,179.245, 0pt, 9pt, 15.7}
+
+\nextgroupplot[
+    title={dewiki},
+    xmin=1.109e-05, xmax=2.272, ymin=5.384, ymax=2978,
+    xlabel={},
+]
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name='dewiki.50Gi' AND encoder='ssszip_bsc' AND type='compress'
+%% ORDER BY num_threads
+\addplot[ssszip_bsc] coordinates { (1.18002,29.8432) (1.18001,133.624) };
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name='dewiki.50Gi' AND encoder='gzip' AND type='compress'
+%% ORDER BY num_threads
+\addplot[gzip] coordinates { (2.136e-05,23.5029) };
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name='dewiki.50Gi' AND encoder='bzip2' AND type='compress'
+%% ORDER BY num_threads
+\addplot[bzip2] coordinates { (0.00016448,10.9694) };
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name='dewiki.50Gi' AND encoder='xz' AND type='compress'
+%% ORDER BY num_threads
+\addplot[xz] coordinates { (0.0019472,10.6628) (0.0767607,320.299) };
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name='dewiki.50Gi' AND encoder='lz4' AND type='compress'
+%% ORDER BY num_threads
+\addplot[lz4] coordinates { (0.000144,400.306) };
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name='dewiki.50Gi' AND encoder='zstd' AND type='compress'
+%% ORDER BY num_threads
+\addplot[zstd] coordinates { (0.00075856,1118.37) (0.00596008,1794.16) };
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name='dewiki.50Gi' AND encoder='7z' AND type='compress'
+%% ORDER BY num_threads
+\addplot[7z] coordinates { (0.00387408,8.93557) (0.0752878,158.841) };
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name='dewiki.50Gi' AND encoder='alz_8' AND type='compress'
+%% ORDER BY num_threads
+\addplot[alz_8] coordinates { (1.10656,35.8879) (1.10913,138.591) };
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name='dewiki.50Gi' AND encoder='bsc_2047' AND type='compress'
+%% ORDER BY num_threads
+\addplot[bsc_2047] coordinates { (0.984135,430.147) (0.984448,1147.33) };
+
+\annotatenear{1.18002,29.8432, -8pt, -7pt, 490}
+\annotatenear{1.18001,133.624, -13pt, -2pt, 490}
+\annotatenear{2.136e-05,23.5029, 3pt, 8pt, 3.32}
+\annotatenear{0.00016448,10.9694, 3pt, 8pt, 14.9}
+\annotatenear{0.0019472,10.6628, -3pt, 8pt, 391}
+\annotatenear{0.0767607,320.299, 3pt, 8pt, 251}
+\annotatenear{0.000144,400.306, 3pt, 8pt, 2.48}
+\annotatenear{0.00075856,1118.37, 3pt, 8pt, 106}
+\annotatenear{0.00596008,1794.16, -3pt, -8pt, 106}
+\annotatenear{0.00387408,8.93557, 11pt, 0pt, 364}
+\annotatenear{0.0752878,158.841, 2pt, -11pt, 304}
+\annotatenear{1.10656,35.8879, -10pt, 5pt, 526}
+\annotatenear{1.10913,138.591, -10pt, 5pt, 526}
+\annotatenear{0.984135,430.147, -10pt, 4pt, 461}
+\annotatenear{0.984448,1147.33, 3pt, 8pt, 461}
+
+\end{groupplot}
+\end{tikzpicture}
+
+\hspace*{-5pt}%
+\begin{tikzpicture}[marks]
+\begin{groupplot}[
+    group style={group size=3 by 1, horizontal sep=22pt},
+    throughput_style, xmode=log, ymode=log,
+    width=140pt, height=58pt,
+    ytick={0.1,1,10,100,1000,10000},
+]
+
+\nextgroupplot[
+    xmin=1.038e-05, xmax=6.357, ymin=19.4, ymax=1501,
+    ylabel={dec.\ thr.\ [MB/s]},
+    xlabel={peak memory consumption [bytes/$n$]},
+]
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name LIKE 'sars2.50Gi%' AND encoder='ssszip_bsc' AND type='decompress'
+\addplot[ssszip_bsc] coordinates { (0.0624046,253.332) };
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name LIKE 'sars2.50Gi%' AND encoder='gzip' AND type='decompress'
+\addplot[gzip] coordinates { (2.12e-05,191.359) };
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name LIKE 'sars2.50Gi%' AND encoder='bzip2' AND type='decompress'
+\addplot[bzip2] coordinates { (8.264e-05,39.6943) };
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name LIKE 'sars2.50Gi%' AND encoder='xz' AND type='decompress'
+\addplot[xz] coordinates { (0.00020648,580.064) };
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name LIKE 'sars2.50Gi%' AND encoder='lz4' AND type='decompress'
+\addplot[lz4] coordinates { (0.00014408,604.074) };
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name LIKE 'sars2.50Gi%' AND encoder='zstd' AND type='decompress'
+\addplot[zstd] coordinates { (8.208e-05,904.648) };
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name LIKE 'sars2.50Gi%' AND encoder='7z' AND type='decompress'
+\addplot[7z] coordinates { (0.00045384,442.903) };
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name LIKE 'sars2.50Gi%' AND encoder='alz_8' AND type='decompress'
+\addplot[alz_8] coordinates { (0.138878,613.107) };
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name LIKE 'sars2.50Gi%' AND encoder='bsc_2047' AND type='decompress'
+\addplot[bsc_2047] coordinates { (3.11346,32.2027) };
+
+\annotatenear{0.0624046,253.332, -3pt, 8pt, 490}
+\annotatenear{2.12e-05,191.359, 0pt, 9pt, 5.75}
+\annotatenear{8.264e-05,39.6943, 3pt, 8pt, 18.4}
+\annotatenear{0.00020648,580.064, 6pt, 10pt, 244}
+\annotatenear{0.00014408,604.074, -6pt, -10pt, 2.98}
+\annotatenear{8.208e-05,904.648, -13pt, 2pt, 55.6}
+\annotatenear{0.00045384,442.903, -3pt, -8pt, 255}
+\annotatenear{0.138878,613.107, 3pt, -8pt, 614}
+\annotatenear{3.11346,32.2027, 2pt, 9pt, 413}
+
+\nextgroupplot[
+    xmin=1.012e-05, xmax=9.383, ymin=12.14, ymax=896.6,
+    xlabel={peak memory consumption [bytes/$n$]},
+]
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name LIKE 'chr19.50Gi%' AND encoder='ssszip_bsc' AND type='decompress'
+\addplot[ssszip_bsc] coordinates { (0.121676,330.728) };
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name LIKE 'chr19.50Gi%' AND encoder='gzip' AND type='decompress'
+\addplot[gzip] coordinates { (2.112e-05,156.143) };
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name LIKE 'chr19.50Gi%' AND encoder='bzip2' AND type='decompress'
+\addplot[bzip2] coordinates { (8.256e-05,27.3226) };
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name LIKE 'chr19.50Gi%' AND encoder='xz' AND type='decompress'
+\addplot[xz] coordinates { (0.00020624,88.3222) };
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name LIKE 'chr19.50Gi%' AND encoder='lz4' AND type='decompress'
+\addplot[lz4] coordinates { (0.000144,540.28) };
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name LIKE 'chr19.50Gi%' AND encoder='zstd' AND type='decompress'
+\addplot[zstd] coordinates { (0.00010248,520.749) };
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name LIKE 'chr19.50Gi%' AND encoder='7z' AND type='decompress'
+\addplot[7z] coordinates { (0.00072008,89.6062) };
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name LIKE 'chr19.50Gi%' AND encoder='alz_8' AND type='decompress'
+\addplot[alz_8] coordinates { (0.202066,429.313) };
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name LIKE 'chr19.50Gi%' AND encoder='bsc_2047' AND type='decompress'
+\addplot[bsc_2047] coordinates { (4.49449,20.1393) };
+
+\annotatenear{0.121676,330.728, -3pt, -8pt, 441}
+\annotatenear{2.112e-05,156.143, 3pt, 8pt, 3.65}
+\annotatenear{8.256e-05,27.3226, -2pt, 9pt, 4.08}
+\annotatenear{0.00020624,88.3222, 3pt, -8pt, 4.67}
+\annotatenear{0.000144,540.28, 6pt, -10pt, 1.92}
+\annotatenear{0.00010248,520.749, -11pt, 2pt, 3.53}
+\annotatenear{0.00072008,89.6062, 3pt, 8pt, 4.65}
+\annotatenear{0.202066,429.313, 11pt, 0pt, 386}
+\annotatenear{4.49449,20.1393, 0pt, 9pt, 15.7}
+
+\nextgroupplot[
+    xmin=1.109e-05, xmax=1.841, ymin=25.09, ymax=1525,
+    xlabel={peak memory consumption [bytes/$n$]},
+]
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name LIKE 'dewiki.50Gi%' AND encoder='ssszip_bsc' AND type='decompress'
+\addplot[ssszip_bsc] coordinates { (0.0649919,354.853) };
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name LIKE 'dewiki.50Gi%' AND encoder='gzip' AND type='decompress'
+\addplot[gzip] coordinates { (2.112e-05,152.502) };
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name LIKE 'dewiki.50Gi%' AND encoder='bzip2' AND type='decompress'
+\addplot[bzip2] coordinates { (8.256e-05,41.6419) };
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name LIKE 'dewiki.50Gi%' AND encoder='xz' AND type='decompress'
+\addplot[xz] coordinates { (0.0002064,620.969) };
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name LIKE 'dewiki.50Gi%' AND encoder='lz4' AND type='decompress'
+\addplot[lz4] coordinates { (0.000144,616.731) };
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name LIKE 'dewiki.50Gi%' AND encoder='zstd' AND type='decompress'
+\addplot[zstd] coordinates { (8.2e-05,918.609) };
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name LIKE 'dewiki.50Gi%' AND encoder='7z' AND type='decompress'
+\addplot[7z] coordinates { (0.00045344,455.774) };
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name LIKE 'dewiki.50Gi%' AND encoder='alz_8' AND type='decompress'
+\addplot[alz_8] coordinates { (0.107712,386.333) };
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name LIKE 'dewiki.50Gi%' AND encoder='bsc_2047' AND type='decompress'
+\addplot[bsc_2047] coordinates { (0.967083,476.11) };
+
+\annotatenear{0.0649919,354.853, -3pt, 8pt, 490}
+\annotatenear{2.112e-05,152.502, 3pt, 8pt, 3.32}
+\annotatenear{8.256e-05,41.6419, 3pt, 8pt, 14.9}
+\annotatenear{0.0002064,620.969, 2pt, 9pt, 391}
+\annotatenear{0.000144,616.731, -3pt, -8pt, 2.48}
+\annotatenear{8.2e-05,918.609, -11pt, 2pt, 106}
+\annotatenear{0.00045344,455.774, -3pt, -8pt, 364}
+\annotatenear{0.107712,386.333, 3pt, 8pt, 526}
+\annotatenear{0.967083,476.11, 2pt, 9pt, 461}
+
+\end{groupplot}
+\end{tikzpicture}
+
+\centering
+\vspace*{0.15cm}
+\begin{tikzpicture}[legendmarks]
+\begin{axis}[legend,legend columns=10]
+
+\addplot[ssszip_bsc] coordinates { (0,0) };
+\addlegendentry{\texttt{ssszip-bsc}};
+\addplot[gzip] coordinates { (0,0) };
+\addlegendentry{\texttt{gzip}};
+\addplot[bzip2] coordinates { (0,0) };
+\addlegendentry{\texttt{bzip2}};
+\addplot[xz] coordinates { (0,0) };
+\addlegendentry{\texttt{xz}};
+\addplot[lz4] coordinates { (0,0) };
+\addlegendentry{\texttt{lz4}};
+\addplot[zstd] coordinates { (0,0) };
+\addlegendentry{\texttt{zstd}};
+\addplot[7z] coordinates { (0,0) };
+\addlegendentry{\texttt{7z}};
+\addplot[alz_8] coordinates { (0,0) };
+\addlegendentry{\texttt{alz-bsc}};
+\addplot[bsc_2047] coordinates { (0,0) };
+\addlegendentry{\texttt{bsc}};
+
+\end{axis}
+\end{tikzpicture}
+\vspace*{-0.1cm}
+\caption{Compression and decompression throughput versus peak memory consumption. The top row shows compression, the bottom row decompression.}
+\label{fig:compress-decompress}

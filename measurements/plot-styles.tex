@@ -1,0 +1,159 @@
+% Colours, plot styles and annotation macros used by charts/*.tex and tables/*.tex.
+% Taken verbatim from the paper source (definitions.tex). Include this file if you want
+% to use one of the charts in a document of your own.
+
+\usepackage{pgfplots}
+\usepgfplotslibrary{groupplots}
+\usepackage{tikz}
+\usepackage{subcaption}
+\usepackage{xspace}
+
+\definecolor{my-dark-red}{RGB}{183, 28, 28}
+\definecolor{my-red}{RGB}{244,67,54}
+\definecolor{my-pink}{RGB}{233,30,99}
+\definecolor{my-purple}{RGB}{156,39,176}
+\definecolor{my-deep-purple}{RGB}{103,58,183}
+\definecolor{my-indigo}{RGB}{63,81,181}
+\definecolor{my-blue}{RGB}{33,150,243}
+\definecolor{my-light-blue}{RGB}{3,169,244}
+\definecolor{my-cyan}{RGB}{0,188,212}
+\definecolor{my-teal}{RGB}{0,150,136}
+\definecolor{my-green}{RGB}{76,175,80}
+\definecolor{my-light-green}{RGB}{139,195,74}
+\definecolor{my-lime}{RGB}{205,220,57}
+\definecolor{my-yellow}{RGB}{255,235,59}
+\definecolor{my-amber}{RGB}{255,193,7}
+\definecolor{my-orange}{RGB}{255,152,0}
+\definecolor{my-deep-orange}{RGB}{255,87,34}
+\definecolor{my-brown}{RGB}{121,85,72}
+\definecolor{my-grey}{RGB}{120,120,120}
+\definecolor{my-blue-grey}{RGB}{96,125,139}
+\definecolor{my-lipics-grey}{rgb}{0.6,0.6,0.61}
+
+\tikzset{
+  empty/.style={mark=x,every mark/.append style={mark size=0.0pt}},
+  3_aprx/.style={mark=diamond*,my-green,semithick,draw=black,every mark/.append style={mark size=3.2pt}},
+  exact/.style={mark=square*,my-blue,semithick,draw=black,every mark/.append style={mark size=2.5pt}},
+  exact_smpl/.style={mark=*,my-yellow,semithick,draw=black,every mark/.append style={mark size=2.5pt}},
+  lpf/.style={mark=triangle*,my-red,semithick,draw=black,every mark/.append style={mark size=3.2pt}},
+  kkp2/.style={mark=pentagon*,my-purple,semithick,draw=black,every mark/.append style={mark size=2.8pt}},
+  pfp/.style={mark=pentagon*,my-purple,semithick,draw=black,every mark/.append style={mark size=2.5pt}},
+  alz4/.style={mark=halfsquare*,my-deep-orange,semithick,draw=black,every mark/.append style={mark size=2.5pt}},
+  alz8/.style={mark=halfsquare right*,my-deep-orange,semithick,draw=black,every mark/.append style={mark size=2.5pt}},
+  alz12/.style={mark=halfsquare left*,my-deep-orange,semithick,draw=black,every mark/.append style={mark size=2.5pt}},
+  lz77topk/.style={mark=halfdiamond*,my-deep-orange,semithick,draw=black,every mark/.append style={mark size=3.2pt}},
+  zstd/.style={mark=square*,my-yellow,semithick,draw=black,every mark/.append style={mark size=2.5pt}},
+  gzip/.style={mark=triangle*,my-red,semithick,draw=black,every mark/.append style={mark size=3.2pt}},
+  bzip2/.style={mark=*,my-indigo,semithick,draw=black,every mark/.append style={mark size=2.85pt}},
+  xz/.style={mark=asterisk,my-light-blue,thick},
+  7z/.style={mark=Mercedes star,my-light-green,thick},
+  lz4/.style={mark=+,my-deep-orange,thick},
+  ssszip_bsc/.style={mark=diamond*,my-green,semithick,draw=black,every mark/.append style={mark size=3.2pt}},
+  alz_8/.style={mark=pentagon*,my-pink,semithick,draw=black,every mark/.append style={mark size=2.8pt}},
+  alz_6/.style={mark=pentagon*,my-pink,semithick,draw=black,every mark/.append style={mark size=2.8pt}},
+  bsc_2047/.style={mark=x,my-grey,semithick,draw=black,every mark/.append style={mark size=2.8pt}},
+  marks/.style={
+    every mark/.append style={mark size=3pt},
+  },
+  legendmarks/.style={
+    marks,
+    every plot/.append style={only marks}
+  },
+  chart/.style={
+    legend label/.style={font={\footnotesize},anchor=west,align=left},
+    legend box/.style={rectangle, draw, minimum size=5pt},
+    axis/.style={black,semithick,->},
+    axis label/.style={anchor=east,font={\footnotesize}},
+  }
+}
+
+\pgfplotsset{
+  title style={yshift=-5pt, font=\bfseries, inner sep=0pt},
+  major grid style={thin,dotted,color=my-blue-grey},
+  minor grid style={thin,dotted,color=my-grey!45},
+  ymajorgrids,
+  yminorgrids,
+  xmajorgrids,
+  xminorgrids,
+  every tick label/.append style={font=\footnotesize},
+  every axis label/.append style={font=\footnotesize},
+  legend cell align=left,
+  legend pos=outer north east,
+  scaled x ticks=false,
+  scaled y ticks=false,
+  max space between ticks=30,
+  minor tick num=2,
+  every axis/.append style={
+    line width=0.5pt,
+    tick style={
+      line cap=round,
+      thin,
+      major tick length=4pt,
+      minor tick length=2pt,
+    },
+  },
+  xticklabel style={
+    /pgf/number format/fixed,
+    /pgf/number format/precision=3
+  },
+  yticklabel style={
+    /pgf/number format/fixed,
+    /pgf/number format/precision=3
+  },
+  % scale only axis => width/height are the PLOT-AREA (frame) size, set per figure in the
+  % generators.  This makes the frame size deterministic (== the geometry the label placer
+  % in chartlib.py uses) and, because the y-label is rotated, keeps the frame position
+  % independent of the label text, so Figure 5.1 and 5.2 align column-for-column.
+  throughput_style/.style={
+    scale only axis,
+    ylabel near ticks,          % put the y-label right next to the tick labels (no big gap)
+    xlabel near ticks,
+    align=center,
+    title style={at={(0.5,1.05)}},
+    max space between ticks=20,
+  },
+  % Standalone legend: the axis itself must occupy NO space, otherwise it reserves a
+  % blank box above the legend. hide axis + a 1pt "scale only axis" box does that, so the
+  % tikzpicture's bounding box is essentially just the legend node.
+  legend/.style={
+    hide axis,
+    scale only axis,
+    width=1pt,
+    height=1pt,
+    xmin=0,xmax=1,
+    ymin=0,ymax=1,
+    legend style={
+        font=\footnotesize,
+        anchor=center,
+        at={(0.5,0.5)},
+        /tikz/every even column/.append style={column sep=0.1cm}
+    },
+  },
+}
+
+\newcommand{\ssszip}{\texttt{ssszip}\xspace}
+
+\newcommand\annotate[1]{\drawannotate(#1)}
+\def\drawannotate(#1,#2,#3){
+    \path (axis cs:#1,#2)-- +(10pt,4pt) node[rotate=60,scale=.3,pos=.25] {\phantom{v/}} node[font=\tiny] {#3};
+}
+
+% comp_ratio label placed at a screen-space offset from the data point (#1,#2).
+% \annotatenear: no leader (label sits right next to its marker).
+% \annotatelead: thin grey leader line from the marker to the offset label.
+% Both give the label a white backing so it stays legible over grid lines / plot lines.
+\newcommand\annotatenear[1]{\drawannotatenear(#1)}
+\def\drawannotatenear(#1,#2,#3,#4,#5){%
+    \path (axis cs:#1,#2) -- +(#3,#4)
+        node[font=\tiny,inner sep=0.7pt,text=black,fill=white,fill opacity=0.9,text opacity=1]{#5};%
+}
+\newcommand\annotatelead[1]{\drawannotatelead(#1)}
+\def\drawannotatelead(#1,#2,#3,#4,#5){%
+    \draw[my-grey,line width=0.2pt] (axis cs:#1,#2) -- +(#3,#4)
+        node[font=\tiny,inner sep=0.7pt,text=black,fill=white,fill opacity=0.9,text opacity=1]{#5};%
+}
+
+\newcommand\annotateoffset[1]{\drawannotateoffset(#1)}
+\def\drawannotateoffset(#1,#2,#3,#4,#5){
+    \path (axis cs:#1,#2)-- +(#3,#4) node[rotate=60,scale=.3,pos=.25] {\phantom{v/}} node[font=\tiny] {#5};
+}

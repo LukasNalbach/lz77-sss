@@ -1,0 +1,174 @@
+% IMPORT-DATA results results/results-lz.txt
+
+\hspace*{-5pt}%
+\begin{tikzpicture}[marks]
+\begin{groupplot}[
+    group style={group size=3 by 1, horizontal sep=22pt},
+    throughput_style, xmode=log, ymode=log,
+    width=140pt, height=84pt,
+    xtick={0.01,0.1,1,10,100}, ytick={0.01,0.1,1,10,100,1000},
+]
+
+\nextgroupplot[
+    title={sars2},
+    xmin=0.7759, xmax=25.73, ymin=0.449, ymax=326,
+    ylabel={throughput [MB/s]},
+    xlabel={peak memory consumption [bytes/$n$]},
+]
+
+%% SELECT ((mem_peak + n)/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name='sars2.50Gi' AND alg='lz77_sss' AND phr_mode=2 AND fact_mode=1 AND transf_mode=0
+%% ORDER BY num_threads
+\addplot[3_aprx] coordinates { (1.17445,30.9947) (1.17444,196.409) };
+
+%% SELECT ((mem_peak + n)/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name='sars2.50Gi' AND alg='lz77_sss' AND phr_mode=2 AND fact_mode=1 AND transf_mode=3
+%% ORDER BY num_threads
+\addplot[exact] coordinates { (1.31193,0.745169) (1.31193,15.6224) };
+
+%% SELECT ((mem_peak + n)/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name='sars2.50Gi' AND alg='lz77_sss' AND phr_mode=2 AND fact_mode=1 AND transf_mode=2
+%% ORDER BY num_threads
+\addplot[exact_smpl] coordinates { (1.77174,1.23195) (1.80272,31.827) };
+
+%% SELECT ((mem_peak + n)/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name='sars2.50Gi' AND alg='lpf'
+%% ORDER BY num_threads
+\addplot[lpf] coordinates { (17,2.54177) (17.0004,14.4456) };
+
+%% SELECT ((mem_peak + n)/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name='sars2.50Gi' AND alg='kkp2'
+%% ORDER BY num_threads
+\addplot[kkp2] coordinates { (17,2.03275) };
+
+\annotatenear{1.17445,30.9947, -10pt, 5pt, 1.40}
+\annotatenear{1.17444,196.409, 13pt, 0pt, 1.40}
+\annotatenear{1.31193,0.745169, -11pt, 0pt, 1.00}
+\annotatenear{1.31193,15.6224, -12pt, -4pt, 1.00}
+\annotatenear{1.77174,1.23195, 0pt, -9pt, 1.00}
+\annotatenear{1.80272,31.827, 3pt, 8pt, 1.00}
+\annotatenear{17,2.54177, -8pt, 3pt, 1.00}
+\annotatenear{17.0004,14.4456, 3pt, 8pt, 1.00}
+\annotatenear{17,2.03275, -3pt, -8pt, 1.00}
+
+\nextgroupplot[
+    title={chr19},
+    xmin=0.7874, xmax=25.73, ymin=0.4731, ymax=155.4,
+    xlabel={peak memory consumption [bytes/$n$]},
+]
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name='chr19.50Gi' AND alg='lz77_sss' AND phr_mode=2 AND fact_mode=1 AND transf_mode=0
+%% ORDER BY num_threads
+\addplot[3_aprx] coordinates { (1.19183,33.3941) (1.19183,93.6366) };
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name='chr19.50Gi' AND alg='lz77_sss' AND phr_mode=2 AND fact_mode=1 AND transf_mode=3
+%% ORDER BY num_threads
+\addplot[exact] coordinates { (1.37517,0.785167) (1.37658,16.0962) };
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name='chr19.50Gi' AND alg='lz77_sss' AND phr_mode=2 AND fact_mode=1 AND transf_mode=2
+%% ORDER BY num_threads
+\addplot[exact_smpl] coordinates { (1.87719,2.21895) (1.87864,28.9618) };
+
+%% SELECT ((mem_peak + n)/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name='chr19.50Gi' AND alg='lpf'
+%% ORDER BY num_threads
+\addplot[lpf] coordinates { (17,2.02384) (17.0004,20.5907) };
+
+%% SELECT ((mem_peak + n)/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name='chr19.50Gi' AND alg='kkp2'
+%% ORDER BY num_threads
+\addplot[kkp2] coordinates { (17,2.06581) };
+
+\annotatenear{1.19183,33.3941, -8pt, -7pt, 2.02}
+\annotatenear{1.19183,93.6366, 13pt, 0pt, 2.02}
+\annotatenear{1.37517,0.785167, -11pt, 0pt, 1.00}
+\annotatenear{1.37658,16.0962, -11pt, -7pt, 1.00}
+\annotatenear{1.87719,2.21895, -2pt, -9pt, 1.00}
+\annotatenear{1.87864,28.9618, 3pt, 8pt, 1.00}
+\annotatenear{17,2.02384, 6pt, -10pt, 1.00}
+\annotatenear{17.0004,20.5907, 3pt, 8pt, 1.00}
+\annotatenear{17,2.06581, -8pt, -10pt, 1.00}
+
+\nextgroupplot[
+    title={dewiki},
+    xmin=0.7796, xmax=25.73, ymin=0.8532, ymax=225.3,
+    xlabel={peak memory consumption [bytes/$n$]},
+]
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name='dewiki.50Gi' AND alg='lz77_sss' AND phr_mode=2 AND fact_mode=1 AND transf_mode=0
+%% ORDER BY num_threads
+\addplot[3_aprx] coordinates { (1.18002,43.6005) (1.18002,135.782) };
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name='dewiki.50Gi' AND alg='lz77_sss' AND phr_mode=2 AND fact_mode=1 AND transf_mode=3
+%% ORDER BY num_threads
+\addplot[exact] coordinates { (1.33332,1.41595) (1.3362,32.2297) };
+
+%% SELECT (mem_peak/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name='dewiki.50Gi' AND alg='lz77_sss' AND phr_mode=2 AND fact_mode=1 AND transf_mode=2
+%% ORDER BY num_threads
+\addplot[exact_smpl] coordinates { (1.81917,4.47431) (1.8221,58.8246) };
+
+%% SELECT ((mem_peak + n)/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name='dewiki.50Gi' AND alg='lpf'
+%% ORDER BY num_threads
+\addplot[lpf] coordinates { (17,2.29106) (17.0004,20.1883) };
+
+%% SELECT ((mem_peak + n)/(1.0*n)) AS x, throughput AS y
+%% FROM results
+%% WHERE text_name='dewiki.50Gi' AND alg='kkp2'
+%% ORDER BY num_threads
+\addplot[kkp2] coordinates { (17,2.43683) };
+
+\annotatenear{1.18002,43.6005, -10pt, 5pt, 1.44}
+\annotatenear{1.18002,135.782, 13pt, 2pt, 1.44}
+\annotatenear{1.33332,1.41595, 11pt, 0pt, 1.00}
+\annotatenear{1.3362,32.2297, -10pt, -11pt, 1.00}
+\annotatenear{1.81917,4.47431, -3pt, -8pt, 1.00}
+\annotatenear{1.8221,58.8246, 13pt, 0pt, 1.00}
+\annotatenear{17,2.29106, 0pt, -11pt, 1.00}
+\annotatenear{17.0004,20.1883, 3pt, 8pt, 1.00}
+\annotatenear{17,2.43683, -10pt, 8pt, 1.00}
+
+\end{groupplot}
+\end{tikzpicture}
+
+\centering
+\vspace*{0.15cm}
+\begin{tikzpicture}[legendmarks]
+\begin{axis}[legend,legend columns=5]
+
+\addplot[3_aprx] coordinates { (0,0) };
+\addlegendentry{\texttt{sss-3aprx}};
+\addplot[exact] coordinates { (0,0) };
+\addlegendentry{\texttt{sss-exact}};
+\addplot[exact_smpl] coordinates { (0,0) };
+\addlegendentry{\texttt{sss-exact-smpl}};
+\addplot[lpf] coordinates { (0,0) };
+\addlegendentry{\texttt{LPF}};
+\addplot[kkp2] coordinates { (0,0) };
+\addlegendentry{\texttt{KKP2}};
+
+\end{axis}
+\end{tikzpicture}
+\vspace*{-0.1cm}
+\caption{LZ77 factorization throughput versus peak memory consumption. Each point is annotated with the approximation ratio $z_{\mathrm{alg}}/z$.}
+\label{fig:lz}
