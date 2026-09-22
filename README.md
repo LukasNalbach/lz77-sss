@@ -2,7 +2,7 @@
 This repository contains implementations of Lempel-Ziv 77 (LZ77) algorithms [1] based on string synchronizing sets [2].
 
 ## CLI Build Instructions
-This implementation has been tested on Ubuntu 24.04 with gcc-12, g++-12, zstd, p7zip-full, gzip, bzip2, xz-utils, lz4, libgtest-dev, libtbb-dev and libomp-dev installed. [bsc](https://github.com/IlyaGrebnov/libbsc) has to be built and installed manually.
+This implementation has been tested on Ubuntu 24.04 with time, gcc-12, g++-12, zstd, p7zip-full, gzip, bzip2, xz-utils, lz4, libgtest-dev, libtbb-dev and libomp-dev installed. [bsc](https://github.com/IlyaGrebnov/libbsc) has to be built and installed manually.
 
 ```shell
 git clone --recurse-submodules https://github.com/LukasNalbach/lz77-sss.git
