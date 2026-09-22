@@ -1,0 +1,117 @@
+RESULT text_name=sars2.50Gi type=compress num_threads=1 n=50000000000 encoder=lz4 time=100256801381 throughput=498.719 mem_peak=7200000 bytes_comp=16784613861 comp_ratio=2.97892
+RESULT text_name=sars2.50Gi type=decompress n=50000000000 encoder=lz4 time=82771349831 throughput=604.074 mem_peak=7204000 bytes_comp=16784613861 comp_ratio=2.97892
+RESULT text_name=sars2.50Gi type=compress num_threads=1 n=50000000000 encoder=7z time=9146114802146 throughput=5.4668 mem_peak=193700000 bytes_comp=195727619 comp_ratio=255.457
+RESULT text_name=sars2.50Gi type=decompress n=50000000000 encoder=7z time=112891643526 throughput=442.903 mem_peak=22692000 bytes_comp=195727619 comp_ratio=255.457
+RESULT text_name=sars2.50Gi type=compress num_threads=32 n=50000000000 encoder=7z time=619961559235 throughput=80.6502 mem_peak=3760312000 bytes_comp=212329161 comp_ratio=235.483
+RESULT text_name=sars2.50Gi type=compress num_threads=1 n=50000000000 encoder=gzip time=5124825250668 throughput=9.75643 mem_peak=1072000 bytes_comp=8695542036 comp_ratio=5.75007
+RESULT text_name=sars2.50Gi type=decompress n=50000000000 encoder=gzip time=261288577761 throughput=191.359 mem_peak=1060000 bytes_comp=8695542036 comp_ratio=5.75007
+RESULT text_name=sars2.50Gi type=compress num_threads=1 n=50000000000 encoder=bzip2 time=4786741015357 throughput=10.4455 mem_peak=8228000 bytes_comp=2713592385 comp_ratio=18.4258
+RESULT text_name=sars2.50Gi type=decompress n=50000000000 encoder=bzip2 time=1259627630608 throughput=39.6943 mem_peak=4132000 bytes_comp=2713592385 comp_ratio=18.4258
+RESULT text_name=sars2.50Gi type=compress num_threads=1 n=50000000000 encoder=xz time=8694623510233 throughput=5.75068 mem_peak=97372000 bytes_comp=204977564 comp_ratio=243.929
+RESULT text_name=sars2.50Gi type=decompress n=50000000000 encoder=xz time=86197334583 throughput=580.064 mem_peak=10324000 bytes_comp=204977564 comp_ratio=243.929
+RESULT text_name=sars2.50Gi type=compress num_threads=32 n=50000000000 encoder=xz time=288523723965 throughput=173.296 mem_peak=3834968000 bytes_comp=240784856 comp_ratio=207.654
+RESULT text_name=sars2.50Gi type=compress num_threads=1 n=50000000000 encoder=zstd time=56777642808 throughput=880.628 mem_peak=36888000 bytes_comp=899314494 comp_ratio=55.5979
+RESULT text_name=sars2.50Gi type=decompress n=50000000000 encoder=zstd time=55270118865 throughput=904.648 mem_peak=4104000 bytes_comp=899314494 comp_ratio=55.5979
+RESULT text_name=sars2.50Gi type=compress num_threads=32 n=50000000000 encoder=zstd time=21961888839 throughput=2276.67 mem_peak=318508000 bytes_comp=899314494 comp_ratio=55.5979
+RESULT text_name=sars2.50Gi type=compress num_threads=1 n=50000000000 encoder=alz_6 time=1986961655880 throughput=25.164 mem_peak=73752040000 bytes_comp=85816728 comp_ratio=582.637
+RESULT text_name=sars2.50Gi type=decompress n=50000000000 encoder=alz_6 time=73649639777 throughput=678.89 mem_peak=2574024000 bytes_comp=85816728 comp_ratio=582.637
+RESULT text_name=sars2.50Gi type=compress num_threads=1 n=50000000000 encoder=alz_8 time=1446251815896 throughput=34.5721 mem_peak=55546932000 bytes_comp=81483370 comp_ratio=613.622
+RESULT text_name=sars2.50Gi type=decompress n=50000000000 encoder=alz_8 time=81551899365 throughput=613.107 mem_peak=6943904000 bytes_comp=81483278 comp_ratio=613.623
+RESULT text_name=sars2.50Gi type=compress num_threads=1 n=50000000000 encoder=bsc_32 time=1600241439750 throughput=31.2453 mem_peak=17392880000 bytes_comp=476738670 comp_ratio=104.879
+RESULT text_name=sars2.50Gi type=decompress n=50000000000 encoder=bsc_32 time=590635017109 throughput=84.6546 mem_peak=13856024000 bytes_comp=476738670 comp_ratio=104.879
+RESULT text_name=sars2.50Gi type=compress num_threads=1 n=50000000000 encoder=bsc_128 time=1779899381402 throughput=28.0915 mem_peak=43488664000 bytes_comp=268802214 comp_ratio=186.01
+RESULT text_name=sars2.50Gi type=decompress n=50000000000 encoder=bsc_128 time=644151414451 throughput=77.6215 mem_peak=54590916000 bytes_comp=268802214 comp_ratio=186.01
+RESULT text_name=sars2.50Gi type=compress num_threads=1 n=50000000000 encoder=bsc_512 time=2038001717492 throughput=24.5338 mem_peak=96336572000 bytes_comp=167147596 comp_ratio=299.137
+RESULT text_name=sars2.50Gi type=decompress n=50000000000 encoder=bsc_512 time=1137579712124 throughput=43.953 mem_peak=157959508000 bytes_comp=167147596 comp_ratio=299.137
+RESULT text_name=sars2.50Gi type=compress num_threads=1 n=50000000000 encoder=bsc_2047 time=4176786292056 throughput=11.9709 mem_peak=174975540000 bytes_comp=121143540 comp_ratio=412.734
+RESULT text_name=sars2.50Gi type=decompress n=50000000000 encoder=bsc_2047 time=1552667177658 throughput=32.2027 mem_peak=155673076000 bytes_comp=121143540 comp_ratio=412.734
+RESULT text_name=sars2.50Gi type=compress num_threads=32 n=50000000000 encoder=alz_6 time=548654862863 throughput=91.132 mem_peak=74020568000 bytes_comp=85816788 comp_ratio=582.637
+RESULT text_name=sars2.50Gi type=compress num_threads=32 n=50000000000 encoder=alz_8 time=448625847171 throughput=111.451 mem_peak=55704324000 bytes_comp=81483278 comp_ratio=613.623
+RESULT text_name=sars2.50Gi type=compress num_threads=32 n=50000000000 encoder=bsc_32 time=76443339670 throughput=654.079 mem_peak=17262596000 bytes_comp=476738670 comp_ratio=104.879
+RESULT text_name=sars2.50Gi type=compress num_threads=32 n=50000000000 encoder=bsc_128 time=92668888201 throughput=539.555 mem_peak=53558116000 bytes_comp=268802214 comp_ratio=186.01
+RESULT text_name=sars2.50Gi type=compress num_threads=32 n=50000000000 encoder=bsc_512 time=111717608078 throughput=447.557 mem_peak=105419644000 bytes_comp=167147596 comp_ratio=299.137
+RESULT text_name=sars2.50Gi type=compress num_threads=32 n=50000000000 encoder=bsc_2047 time=150152130276 throughput=332.996 mem_peak=174963556000 bytes_comp=121143540 comp_ratio=412.734
+RESULT text_name=sars2.50Gi type=compress num_threads=1 n=50000000000 encoder=ssszip_zstd read_t=44774032210 time_encode=3877543208 mem_peak_gapped=58722431747 mem_peak_encode=39960000 rel_len_gaps=0.0101784 time=1595057203251 throughput=31.3468 mem_peak=58722431747 bytes_comp=170995262 comp_ratio=292.406
+RESULT text_name=sars2.50Gi type=decompress n=50000000000 encoder=ssszip_zstd time=142766112935 throughput=350.223 mem_peak=5144000 bytes_comp=170995262 comp_ratio=292.406
+RESULT text_name=sars2.50Gi type=compress num_threads=32 n=50000000000 encoder=ssszip_zstd read_t=36437235622 time_encode=557474411 mem_peak_gapped=58721579921 mem_peak_encode=335876000 rel_len_gaps=0.0101784 time=251794102538 throughput=198.575 mem_peak=58721579921 bytes_comp=171013251 comp_ratio=292.375
+RESULT text_name=sars2.50Gi type=compress num_threads=1 n=50000000000 encoder=ssszip_bsc read_t=36445277503 time_encode=91912350457 mem_peak_gapped=58722431717 mem_peak_encode=3160220000 rel_len_gaps=0.0101784 time=1724219342523 throughput=28.9986 mem_peak=58722431717 bytes_comp=101993952 comp_ratio=490.225
+RESULT text_name=sars2.50Gi.decompressed type=decompress n=50000000000 encoder=ssszip_bsc time=197369240019 throughput=253.332 mem_peak=3120228000 bytes_comp=101993952 comp_ratio=490.225
+RESULT text_name=sars2.50Gi type=compress num_threads=32 n=50000000000 encoder=ssszip_bsc read_t=36358041525 time_encode=43301778577 mem_peak_gapped=58721278443 mem_peak_encode=3179396000 rel_len_gaps=0.0101784 time=286729681336 throughput=174.38 mem_peak=58721278443 bytes_comp=101993986 comp_ratio=490.225
+RESULT text_name=chr19.50Gi type=compress num_threads=1 n=50000000000 encoder=alz_6 time=2655175991753 throughput=18.8311 mem_peak=74692192000 bytes_comp=116217464 comp_ratio=430.228
+RESULT text_name=chr19.50Gi type=decompress n=50000000000 encoder=alz_6 time=252651103874 throughput=197.901 mem_peak=9135376000 bytes_comp=116217464 comp_ratio=430.228
+RESULT text_name=chr19.50Gi type=compress num_threads=1 n=50000000000 encoder=alz_8 time=1535951297772 throughput=32.5531 mem_peak=55379312000 bytes_comp=129568802 comp_ratio=385.895
+RESULT text_name=chr19.50Gi type=decompress n=50000000000 encoder=alz_8 time=116465035972 throughput=429.313 mem_peak=10103304000 bytes_comp=129568802 comp_ratio=385.895
+RESULT text_name=chr19.50Gi type=compress num_threads=1 n=50000000000 encoder=bsc_32 time=4942949152911 throughput=10.1154 mem_peak=23793092000 bytes_comp=10503990592 comp_ratio=4.7601
+RESULT text_name=chr19.50Gi type=decompress n=50000000000 encoder=bsc_32 time=2606115940091 throughput=19.1856 mem_peak=16621272000 bytes_comp=10503990592 comp_ratio=4.7601
+RESULT text_name=chr19.50Gi type=compress num_threads=1 n=50000000000 encoder=bsc_128 time=4786112373148 throughput=10.4469 mem_peak=78698144000 bytes_comp=8642253848 comp_ratio=5.78553
+RESULT text_name=chr19.50Gi type=decompress n=50000000000 encoder=bsc_128 time=2367399847518 throughput=21.1202 mem_peak=74756864000 bytes_comp=8642253848 comp_ratio=5.78553
+RESULT text_name=chr19.50Gi type=compress num_threads=1 n=50000000000 encoder=bsc_512 time=4804768847025 throughput=10.4063 mem_peak=214275920000 bytes_comp=5329943988 comp_ratio=9.38096
+RESULT text_name=chr19.50Gi type=decompress n=50000000000 encoder=bsc_512 time=2483526662685 throughput=20.1327 mem_peak=235615176000 bytes_comp=5329943988 comp_ratio=9.38096
+RESULT text_name=chr19.50Gi type=compress num_threads=1 n=50000000000 encoder=bsc_2047 time=7275389163801 throughput=6.87248 mem_peak=230954512000 bytes_comp=3193541392 comp_ratio=15.6566
+RESULT text_name=chr19.50Gi type=decompress n=50000000000 encoder=bsc_2047 time=2482706042044 throughput=20.1393 mem_peak=224724296000 bytes_comp=3193541392 comp_ratio=15.6566
+RESULT text_name=chr19.50Gi type=compress num_threads=1 n=50000000000 encoder=lz4 time=140828969708 throughput=355.041 mem_peak=7200000 bytes_comp=26106566658 comp_ratio=1.91523
+RESULT text_name=chr19.50Gi type=decompress n=50000000000 encoder=lz4 time=92544628081 throughput=540.28 mem_peak=7200000 bytes_comp=26106566658 comp_ratio=1.91523
+RESULT text_name=chr19.50Gi type=compress num_threads=1 n=50000000000 encoder=7z time=52570975763620 throughput=0.951095 mem_peak=193704000 bytes_comp=10744710133 comp_ratio=4.65345
+RESULT text_name=chr19.50Gi type=decompress n=50000000000 encoder=7z time=557996913602 throughput=89.6062 mem_peak=36004000 bytes_comp=10744710133 comp_ratio=4.65345
+RESULT text_name=chr19.50Gi type=compress num_threads=1 n=50000000000 encoder=gzip time=7881017588738 throughput=6.34436 mem_peak=1064000 bytes_comp=13680003933 comp_ratio=3.65497
+RESULT text_name=chr19.50Gi type=decompress n=50000000000 encoder=gzip time=320218944674 throughput=156.143 mem_peak=1056000 bytes_comp=13680003933 comp_ratio=3.65497
+RESULT text_name=chr19.50Gi type=compress num_threads=1 n=50000000000 encoder=bzip2 time=4036491423508 throughput=12.387 mem_peak=8224000 bytes_comp=12255589707 comp_ratio=4.07977
+RESULT text_name=chr19.50Gi type=decompress n=50000000000 encoder=bzip2 time=1829988701364 throughput=27.3226 mem_peak=4128000 bytes_comp=12255589707 comp_ratio=4.07977
+RESULT text_name=chr19.50Gi type=compress num_threads=1 n=50000000000 encoder=xz time=47563436402246 throughput=1.05123 mem_peak=97356000 bytes_comp=10711713136 comp_ratio=4.66779
+RESULT text_name=chr19.50Gi type=decompress n=50000000000 encoder=xz time=566109161255 throughput=88.3222 mem_peak=10312000 bytes_comp=10711713136 comp_ratio=4.66779
+RESULT text_name=chr19.50Gi type=compress num_threads=1 n=50000000000 encoder=zstd time=297851463411 throughput=167.869 mem_peak=42024000 bytes_comp=14179295028 comp_ratio=3.52627
+RESULT text_name=chr19.50Gi type=decompress n=50000000000 encoder=zstd time=96015472577 throughput=520.749 mem_peak=5124000 bytes_comp=14179295028 comp_ratio=3.52627
+RESULT text_name=chr19.50Gi type=compress num_threads=32 n=50000000000 encoder=alz_6 time=1265278154897 throughput=39.517 mem_peak=95295120000 bytes_comp=116217464 comp_ratio=430.228
+RESULT text_name=chr19.50Gi type=compress num_threads=32 n=50000000000 encoder=alz_8 time=1057767144810 throughput=47.2694 mem_peak=63336884000 bytes_comp=129568802 comp_ratio=385.895
+RESULT text_name=chr19.50Gi type=compress num_threads=32 n=50000000000 encoder=bsc_32 time=173336415986 throughput=288.456 mem_peak=24502688000 bytes_comp=10503990592 comp_ratio=4.7601
+RESULT text_name=chr19.50Gi type=compress num_threads=32 n=50000000000 encoder=bsc_128 time=180312843718 throughput=277.296 mem_peak=79497252000 bytes_comp=8642253848 comp_ratio=5.78553
+RESULT text_name=chr19.50Gi type=compress num_threads=32 n=50000000000 encoder=bsc_512 time=210315925026 throughput=237.738 mem_peak=191151604000 bytes_comp=5329943988 comp_ratio=9.38096
+RESULT text_name=chr19.50Gi type=compress num_threads=32 n=50000000000 encoder=bsc_2047 time=278947472172 throughput=179.245 mem_peak=230941636000 bytes_comp=3193541392 comp_ratio=15.6566
+RESULT text_name=chr19.50Gi type=compress num_threads=32 n=50000000000 encoder=7z time=3277027608629 throughput=15.2577 mem_peak=4028588000 bytes_comp=10773008712 comp_ratio=4.64123
+RESULT text_name=chr19.50Gi type=compress num_threads=32 n=50000000000 encoder=xz time=1593824177383 throughput=31.3711 mem_peak=4137048000 bytes_comp=10765540964 comp_ratio=4.64445
+RESULT text_name=chr19.50Gi type=compress num_threads=32 n=50000000000 encoder=zstd time=29600378989 throughput=1689.17 mem_peak=385028000 bytes_comp=14179295028 comp_ratio=3.52627
+RESULT text_name=chr19.50Gi type=compress num_threads=1 n=50000000000 encoder=ssszip_zstd read_t=37504685897 time_encode=7643996350 mem_peak_gapped=59591732187 mem_peak_encode=43020000 rel_len_gaps=0.0247096 time=1620257931465 throughput=30.8593 mem_peak=59591732187 bytes_comp=360741066 comp_ratio=138.604
+RESULT text_name=chr19.50Gi.decompressed type=decompress n=50000000000 encoder=ssszip_zstd time=58087187991 throughput=860.775 mem_peak=4148000 bytes_comp=360741066 comp_ratio=138.604
+RESULT text_name=chr19.50Gi type=compress num_threads=1 n=50000000000 encoder=ssszip_bsc read_t=37626007290 time_encode=147999717761 mem_peak_gapped=59591732157 mem_peak_encode=6077760000 rel_len_gaps=0.0247096 time=1772272929332 throughput=28.2124 mem_peak=59591732157 bytes_comp=113366346 comp_ratio=441.048
+RESULT text_name=chr19.50Gi.decompressed type=decompress n=50000000000 encoder=ssszip_bsc time=151181682479 throughput=330.728 mem_peak=6083824000 bytes_comp=113366346 comp_ratio=441.048
+RESULT text_name=chr19.50Gi type=compress num_threads=32 n=50000000000 encoder=ssszip_zstd read_t=37713095396 time_encode=6992155470 mem_peak_gapped=59591202385 mem_peak_encode=40964000 rel_len_gaps=0.0247096 time=279643328535 throughput=178.799 mem_peak=59591202385 bytes_comp=360741066 comp_ratio=138.604
+RESULT text_name=chr19.50Gi type=compress num_threads=32 n=50000000000 encoder=ssszip_bsc read_t=37248817383 time_encode=56067510646 mem_peak_gapped=59591341187 mem_peak_encode=6103300000 rel_len_gaps=0.0247096 time=321962743332 throughput=155.297 mem_peak=59591341187 bytes_comp=113366346 comp_ratio=441.048
+RESULT text_name=dewiki.50Gi type=compress num_threads=1 n=50000000000 encoder=alz_6 time=2108770371868 throughput=23.7105 mem_peak=74305424000 bytes_comp=97125718 comp_ratio=514.797
+RESULT text_name=dewiki.50Gi type=decompress n=50000000000 encoder=alz_6 time=99564868922 throughput=502.185 mem_peak=4099628000 bytes_comp=97125718 comp_ratio=514.797
+RESULT text_name=dewiki.50Gi type=compress num_threads=1 n=50000000000 encoder=alz_8 time=1393228328045 throughput=35.8879 mem_peak=55327860000 bytes_comp=95109962 comp_ratio=525.707
+RESULT text_name=dewiki.50Gi type=decompress n=50000000000 encoder=alz_8 time=129421894076 throughput=386.333 mem_peak=5385592000 bytes_comp=95109962 comp_ratio=525.707
+RESULT text_name=dewiki.50Gi type=compress num_threads=1 n=50000000000 encoder=bsc_32 time=139672378332 throughput=357.981 mem_peak=5349104000 bytes_comp=190277402 comp_ratio=262.774
+RESULT text_name=dewiki.50Gi type=decompress n=50000000000 encoder=bsc_32 time=90504675498 throughput=552.458 mem_peak=5395520000 bytes_comp=190277402 comp_ratio=262.774
+RESULT text_name=dewiki.50Gi type=compress num_threads=1 n=50000000000 encoder=bsc_128 time=99726225654 throughput=501.373 mem_peak=18730516000 bytes_comp=134872900 comp_ratio=370.719
+RESULT text_name=dewiki.50Gi type=decompress n=50000000000 encoder=bsc_128 time=90784659856 throughput=550.754 mem_peak=18723348000 bytes_comp=134872900 comp_ratio=370.719
+RESULT text_name=dewiki.50Gi type=compress num_threads=1 n=50000000000 encoder=bsc_512 time=111838481592 throughput=447.073 mem_peak=49403660000 bytes_comp=116213660 comp_ratio=430.242
+RESULT text_name=dewiki.50Gi type=decompress n=50000000000 encoder=bsc_512 time=115061519308 throughput=434.55 mem_peak=49098436000 bytes_comp=116213660 comp_ratio=430.242
+RESULT text_name=dewiki.50Gi type=compress num_threads=1 n=50000000000 encoder=bsc_2047 time=116239351639 throughput=430.147 mem_peak=49206768000 bytes_comp=108360218 comp_ratio=461.424
+RESULT text_name=dewiki.50Gi type=decompress n=50000000000 encoder=bsc_2047 time=105017848205 throughput=476.11 mem_peak=48354164000 bytes_comp=108360218 comp_ratio=461.424
+RESULT text_name=dewiki.50Gi type=compress num_threads=1 n=50000000000 encoder=lz4 time=124904395065 throughput=400.306 mem_peak=7200000 bytes_comp=20136594867 comp_ratio=2.48304
+RESULT text_name=dewiki.50Gi type=decompress n=50000000000 encoder=lz4 time=81072578917 throughput=616.731 mem_peak=7200000 bytes_comp=20136594867 comp_ratio=2.48304
+RESULT text_name=dewiki.50Gi type=compress num_threads=1 n=50000000000 encoder=7z time=5595615735148 throughput=8.93557 mem_peak=193704000 bytes_comp=137179502 comp_ratio=364.486
+RESULT text_name=dewiki.50Gi type=decompress n=50000000000 encoder=7z time=109703427465 throughput=455.774 mem_peak=22672000 bytes_comp=137179502 comp_ratio=364.486
+RESULT text_name=dewiki.50Gi type=compress num_threads=1 n=50000000000 encoder=gzip time=2127396182903 throughput=23.5029 mem_peak=1068000 bytes_comp=15070058039 comp_ratio=3.31784
+RESULT text_name=dewiki.50Gi type=decompress n=50000000000 encoder=gzip time=327864287740 throughput=152.502 mem_peak=1056000 bytes_comp=15070058039 comp_ratio=3.31784
+RESULT text_name=dewiki.50Gi type=compress num_threads=1 n=50000000000 encoder=bzip2 time=4558136100880 throughput=10.9694 mem_peak=8224000 bytes_comp=3353974942 comp_ratio=14.9077
+RESULT text_name=dewiki.50Gi type=decompress n=50000000000 encoder=bzip2 time=1200713940451 throughput=41.6419 mem_peak=4128000 bytes_comp=3353974942 comp_ratio=14.9077
+RESULT text_name=dewiki.50Gi type=compress num_threads=1 n=50000000000 encoder=xz time=4689218795332 throughput=10.6628 mem_peak=97360000 bytes_comp=127745052 comp_ratio=391.405
+RESULT text_name=dewiki.50Gi type=decompress n=50000000000 encoder=xz time=80519276485 throughput=620.969 mem_peak=10320000 bytes_comp=127745052 comp_ratio=391.405
+RESULT text_name=dewiki.50Gi type=compress num_threads=1 n=50000000000 encoder=zstd time=44707928174 throughput=1118.37 mem_peak=37928000 bytes_comp=471997118 comp_ratio=105.933
+RESULT text_name=dewiki.50Gi type=decompress n=50000000000 encoder=zstd time=54430143585 throughput=918.609 mem_peak=4100000 bytes_comp=471997118 comp_ratio=105.933
+RESULT text_name=dewiki.50Gi type=compress num_threads=32 n=50000000000 encoder=alz_6 time=639623548073 throughput=78.171 mem_peak=74567936000 bytes_comp=97125840 comp_ratio=514.796
+RESULT text_name=dewiki.50Gi type=compress num_threads=32 n=50000000000 encoder=alz_8 time=360773616751 throughput=138.591 mem_peak=55456560000 bytes_comp=95110094 comp_ratio=525.707
+RESULT text_name=dewiki.50Gi type=compress num_threads=32 n=50000000000 encoder=bsc_32 time=17683643776 throughput=2827.47 mem_peak=5361632000 bytes_comp=190277402 comp_ratio=262.774
+RESULT text_name=dewiki.50Gi type=compress num_threads=32 n=50000000000 encoder=bsc_128 time=26137813886 throughput=1912.94 mem_peak=18759184000 bytes_comp=134872900 comp_ratio=370.719
+RESULT text_name=dewiki.50Gi type=compress num_threads=32 n=50000000000 encoder=bsc_512 time=45332453387 throughput=1102.96 mem_peak=49857024000 bytes_comp=116213660 comp_ratio=430.242
+RESULT text_name=dewiki.50Gi type=compress num_threads=32 n=50000000000 encoder=bsc_2047 time=43579369627 throughput=1147.33 mem_peak=49222396000 bytes_comp=108360218 comp_ratio=461.424
+RESULT text_name=dewiki.50Gi type=compress num_threads=32 n=50000000000 encoder=7z time=314779222615 throughput=158.841 mem_peak=3764392000 bytes_comp=164264799 comp_ratio=304.387
+RESULT text_name=dewiki.50Gi type=compress num_threads=32 n=50000000000 encoder=xz time=156104142913 throughput=320.299 mem_peak=3838036000 bytes_comp=199026152 comp_ratio=251.223
+RESULT text_name=dewiki.50Gi type=compress num_threads=32 n=50000000000 encoder=zstd time=27868150376 throughput=1794.16 mem_peak=298004000 bytes_comp=471997118 comp_ratio=105.933
+RESULT text_name=dewiki.50Gi type=compress num_threads=1 n=50000000000 encoder=ssszip_zstd read_t=36524447308 time_encode=4110237866 mem_peak_gapped=59001159987 mem_peak_encode=39960000 rel_len_gaps=0.0163443 time=1580199787181 throughput=31.6416 mem_peak=59001159987 bytes_comp=158177591 comp_ratio=316.1
+RESULT text_name=dewiki.50Gi.decompressed type=decompress n=50000000000 encoder=ssszip_zstd time=94540478292 throughput=528.874 mem_peak=5156000 bytes_comp=158177279 comp_ratio=316.101
+RESULT text_name=dewiki.50Gi type=compress num_threads=1 n=50000000000 encoder=ssszip_bsc read_t=36378387294 time_encode=98320869846 mem_peak_gapped=59001159987 mem_peak_encode=3447300000 rel_len_gaps=0.0163443 time=1675423494437 throughput=29.8432 mem_peak=59001159987 bytes_comp=102138228 comp_ratio=489.533
+RESULT text_name=dewiki.50Gi.decompressed type=decompress n=50000000000 encoder=ssszip_bsc time=140903439706 throughput=354.853 mem_peak=3249596000 bytes_comp=102138182 comp_ratio=489.533
+RESULT text_name=dewiki.50Gi type=compress num_threads=32 n=50000000000 encoder=ssszip_zstd read_t=36530978853 time_encode=3568275324 mem_peak_gapped=59000782345 mem_peak_encode=37892000 rel_len_gaps=0.0163443 time=334840357639 throughput=149.325 mem_peak=59000782345 bytes_comp=158177279 comp_ratio=316.101
+RESULT text_name=dewiki.50Gi type=compress num_threads=32 n=50000000000 encoder=ssszip_bsc read_t=36496222267 time_encode=43233104859 mem_peak_gapped=59000737201 mem_peak_encode=3468996000 rel_len_gaps=0.0163443 time=374184573076 throughput=133.624 mem_peak=59000737201 bytes_comp=102138182 comp_ratio=489.533

@@ -9,11 +9,14 @@ git clone --recurse-submodules https://github.com/LukasNalbach/lz77-sss.git
 mkdir build
 cd build
 cmake ..
-cp -rf ../patched-files/* ..
 make
 ```
 
-This creates the following executables in the build/ folder.
+CMake copies the patched submodule sources into the submodules on every configure run and
+builds the `alz` reference compressor that `zip-bench` measures.
+
+This creates the compression tools in `build/cli/`, the benchmark tools in `build/bench/`,
+the examples in `build/examples/` and the tests in `build/tests/`.
 
 ## CLI Programs
 ### Compression Tools

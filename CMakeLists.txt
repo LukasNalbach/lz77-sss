@@ -2,6 +2,16 @@ cmake_minimum_required(VERSION "3.10.2")
 set (CMAKE_CXX_STANDARD 23)
 project (lz77_sss LANGUAGES C CXX)
 
+if(NOT EXISTS "${CMAKE_SOURCE_DIR}/external/lce/LICENSE")
+  find_package(Git REQUIRED)
+  message(STATUS "Downloading the git submodules")
+  execute_process(COMMAND "${GIT_EXECUTABLE}" submodule update --init --recursive
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
+endif()
+
+message(STATUS "Applying the patched files to the submodules")
+file(COPY "${CMAKE_SOURCE_DIR}/patched-files/external" DESTINATION "${CMAKE_SOURCE_DIR}")
+
 if(NOT CMAKE_BUILD_TYPE)
   message(STATUS "Setting build type to 'Release' as none was specified.")
   set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build." FORCE)
@@ -178,6 +188,24 @@ if(LZ77_SSS_BUILD_BENCH)
     string(REPLACE "-" "_" src "${tool}")
     lz77_sss_add_tool(${tool} "${CMAKE_SOURCE_DIR}/bench/${src}.cpp" "${CMAKE_BINARY_DIR}/bench/")
   endforeach()
+
+  include(ExternalProject)
+  set(lz77_sss_alz_binary "${CMAKE_SOURCE_DIR}/external/alz/alz")
+
+  ExternalProject_Add(alz_cli
+    SOURCE_DIR "${CMAKE_SOURCE_DIR}/external/alz"
+    PREFIX "${CMAKE_BINARY_DIR}/alz"
+    CMAKE_ARGS
+      "-DCMAKE_BUILD_TYPE=Release"
+      "-DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}"
+      "-DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}"
+    BUILD_COMMAND ${CMAKE_COMMAND} --build <BINARY_DIR> --target alz-cli
+    INSTALL_COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "<BINARY_DIR>/src/alz" "${lz77_sss_alz_binary}"
+    BUILD_BYPRODUCTS "${lz77_sss_alz_binary}"
+  )
+
+  add_dependencies(zip-bench alz_cli)
 endif()
 
 if(LZ77_SSS_BUILD_EXAMPLES)

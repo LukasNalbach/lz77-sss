@@ -1,0 +1,41 @@
+% Builds every figure and table of the paper into a single PDF.
+% make-plots.sh copies this file, plot-styles.tex, charts/, tables/ and the results into a
+% build directory and runs pdflatex there.
+%
+% The counters are set so that each float gets the number it has in the paper: the texts
+% table is Table 2, the factorization chart is Figure 3 and the (de)compression chart is
+% Figure 4. Nothing in charts/ or tables/ is modified for this.
+\documentclass[letterpaper,10pt,twocolumn]{article}
+\usepackage[letterpaper,margin=0.9in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+\input{plot-styles.tex}
+
+\pagestyle{empty}
+
+\begin{document}
+
+\begin{center}
+\Large Practical and Space-Efficient LZ77 and LZ Pre-Compression\\
+via String Synchronizing Sets\\[4pt]
+\normalsize figures and tables, regenerated from the measurement data
+\end{center}
+
+% ------------------------------------------------------ Table 2 (tab:texts)
+\setcounter{table}{1}
+\input{tables/texts.tex}
+
+% ------------------------------------------------------ Figure 3 (fig:lz)
+\setcounter{figure}{2}
+\begin{figure*}[t]
+\input{charts/lz.tex}
+\end{figure*}
+
+% ------------------------------- Figure 4 (fig:compress-decompress)
+\begin{figure*}[t]
+\input{charts/compress-decompress.tex}
+\end{figure*}
+
+\end{document}

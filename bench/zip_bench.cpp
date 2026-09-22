@@ -27,6 +27,14 @@
 #include <fstream>
 #include <lz77_sss/lz77_sss.hpp>
 
+std::string alz_binary()
+{
+    std::error_code ec;
+    std::filesystem::path exe = std::filesystem::read_symlink("/proc/self/exe", ec);
+    if (ec) return "alz";
+    return (exe.parent_path().parent_path().parent_path() / "external" / "alz" / "alz").string();
+}
+
 uint64_t bytes_input;
 std::string input_file_path;
 std::string log_file_path;
@@ -62,6 +70,13 @@ uint64_t peak_memory_usage()
 void bench(std::string encoder, bool use_multiple_threads, uint32_t param = 0)
 {
     std::string encoder_log_name = encoder + (param != 0 ? ("_" + std::to_string(param)) : "");
+    std::string binary = encoder == "alz" ? alz_binary() : encoder;
+
+    if (system(("command -v " + binary + " > /dev/null 2>&1").c_str()) != 0) {
+        std::cout << "skipping " << encoder_log_name << ": " << binary
+                  << " not found" << std::endl;
+        return;
+    }
 
     uint32_t min_threads_local = use_multiple_threads ? min_threads : 1;
     uint32_t max_threads_local = use_multiple_threads ? max_threads : 1;
@@ -80,7 +95,7 @@ void bench(std::string encoder, bool use_multiple_threads, uint32_t param = 0)
                 cpu_list += std::to_string(2 * i) + ",";
         cpu_list.resize(cpu_list.length() - 1);
         std::string cmd = "/usr/bin/time -v taskset -c " + cpu_list + " " +
-            (encoder == "alz" ? "env OMP_NUM_THREADS=" + num_thr_str + " " : "") + encoder +
+            (encoder == "alz" ? "env OMP_NUM_THREADS=" + num_thr_str + " " : "") + binary +
             (encoder == "alz" ? (
                 " " + input_file_path + " -o " + output_file_path +
                 " -s " + std::to_string(param) + " > /dev/null"
@@ -160,7 +175,7 @@ void bench(std::string encoder, bool use_multiple_threads, uint32_t param = 0)
             time_decompress = time_diff_ns(t1, t2);
         }
 
-        std::string cmd3 = "(/usr/bin/time -v " + encoder +
+        std::string cmd3 = "(/usr/bin/time -v " + binary +
             (encoder == "alz" ?
                 (" " + output_file_path + " -d -o " + tmp_file_path + " > /dev/null") :
             (encoder == "7z" ?
@@ -230,7 +245,7 @@ int main(int argc, char** argv)
         + "/log_" + random_alphanumeric_string(10);
     tmp_file_path = std::filesystem::temp_directory_path().string() + "/" + text_name;
 
-    bench("alz", true, 8);
+    bench("alz", true, 6);
     bench("bsc", true, 2047);
     bench("lz4", false);
     bench("7z", true);
