@@ -1,5 +1,5 @@
 # LZ77-SSS Algorithms
-This repository contains implementations of Lempel-Ziv 77 (LZ77) algorithms [1] based on string synchronizing sets [2].
+This repository contains implementations of Lempel-Ziv 77 (LZ77) algorithms [1] based on string synchronizing sets [2]. These implementations are described in [3] (accepted at ALENEX 2027, [arxiv.org](https://arxiv.org/abs/2609.30193)).
 
 ## CLI Build Instructions
 This implementation has been tested on Ubuntu 24.04 with time, gcc-12, g++-12, zstd, p7zip-full, gzip, bzip2, xz-utils, lz4, libgtest-dev, libtbb-dev and libomp-dev installed. [bsc](https://github.com/IlyaGrebnov/libbsc) has to be built and installed manually.
@@ -101,7 +101,7 @@ int main()
 ```
 
 ## Reproducing the Measurements From the Paper
-The measurements in the paper were performed on the following three 50 GiB inputs:
+The measurements in the paper [3] were performed on the following three 50 GiB inputs:
 
 | File | Description | Link |
 |---|---|---|
@@ -152,3 +152,5 @@ done
 [1] Jonas Ellert. Sublinear Time Lempel-Ziv (LZ77) Factorization. In String Processing and Information Retrieval (SPIRE) 2023, pages 171-187. ([springer.com](https://link.springer.com/chapter/10.1007/978-3-031-43980-3_14))
 
 [2] Dominik Kempa and Tomasz Kociumaka. String synchronizing sets: sublinear-time BWT construction and optimal LCE data structure. In Proceedings of the 51st Annual ACM SIGACT Symposium on Theory of Computing (STOC) 2019, pages 756-767. ([arxiv.org](https://arxiv.org/abs/1904.04228))
+
+[3] Jonas Ellert and Lukas Nalbach. Practical and Space-Efficient LZ77 and LZ Pre-Compression via String Synchronizing Sets. Accepted at the SIAM Symposium on Algorithm Engineering and Experiments (ALENEX) 2027. ([arxiv.org](https://arxiv.org/abs/2609.30193))

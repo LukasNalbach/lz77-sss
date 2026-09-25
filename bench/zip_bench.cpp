@@ -62,7 +62,9 @@ uint64_t peak_memory_usage()
     log_file.close();
     std::filesystem::remove(log_file_path);
     std::string str_to_find = "Maximum resident set size (kbytes): ";
-    uint64_t beg = log_file_str.find(str_to_find) + str_to_find.length();
+    uint64_t pos = log_file_str.find(str_to_find);
+    if (pos == std::string::npos) return 0;
+    uint64_t beg = pos + str_to_find.length();
     uint64_t len = log_file_str.find("\n", beg) - beg;
     return atol(log_file_str.substr(beg, len).c_str());
 }
@@ -237,6 +239,10 @@ int main(int argc, char** argv)
 
     if (argc == 5)
         result_file_path = argv[4];
+
+    for (std::string tool : { std::string("/usr/bin/time"), std::string("taskset") })
+        if (system(("command -v " + tool + " > /dev/null 2>&1").c_str()) != 0)
+            help("error: " + tool + " not found (on Ubuntu: apt install time util-linux)");
 
     bytes_input = std::filesystem::file_size(input_file_path);
     std::cout << "input_file size: " << format_size(bytes_input) << std::endl;
