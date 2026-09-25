@@ -1,7 +1,8 @@
 # Reproducing the LZ77-SSS measurements
 
 This directory reproduces the LZ77 factorization and the (de)compression measurements of the
-paper and regenerates the figures and the table from the results.
+[paper](https://arxiv.org/abs/2609.30193) (accepted at ALENEX 2027) and regenerates the
+figures and the table from the results.
 
 You provide the input texts in [`texts/`](texts/); the scripts run every benchmark and write
 the measurements to [`results/`](results/).
