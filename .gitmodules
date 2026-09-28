@@ -1,6 +1,3 @@
-[submodule "external/sparse-map"]
-	path = external/sparse-map
-	url = https://github.com/Tessil/sparse-map.git
 [submodule "external/lce"]
 	path = external/lce
 	url = https://github.com/LukasNalbach/lce.git

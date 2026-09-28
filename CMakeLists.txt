@@ -2,16 +2,6 @@ cmake_minimum_required(VERSION "3.10.2")
 set (CMAKE_CXX_STANDARD 23)
 project (lz77_sss LANGUAGES C CXX)
 
-if(NOT EXISTS "${CMAKE_SOURCE_DIR}/external/lce/LICENSE")
-  find_package(Git REQUIRED)
-  message(STATUS "Downloading the git submodules")
-  execute_process(COMMAND "${GIT_EXECUTABLE}" submodule update --init --recursive
-    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
-endif()
-
-message(STATUS "Applying the patched files to the submodules")
-file(COPY "${CMAKE_SOURCE_DIR}/patched-files/external" DESTINATION "${CMAKE_SOURCE_DIR}")
-
 if(NOT CMAKE_BUILD_TYPE)
   message(STATUS "Setting build type to 'Release' as none was specified.")
   set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build." FORCE)
@@ -26,6 +16,18 @@ option(LZ77_SSS_BUILD_TESTS         "Build tests"                   ON)
 option(LZ77_SSS_USE_MALLOC_COUNT    "Track memory usage via malloc_count (overrides malloc/free)" ON)
 option(LZ77_SSS_MARCH_NATIVE        "Tune the build for the host CPU (-march=native); turn OFF for portable binaries" ON)
 option(LZ77_SSS_ENABLE_LTO          "Enable link-time optimization (LTO/IPO) for lz77-sss targets" ON)
+option(LZ77_SSS_EXTERN_TEMPLATES    "Compile the factorizer once instead of in every translation unit" ON)
+set(LZ77_SSS_LCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/lce" CACHE PATH "lce source directory")
+
+if(NOT EXISTS "${LZ77_SSS_LCE_DIR}/CMakeLists.txt")
+  find_package(Git REQUIRED)
+  message(STATUS "Downloading the git submodules")
+  execute_process(COMMAND "${GIT_EXECUTABLE}" submodule update --init --recursive
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}" RESULT_VARIABLE _lz77_sss_submodules)
+  if(NOT _lz77_sss_submodules EQUAL 0)
+    message(FATAL_ERROR "git submodule update --init --recursive failed")
+  endif()
+endif()
 
 if(WIN32)
   set(LZ77_SSS_BUILD_BENCH OFF CACHE BOOL "" FORCE)
@@ -48,7 +50,7 @@ set(CMAKE_CXX_FLAGS_MINSIZEREL      "${lz77_sss_release_flags}      -Os")
 set(CMAKE_CXX_FLAGS_RELWITHDEBINFO  "${lz77_sss_debug_flags}        -O3")
 
 if(WIN32)
-  include_directories(BEFORE "${CMAKE_SOURCE_DIR}/cmake/winshim")
+  include_directories(BEFORE "${CMAKE_CURRENT_SOURCE_DIR}/cmake/winshim")
   add_compile_definitions(_REENTRANT)
   set(IPS4O_OPTIMIZE_FOR_NATIVE OFF CACHE BOOL "" FORCE)
   set(IPS4O_DISABLE_PARALLEL ON CACHE BOOL "" FORCE)
@@ -110,6 +112,7 @@ endif()
 find_package(OpenMP REQUIRED)
 
 set(LCE_BUILD_BENCHMARKS OFF CACHE BOOL "" FORCE)
+set(LCE_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(LCE_USE_MALLOC_COUNT ${LZ77_SSS_USE_MALLOC_COUNT} CACHE BOOL "" FORCE)
 set(LCE_MARCH_NATIVE ${LZ77_SSS_MARCH_NATIVE} CACHE BOOL "" FORCE)
 if(WIN32 AND LZ77_SSS_WINDOWS_TBB_ROOT)
@@ -117,24 +120,40 @@ if(WIN32 AND LZ77_SSS_WINDOWS_TBB_ROOT)
 endif()
 
 set(CMAKE_POLICY_VERSION_MINIMUM 3.10)
-add_subdirectory("${CMAKE_SOURCE_DIR}/external/lce/")
-add_subdirectory("${CMAKE_SOURCE_DIR}/external/sparse-map/")
+add_subdirectory("${LZ77_SSS_LCE_DIR}" "${CMAKE_BINARY_DIR}/external/lce")
 unset(CMAKE_POLICY_VERSION_MINIMUM)
 
-set_target_properties(ips4o_example PROPERTIES EXCLUDE_FROM_ALL 1 EXCLUDE_FROM_DEFAULT_BUILD 1)
+find_package(Git QUIET)
 
-foreach(_la_target example tests
-        test-lce test-pred test-rmq test-rolling-hash test-string-synchronizing-set)
-  if(TARGET ${_la_target})
-    set_target_properties(${_la_target} PROPERTIES EXCLUDE_FROM_ALL 1 EXCLUDE_FROM_DEFAULT_BUILD 1)
+function(lz77_sss_apply_patch patch dir)
+  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${patch}")
+  if(NOT GIT_FOUND)
+    message(WARNING "git was not found, so ${patch} could not be applied to ${dir}")
+    return()
   endif()
-endforeach()
+  get_filename_component(_parent "${dir}" DIRECTORY)
+  set(_git_apply "${CMAKE_COMMAND}" -E env "GIT_CEILING_DIRECTORIES=${_parent}" "${GIT_EXECUTABLE}" apply)
+  execute_process(COMMAND ${_git_apply} --reverse --check "${patch}"
+    WORKING_DIRECTORY "${dir}" RESULT_VARIABLE _applied OUTPUT_QUIET ERROR_QUIET)
+  if(NOT _applied EQUAL 0)
+    execute_process(COMMAND ${_git_apply} "${patch}"
+      WORKING_DIRECTORY "${dir}" RESULT_VARIABLE _result ERROR_VARIABLE _error)
+    if(NOT _result EQUAL 0)
+      message(FATAL_ERROR "${patch} does not apply to ${dir}:\n${_error}")
+    endif()
+    message(STATUS "Applied ${patch}")
+  endif()
+endfunction()
 
-set_property(DIRECTORY "${CMAKE_SOURCE_DIR}/external/lce" PROPERTY TEST_INCLUDE_FILES "")
+lz77_sss_apply_patch("${CMAKE_CURRENT_SOURCE_DIR}/patches/lce.patch" "${LZ77_SSS_LCE_DIR}")
+lz77_sss_apply_patch("${CMAKE_CURRENT_SOURCE_DIR}/patches/malloc_count.patch" "${LZ77_SSS_LCE_DIR}/external/malloc_count")
+
+add_library(lz77_sss_core INTERFACE)
+target_include_directories(lz77_sss_core INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/include/")
+target_link_libraries(lz77_sss_core INTERFACE malloc_count lce libsais OpenMP::OpenMP_CXX)
 
 add_library(lz77_sss INTERFACE)
-target_include_directories(lz77_sss INTERFACE "${CMAKE_SOURCE_DIR}/include/")
-target_link_libraries(lz77_sss INTERFACE malloc_count lce libsais sparse_map OpenMP::OpenMP_CXX)
+target_link_libraries(lz77_sss INTERFACE lz77_sss_core)
 
 if(WIN32 AND LZ77_SSS_WIN_TBB_LIB)
   target_link_libraries(lz77_sss INTERFACE "${LZ77_SSS_WIN_TBB_LIB}")
@@ -149,6 +168,25 @@ if(MINGW)
   target_link_options(lz77_sss INTERFACE -static)
 endif()
 
+if(LZ77_SSS_EXTERN_TEMPLATES)
+  add_library(lz77_sss_inst STATIC)
+  target_link_libraries(lz77_sss_inst PUBLIC lz77_sss_core)
+
+  foreach(text direct_text packed_text split_text)
+    foreach(part factorizer lce lpf fact sa aprx_to_exact)
+      set(obj lz77_sss_${text}_${part})
+      add_library(${obj} OBJECT "${CMAKE_CURRENT_SOURCE_DIR}/src/inst/${part}.cpp")
+      target_link_libraries(${obj} PRIVATE lz77_sss_core)
+      target_compile_definitions(${obj} PRIVATE LZ77_SSS_INST_TEXT=${text})
+      target_sources(lz77_sss_inst PRIVATE $<TARGET_OBJECTS:${obj}>)
+    endforeach()
+  endforeach()
+
+  target_link_libraries(lz77_sss INTERFACE lz77_sss_inst)
+else()
+  target_compile_definitions(lz77_sss INTERFACE LZ77_SSS_NO_EXTERN_TEMPLATES)
+endif()
+
 if(LZ77_SSS_ENABLE_LTO)
   include(CheckIPOSupported)
   check_ipo_supported(RESULT LZ77_SSS_IPO_SUPPORTED OUTPUT LZ77_SSS_IPO_ERROR LANGUAGES CXX)
@@ -157,7 +195,7 @@ if(LZ77_SSS_ENABLE_LTO)
   endif()
 endif()
 
-function(lz77_sss_add_tool name src outdir)
+function(lz77_sss_add_executable name src outdir)
   add_executable(${name} "${src}")
   target_link_libraries(${name} PRIVATE lz77_sss ${ARGN})
   set_target_properties(${name} PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${outdir}")
@@ -171,29 +209,24 @@ function(lz77_sss_add_tool name src outdir)
 endfunction()
 
 if(LZ77_SSS_BUILD_CLI)
-  foreach(tool ssszip lz77-sss-3-aprx lz77-sss-lpf-lnf-aprx lz77-sss-exact
+  foreach(tool ssszip lz77-sss-3-aprx lz77-sss-exact
                lz77-sss-exact-smpl lz77-sss-decode)
     string(REPLACE "-" "_" src "${tool}")
-    lz77_sss_add_tool(${tool} "${CMAKE_SOURCE_DIR}/cli/${src}.cpp" "${CMAKE_BINARY_DIR}/cli/")
+    lz77_sss_add_executable(${tool} "${CMAKE_CURRENT_SOURCE_DIR}/cli/${src}.cpp" "${CMAKE_BINARY_DIR}/cli/")
   endforeach()
-
-  if(EXISTS "${CMAKE_SOURCE_DIR}/cli/lz77_sss_ref_analysis.cpp")
-    lz77_sss_add_tool(lz77-sss-ref-analysis "${CMAKE_SOURCE_DIR}/cli/lz77_sss_ref_analysis.cpp"
-      "${CMAKE_BINARY_DIR}/cli/")
-  endif()
 endif()
 
 if(LZ77_SSS_BUILD_BENCH)
   foreach(tool lz77-sss-bench lz77-sss-bench-tau gen-range-queries bench-range-queries zip-bench)
     string(REPLACE "-" "_" src "${tool}")
-    lz77_sss_add_tool(${tool} "${CMAKE_SOURCE_DIR}/bench/${src}.cpp" "${CMAKE_BINARY_DIR}/bench/")
+    lz77_sss_add_executable(${tool} "${CMAKE_CURRENT_SOURCE_DIR}/bench/${src}.cpp" "${CMAKE_BINARY_DIR}/bench/")
   endforeach()
 
   include(ExternalProject)
-  set(lz77_sss_alz_binary "${CMAKE_SOURCE_DIR}/external/alz/alz")
+  set(lz77_sss_alz_binary "${CMAKE_BINARY_DIR}/bench/alz")
 
   ExternalProject_Add(alz_cli
-    SOURCE_DIR "${CMAKE_SOURCE_DIR}/external/alz"
+    SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/alz"
     PREFIX "${CMAKE_BINARY_DIR}/alz"
     CMAKE_ARGS
       "-DCMAKE_BUILD_TYPE=Release"
@@ -209,13 +242,13 @@ if(LZ77_SSS_BUILD_BENCH)
 endif()
 
 if(LZ77_SSS_BUILD_EXAMPLES)
-  lz77_sss_add_tool(lz77-sss-example "${CMAKE_SOURCE_DIR}/examples/lz77_sss_example.cpp"
+  lz77_sss_add_executable(lz77-sss-example "${CMAKE_CURRENT_SOURCE_DIR}/examples/lz77_sss_example.cpp"
     "${CMAKE_BINARY_DIR}/examples/")
 endif()
 
 if(LZ77_SSS_BUILD_TESTS)
   if(NOT TARGET gtest)
-    add_subdirectory("${CMAKE_SOURCE_DIR}/external/googletest/")
+    add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/external/googletest/")
   endif()
   include(GoogleTest)
   enable_testing()
@@ -230,7 +263,7 @@ if(LZ77_SSS_BUILD_TESTS)
   foreach(s lz77-sss sample-index dynamic-range static-weighted-range
             decomposed-range rabin-karp-substring)
     string(REPLACE "-" "_" src "test-${s}")
-    lz77_sss_add_tool("test-${s}" "${CMAKE_SOURCE_DIR}/tests/${src}.cpp"
+    lz77_sss_add_executable("test-${s}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/${src}.cpp"
       "${CMAKE_BINARY_DIR}/tests/" gtest_main)
     gtest_discover_tests("test-${s}")
   endforeach()

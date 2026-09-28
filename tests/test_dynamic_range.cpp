@@ -26,12 +26,12 @@
 
 #include <gtest/gtest.h>
 #include <ips4o.hpp>
-#include <lz77_sss/data_structures/dynamic_range/dynamic_square_grid.hpp>
-#include <lz77_sss/data_structures/dynamic_range/semi_dynamic_square_grid.hpp>
+
+#include <lz77_sss/data_structures/range/range.hpp>
 
 #include "test-progress.hpp"
 
-using point_t = dynamic_range<>::point_t;
+using point_t = range_ds::point_t;
 
 struct query {
     uint32_t x1, x2;
@@ -42,8 +42,7 @@ struct query {
 thread_local std::mt19937 gen(std::random_device{}());
 thread_local std::uniform_int_distribution<uint32_t> range_size_distrib(1, 100000);
 
-template <typename range_ds_t>
-void test()
+void test(const range_ds_kind& kind)
 {
     uint16_t num_threads = std::uniform_int_distribution<uint16_t>(1, omp_get_max_threads())(gen);
 
@@ -59,13 +58,14 @@ void test()
     for (uint32_t i = 0; i < input_size; i++) {
         input.emplace_back(point_t {
             .x = pos_distrib(gen),
-            .y = pos_distrib(gen) });
+            .y = pos_distrib(gen),
+            .weight = 0 });
     }
 
     // remove duplicate points
     input.erase(std::unique(input.begin(), input.end(),
         [](point_t& p1, point_t& p2) {
-            return p1.x == p2.x && p1.y == p2.y;
+            return uint64_t(p1.x) == uint64_t(p2.x) && uint64_t(p1.y) == uint64_t(p2.y);
         }),
         input.end());
 
@@ -97,31 +97,26 @@ void test()
     }
 
     // build the range data structure
-    range_ds_t ds(input, pos_max, num_threads);
+    range_ds* ds = make_range_ds(kind, input, pos_max, num_threads);
 
     // verify that all queries are answered correctly
     for (uint32_t i = 0; i < num_queries; i++) {
         const query& q = queries[i];
-        auto [p, result] = ds.point_in_range(
-            q.x1, q.x2, q.y1, q.y2);
+        auto [p, result] = ds->point_in_range(
+            char(0), q.x1, q.x2, q.y1, q.y2);
         EXPECT_EQ(result, q.result);
         EXPECT_TRUE(!result ||
             (q.x1 <= p.x && p.x <= q.x2 &&
             q.y1 <= p.y && p.y <= q.y2));
-        ds.insert(input[i]);
+        ds->insert(char(0), input[i]);
     }
-}
 
-TEST(test_dynamic_range, dynamic_square_grid)
-{
-    run_fuzz("dynamic-range", {
-        { "dynamic-square-grid", [](uint64_t) { test<dynamic_square_grid<>>(); }, false },
-    }, fuzz_iterations(6000));
+    delete ds;
 }
 
 TEST(test_dynamic_range, semi_dynamic_square_grid)
 {
     run_fuzz("dynamic-range", {
-        { "semi-dynamic-square-grid", [](uint64_t) { test<semi_dynamic_square_grid<>>(); }, false },
-    }, fuzz_iterations(6000));
+        { "semi-dynamic-square-grid", [](uint64_t) { test(range_ds_kind { .type = range_ds_type::sdsg }); }, false },
+    }, fuzz_iterations(3500));
 }

@@ -44,7 +44,7 @@ struct factor {
     factor(const factor&) = default;
     factor& operator=(const factor&) = default;
 
-    inline factor(char c) : src(c), len(0) { }
+    inline factor(char c) : src(uint8_t(c)), len(0) { }
 
     inline factor(uintmax_t src, uintmax_t len) : src(src), len(len) { }
 
@@ -57,7 +57,7 @@ struct factor {
 
     inline auto literal() const { return src; }
 
-    inline size_t num_literals() const { return std::max(len, uintmax_t(1)); }
+    inline size_t text_len() const { return std::max(len, uintmax_t(1)); }
 
     friend std::ostream& operator<<(std::ostream& out, const factor& f)
     {

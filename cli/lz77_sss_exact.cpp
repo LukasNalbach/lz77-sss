@@ -25,67 +25,63 @@
  */
 
 #include <fstream>
-#include <lz77_sss/lz77_sss.hpp>
+#include <lz77_sss/inst.hpp>
+#include <lz77_sss/misc/text_reader.hpp>
 #include <lz77_sss/misc/huffman.hpp>
+#include <lz77_sss/misc/fasta_interleaver.hpp>
+
+#include "cli_options.hpp"
 
 int main(int argc, char** argv)
 {
-    if (!(3 <= argc && argc <= 4)) {
-        std::cout << "usage: lz77_sss_exact <input_file> <output_file> <threads>" << std::endl;
-        std::cout << "       the last parameter is optional" << std::endl;
-        exit(-1);
-    }
-
-    std::ifstream input_file(argv[1], std::ios::binary);
-    std::ofstream output_file(argv[2], std::ios::binary);
-    uint16_t p = omp_get_max_threads();
+    auto time_start = now();
+    cli_options options = parse_cli_args(argc, argv, "lz77-sss-exact", true);
+    direct_ifstream input_file(options.input_file_path);
+    direct_ofstream output_file(options.output_file_path);
 
     if (!input_file.good()) {
-        std::cout << "error: could not read <input_file>" << std::endl;
+        std::cout << "error: could not read " << options.input_file_path << std::endl;
         exit(-1);
     }
 
     if (!output_file.good()) {
-        std::cout << "error: could not write to <output_file>" << std::endl;
+        std::cout << "error: could not write to " << options.output_file_path << std::endl;
         exit(-1);
     }
 
-    if (argc >= 4) {
-        p = atoi(argv[3]);
-
-        if (p == 0 || p > omp_get_max_threads()) {
-            std::cout << "error: invalid number of threads" << std::endl;
-            exit(-1);
-        }
-    }
-
-    uint64_t n = std::filesystem::file_size(argv[1]);
-    auto t0 = now();
-    std::cout << "reading input (" << format_size(n) << ")" << std::flush;
-    std::string T;
-    no_init_resize_with_excess(T, n, 4 * lz77_sss<>::default_tau);
-    read_from_file(input_file, T.data(), n);
+    uint64_t n = std::filesystem::file_size(options.input_file_path);
+    fasta_headers headers;
     input_file.close();
-    log_runtime(t0);
-    std::cout << "running LZ77 SSS exact algorithm (without samples):" << std::endl;
-    huff_writer writer(output_file, n);
 
-    if (n <= std::numeric_limits<uint32_t>::max()) {
-        lz77_sss<uint32_t>::factorize_exact<
-            greedy, lpf_opt, without_samples>(T.data(), n,
-            [&](auto f) { writer.add(f); },
-            { .num_threads = p, .log = true });
-    } else {
-        lz77_sss<uint64_t>::factorize_exact<
-            greedy, lpf_opt, without_samples>(T.data(), n,
-            [&](auto f) { writer.add(f); },
-            { .num_threads = p, .log = true });
-    }
+    with_text_from_file(options.input_file_path, n, options.encoding, options.fasta, headers,
+        4 * lz77_sss::default_tau, options.num_threads, true, [&](auto T) {
+        std::cout << "running LZ77 SSS exact algorithm (without interval samples):" << std::endl;
+        huff_factor_writer writer(output_file, n);
+        auto sink = [&](auto f) { writer.add(f); };
+        lz77_sss::parameters params { .num_threads = options.num_threads, .fact_mode = lz77_sss::auto_gaps,
+            .transf_mode = lz77_sss::without_interval_samples, .range_ds = options.range_ds,
+            .exact_alg = options.exact_alg };
 
-    writer.finish();
+        fasta_interleaver interleaver(std::move(headers), sink, [&](char* text, uint64_t size, auto out) {
+            lz77_sss::factorize_exact(text, size, out, params);
+        }, true);
+
+        params.log = true;
+        params.time_start = time_start;
+        params.log_factor_count = false;
+        lz77_sss::factorize_exact(T, [&](auto f) { interleaver.add(f); }, params);
+        interleaver.finish();
+        writer.finish();
+
+        std::cout << "num. of factors = " << interleaver.num_factors() << std::endl;
+        std::cout << "input length / num. of factors = "
+                  << n / (double) std::max<uint64_t>(1, interleaver.num_factors()) << std::endl;
+    });
+
     output_file.close();
-    uint64_t output_file_size = std::filesystem::file_size(argv[2]);
-    std::cout << "output file size: " << format_size(output_file_size) << std::endl;
-    std::cout << "compression ratio: " << n / (double) output_file_size << std::endl;
+
+    uint64_t output_file_size = std::filesystem::file_size(options.output_file_path);
+    std::cout << "output file size = " << format_size(output_file_size) << std::endl;
+    std::cout << "compression ratio = " << n / (double) output_file_size << std::endl;
     return 0;
 }

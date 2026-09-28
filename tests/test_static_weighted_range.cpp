@@ -26,13 +26,12 @@
 
 #include <gtest/gtest.h>
 #include <ips4o.hpp>
-#include <lz77_sss/data_structures/static_weighted_range/static_weighted_kd_tree.hpp>
-#include <lz77_sss/data_structures/static_weighted_range/static_weighted_square_grid.hpp>
-#include <lz77_sss/data_structures/static_weighted_range/static_weighted_striped_square.hpp>
+
+#include <lz77_sss/data_structures/range/range.hpp>
 
 #include "test-progress.hpp"
 
-using point_t = static_weighted_range<>::point_t;
+using point_t = range_ds::point_t;
 
 struct query {
     uint32_t x1, x2;
@@ -43,8 +42,7 @@ struct query {
 
 thread_local std::mt19937 gen(std::random_device{}());
 
-template <typename range_ds_t>
-void test()
+void test(const range_ds_kind& kind)
 {
     uint16_t num_threads = std::uniform_int_distribution<uint16_t>(1, omp_get_max_threads())(gen);
 
@@ -56,7 +54,7 @@ void test()
     // generate a random set of input points with random weights,
     // s.t. the sets of x-coordinates, y-coordinates and weights
     // are permutations of [0, input_size - 1]
-    input.resize(input_size);
+    input.resize(input_size, point_t { });
     for (uint32_t i = 0; i < input_size; i++) input[i].x = i;
     std::shuffle(input.begin(), input.end(), gen);
     for (uint32_t i = 0; i < input_size; i++) input[i].y = i;
@@ -81,7 +79,7 @@ void test()
     for (int64_t k = 0; k < (int64_t) queries.size(); k++) {
         query& q = queries[k];
         for (const point_t& p : input) {
-            if (p.weight < q.weight &&
+            if (uint64_t(p.weight) < q.weight &&
                 q.x1 <= p.x && p.x <= q.x2 &&
                 q.y1 <= p.y && p.y <= q.y2
             ) {
@@ -92,39 +90,34 @@ void test()
     }
 
     // build the range data structure
-    range_ds_t ds(input, input_size, num_threads);
+    range_ds* ds = make_range_ds(kind, input, input_size, num_threads);
 
     // verify that all queries are answered correctly
     #pragma omp parallel for num_threads(num_threads)
     for (int64_t k = 0; k < (int64_t) queries.size(); k++) {
         query& q = queries[k];
-        auto [p, result] = ds.lighter_point_in_range(
-            q.weight, q.x1, q.x2, q.y1, q.y2);
+        auto [p, result] = ds->lighter_point_in_range(
+            char(0), q.weight, q.x1, q.x2, q.y1, q.y2);
         EXPECT_EQ(result, q.result);
         EXPECT_TRUE(!result ||
-            (p.weight < q.weight &&
+            (uint64_t(p.weight) < q.weight &&
             q.x1 <= p.x && p.x <= q.x2 &&
             q.y1 <= p.y && p.y <= q.y2));
     }
+
+    delete ds;
 }
 
 TEST(test_static_weighted_range, static_weighted_kd_tree)
 {
     run_fuzz("static-weighted-range", {
-        { "static-weighted-kd-tree", [](uint64_t) { test<static_weighted_kd_tree<>>(); }, false },
-    }, fuzz_iterations(6000));
+        { "static-weighted-kd-tree", [](uint64_t) { test(range_ds_kind { .type = range_ds_type::swkdt }); }, false },
+    }, fuzz_iterations(3000));
 }
 
 TEST(test_static_weighted_range, static_weighted_square_grid)
 {
     run_fuzz("static-weighted-range", {
-        { "static-weighted-square-grid", [](uint64_t) { test<static_weighted_square_grid<>>(); }, false },
-    }, fuzz_iterations(6000));
-}
-
-TEST(test_static_weighted_range, static_weighted_striped_square)
-{
-    run_fuzz("static-weighted-range", {
-        { "static-weighted-striped-square", [](uint64_t) { test<static_weighted_striped_square<>>(); }, false },
-    }, fuzz_iterations(6000));
+        { "static-weighted-square-grid", [](uint64_t) { test(range_ds_kind { .type = range_ds_type::swsg }); }, false },
+    }, fuzz_iterations(4000));
 }

@@ -24,209 +24,104 @@
  * SOFTWARE.
  */
 
-#include <bit>
 #include <fstream>
-#include <vector>
-#include <lz77_sss/lz77_sss.hpp>
+#include <lz77_sss/inst.hpp>
+#include <lz77_sss/misc/file_decoder.hpp>
 #include <lz77_sss/misc/huffman.hpp>
 
-std::fstream input_file;
-std::fstream output_file;
+void help(std::string message)
+{
+    if (message != "") std::cout << message << std::endl;
+    std::cout << "usage: lz77-sss-decode [options] <input_file> <output_file>" << std::endl;
+    std::cout << " -ram          keep the whole output in memory while decoding (default: only" << std::endl;
+    std::cout << "               the last 64 MiB, older parts are read back from <output_file>)" << std::endl;
+    std::cout << " -t <threads>  number of threads (default: all)" << std::endl;
+    std::cout << " -h            show help" << std::endl;
+    exit(-1);
+}
 
 int main(int argc, char** argv)
 {
-    if (argc != 3 && argc != 4) {
-        std::cout << "usage: lz77_sss_decode <input_file> <output_file> [throughput_threshold_MB/s]" << std::endl;
-        exit(-1);
+    bool in_ram = false;
+    uint16_t num_threads = omp_get_max_threads();
+    int arg_idx = 1;
+
+    while (arg_idx < argc - 2) {
+        std::string arg = argv[arg_idx++];
+
+        if (arg == "-ram") {
+            in_ram = true;
+        } else if (arg == "-t") {
+            if (arg_idx >= argc - 2) help("error: missing parameter after -t option");
+            num_threads = std::max<uint16_t>(1, atoi(argv[arg_idx++]));
+            if (num_threads > omp_get_max_threads()) help("error: requested too many threads");
+        } else if (arg == "-h") {
+            help("");
+        } else {
+            help("error: unrecognized '" + arg + "' option");
+        }
     }
 
-    input_file.open(argv[1], std::ios::in | std::ios::binary);
-    uint64_t input_file_size = std::filesystem::file_size(argv[1]);
-    std::cout << "input file size: " << format_size(input_file_size) << std::endl;
+    if (argc - arg_idx != 2) help("");
+    const std::string input_file_path = argv[arg_idx];
+    const std::string output_file_path = argv[arg_idx + 1];
+    std::ifstream input_file(input_file_path, std::ios::in | std::ios::binary);
 
     if (!input_file.good()) {
         std::cout << "error: could not read <input_file>" << std::endl;
         exit(-1);
     }
 
-    std::string output_file_name = argv[2];
-    if (std::filesystem::exists(output_file_name)) std::filesystem::remove(output_file_name);
-    output_file.open(output_file_name, std::ios::in | std::ios::out | std::ios::app | std::ios::binary);
+    uint64_t input_file_size = std::filesystem::file_size(input_file_path);
+    std::cout << "input file size = " << format_size(input_file_size) << std::endl;
+    uint64_t n = 0;
+    input_file.read((char*) &n, 5);
+    file_decoder decoder(output_file_path, n, in_ram, num_threads);
 
-    if (!output_file.good()) {
+    if (!decoder.good()) {
         std::cout << "error: could not write to <output_file>" << std::endl;
         exit(-1);
     }
 
-    uint64_t n;
-    input_file.read((char*) &n, 5);
     bit_reader reader(input_file);
     huffman len_huff, dist_huff;
-    using factor = lz77_sss<uint64_t>::factor;
+    using factor = lz77_sss::factor;
     huff_factor_iterator<factor> it(reader, len_huff, dist_huff, n);
-
-    factor f;
-    uint64_t pos_output = 0;
-    std::vector<char> ring;
-    uint64_t buff_size = 0;
-    uint64_t buff_mask = 0;
-    uint64_t buffered_start = 0;
-    const uint64_t init_buff_size = uint64_t(1) << 16;
-    const uint64_t max_buff_size = std::max(init_buff_size, std::bit_floor(n));
-    uint64_t file_buff_size = std::max<uint64_t>(32 * 1024, n / 1000);
-    double throughput_threshold = argc == 4 ? std::stod(argv[3]) : 20.0;
-    const uint64_t copy_chunk = uint64_t(1) << 20;
-    std::vector<char> copy_buff;
-    std::string file_buff;
-
-    auto grow_buffer = [&]() -> bool {
-        uint64_t new_size = buff_size == 0 ? init_buff_size : 2 * buff_size;
-        if (new_size > max_buff_size) new_size = max_buff_size;
-        if (new_size == buff_size) return false;
-
-        uint64_t new_mask = new_size - 1;
-        std::vector<char> new_ring;
-        no_init_resize(new_ring, new_size);
-        uint64_t valid_len = buff_size == 0 ? 0
-            : std::min(buff_size, pos_output - buffered_start);
-        buffered_start = pos_output - valid_len;
-
-        for (uint64_t p = buffered_start; p < pos_output; p++)
-            new_ring[p & new_mask] = ring[p & buff_mask];
-
-        ring.swap(new_ring);
-        buff_size = new_size;
-        buff_mask = new_mask;
-        return true;
-    };
-
-    auto emit_literal = [&](char c) {
-        if (buff_size) ring[pos_output & buff_mask] = c;
-        output_file.write(&c, 1);
-        pos_output++;
-    };
-
-    auto copy_from_ring = [&](uint64_t from, uint64_t len) {
-        for (uint64_t off = 0; off < len;) {
-            uint64_t chunk = std::min(len - off, copy_chunk);
-            if (copy_buff.size() < chunk) copy_buff.resize(chunk);
-
-            for (uint64_t i = 0; i < chunk; i++) {
-                char c = ring[(from + i) & buff_mask];
-                ring[(pos_output + i) & buff_mask] = c;
-                copy_buff[i] = c;
-            }
-
-            output_file.write(copy_buff.data(), chunk);
-            from += chunk;
-            pos_output += chunk;
-            off += chunk;
-        }
-    };
-
-    auto copy_via_file = [&](uint64_t from, uint64_t len) {
-        uint64_t to = pos_output;
-        uint64_t chunk_cap = std::min(file_buff_size, to - from);
-        if (file_buff.size() < chunk_cap) file_buff.resize(chunk_cap);
-
-        for (uint64_t off = 0; off < len;) {
-            uint64_t chunk = std::min(len - off, chunk_cap);
-            output_file.seekg(from + off, std::ios::beg);
-            output_file.read(file_buff.data(), chunk);
-            output_file.seekp(to + off, std::ios::beg);
-            output_file.write(file_buff.data(), chunk);
-
-            if (buff_size) {
-                for (uint64_t i = 0; i < chunk; i++)
-                    ring[(to + off + i) & buff_mask] = file_buff[i];
-            }
-
-            off += chunk;
-        }
-
-        pos_output += len;
-    };
-
-    std::cout << "decoding (" << format_size(n) << ")" << std::flush;
+    log_phase_begin(true, "decoding (" + format_size(n) + ", " + (in_ram ? "in main memory" : "low-space") + ")");
     auto t1 = now();
 
-    const uint64_t base_interval = std::clamp<uint64_t>(n / 16, uint64_t(1) << 20, uint64_t(1) << 23);
-    const uint64_t min_eval_size = uint64_t(1) << 22;
-    const double min_hit_gain = 0.03;
-    const uint32_t max_stale = 2;
+    {
+        phase_progress progress(true, n);
+        uint64_t next_report = progress.grain();
 
-    bool measuring = true;
-    bool eval_pending = false;
-    bool frozen = false;
-    uint32_t stale = 0;
-    double hit_before_grow = 0.0;
-    uint64_t seg_start_pos = 0, seg_copy = 0, seg_ring = 0;
-    auto seg_start_time = t1;
-    uint64_t next_check = base_interval;
+        while (decoder.position() < n) {
+            const factor f = *it++;
 
-    while (pos_output < n) {
-        f = *it++;
-
-        if (f.len == 0) {
-            emit_literal((char) f.src);
-        } else {
-            seg_copy += f.len;
-            if (buff_size && f.src >= buffered_start && pos_output - f.src <= buff_size) {
-                copy_from_ring(f.src, f.len);
-                seg_ring += f.len;
+            if (f.is_literal()) {
+                decoder.literal(char(uint64_t(f.src)));
             } else {
-                copy_via_file(f.src, f.len);
+                decoder.copy(f.src, f.len);
+            }
+
+            if (decoder.position() >= next_report) [[unlikely]] {
+                progress.reached(decoder.position());
+                next_report = decoder.position() + progress.grain();
             }
         }
 
-        if (pos_output >= next_check) {
-            if (!measuring) {
-                measuring = true;
-                seg_start_pos = pos_output;
-                seg_start_time = now();
-                seg_copy = seg_ring = 0;
-                next_check = pos_output + base_interval;
-            } else {
-                uint64_t elapsed = time_diff_ns(seg_start_time, now());
-                double tp = elapsed == 0 ? throughput_threshold + 1.0
-                    : throughput(pos_output - seg_start_pos, elapsed);
-                double hit = seg_copy == 0 ? 1.0 : seg_ring / (double) seg_copy;
-
-                if (eval_pending) {
-                    if (buff_size >= min_eval_size && hit - hit_before_grow < min_hit_gain) {
-                        if (++stale >= max_stale) frozen = true;
-                    } else stale = 0;
-                    eval_pending = false;
-                }
-
-                if (!frozen && tp < throughput_threshold) {
-                    hit_before_grow = hit;
-                    if (grow_buffer()) {
-                        eval_pending = true;
-                        measuring = false;
-                        next_check = pos_output + buff_size;
-                    } else {
-                        frozen = true;
-                    }
-                }
-
-                if (frozen) {
-                    next_check = n;
-                } else if (measuring) {
-                    seg_start_pos = pos_output;
-                    seg_start_time = now();
-                    seg_copy = seg_ring = 0;
-                    next_check = pos_output + base_interval;
-                }
-            }
-        }
+        decoder.finish();
     }
 
     auto t2 = now();
     log_runtime(t1, t2);
-    std::cout << "throughput: " << format_throughput(n, time_diff_ns(t1, t2)) << std::endl;
-    if (buff_size > 0) std::cout << "ring buffer size: " << format_size(buff_size) << std::endl;
-    std::cout << "peak memory consumption: " << format_size(malloc_count_peak()) << std::endl;
-    std::cout << "compression ratio: " << n / (double) input_file_size << std::endl;
+
+    if (!decoder.good()) {
+        std::cout << "error: writing <output_file> failed" << std::endl;
+        exit(-1);
+    }
+
+    std::cout << "throughput = " << format_throughput(n, time_diff_ns(t1, t2)) << std::endl;
+    std::cout << "peak memory consumption = " << format_size(malloc_count_peak()) << std::endl;
+    std::cout << "compression ratio = " << n / (double) input_file_size << std::endl;
     return 0;
 }
