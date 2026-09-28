@@ -26,52 +26,47 @@
 
 #include <fstream>
 
-std::ofstream queries_file;
-#define GEN_RANGE_QUERIES 1
-#include <lz77_sss/lz77_sss.hpp>
+#include <lz77_sss/inst.hpp>
+#include <lz77_sss/misc/text_reader.hpp>
 
 int main(int argc, char** argv)
 {
-    if (!(3 <= argc && argc <= 4)) {
-        std::cout << "usage: gen_range_queries <file> <queries_file>" << std::endl;
+    if (argc != 3) {
+        std::cout << "usage: gen-range-queries <input_file> <queries_file>" << std::endl;
         exit(-1);
     }
 
     std::ifstream input_file(argv[1]);
-    queries_file.open(argv[2]);
+    result_log::queries_out.open(argv[2], std::ios::binary);
 
     if (!input_file.good()) {
-        std::cout << "error: could not read <file>" << std::endl;
+        std::cout << "error: could not read <input_file>" << std::endl;
         exit(-1);
     }
 
-    if (!queries_file.good()) {
-        std::cout << "error: could not read <queries_file>" << std::endl;
+    if (!result_log::queries_out.good()) {
+        std::cout << "error: could not write to <queries_file>" << std::endl;
         exit(-1);
     }
 
     uint64_t n = std::filesystem::file_size(argv[1]);
-    auto t0 = now();
-    std::cout << "reading input (" << format_size(n) << ")" << std::flush;
-    std::string T;
-    no_init_resize_with_excess(T, n, 4 * lz77_sss<>::default_tau);
-    read_from_file(input_file, T.data(), n);
     input_file.close();
-    log_runtime(t0);
+    fasta_headers headers;
 
-    std::cout << "generating queries" << std::flush;
-    std::ofstream fact_sss_file("fact_sss_exact");
+    with_text_from_file(argv[1], n, auto_encoding, fasta_off, headers,
+        4 * lz77_sss::default_tau, omp_get_max_threads(), true, [&](auto T) {
+        std::cout << "generating queries" << std::flush;
+        std::ofstream fact_sss_file("fact_sss_exact");
 
-    if (n <= std::numeric_limits<uint32_t>::max()) {
-        lz77_sss<uint32_t>::factorize_exact<
-            greedy, lpf_opt, without_samples, decomposed_static_weighted_kd_tree>(
-            T.data(), n, [&](auto f){fact_sss_file << f;}, { .num_threads = 1, .log = false });
-    } else {
-        lz77_sss<uint64_t>::factorize_exact<
-            greedy, lpf_opt, without_samples, decomposed_static_weighted_kd_tree>(
-            T.data(), n, [&](auto f){fact_sss_file << f;}, { .num_threads = 1, .log = false });
-    }
+        lz77_sss::factorize_exact(
+            T, [&](auto f){fact_sss_file << f;},
+            { .num_threads = 1, .log = false,
+              .fact_mode = lz77_sss::auto_gaps, .transf_mode = lz77_sss::without_interval_samples,
+              .range_ds = { .type = range_ds_type::swkdt, .decomposed = true },
+              .exact_alg = lz77_sss::sss_based });
+    });
 
+    result_log::queries_out.close();
     std::filesystem::remove("fact_sss_exact");
     std::cout << std::endl;
     return 0;

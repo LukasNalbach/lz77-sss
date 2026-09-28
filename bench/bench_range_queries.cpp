@@ -28,15 +28,8 @@
 #include <filesystem>
 #include <ips4o.hpp>
 
-uint64_t cur_win_size;
-#define BENCH_RANGE_QUERIES 1
-
-#include <lz77_sss/data_structures/static_weighted_range/static_weighted_kd_tree.hpp>
-#include <lz77_sss/data_structures/static_weighted_range/static_weighted_square_grid.hpp>
-#include <lz77_sss/data_structures/static_weighted_range/static_weighted_striped_square.hpp>
-
-#include <lz77_sss/data_structures/dynamic_range/dynamic_square_grid.hpp>
-#include <lz77_sss/data_structures/dynamic_range/semi_dynamic_square_grid.hpp>
+#include <lz77_sss/data_structures/range/range.hpp>
+#include <lz77_sss/misc/log.hpp>
 
 struct point {
     uint64_t x;
@@ -59,21 +52,29 @@ uint64_t n;
 std::vector<uint64_t> sampling;
 std::vector<point> points;
 std::vector<operation> operations;
-std::vector<operation> queries;
 
-std::ofstream results_file;
-std::string text_name;
 uint64_t min_win_size = 1 << 11;
 uint64_t max_win_size = 1 << 16;
 
-template <typename pos_t, typename sidx_t, template <typename> typename range_ds_t>
-void bench(uint64_t win_size, std::string log_name) {
-    std::cout << "benchmarking " <<  range_ds_t<sidx_t>::name() << std::flush;
+void help(std::string message)
+{
+    if (message != "") std::cout << message << std::endl;
+    std::cout << "usage: bench-range-queries [-m <m_file>] <input_file> <queries_file>" << std::endl;
+    std::cout << "                           [<min_win> <max_win>]" << std::endl;
+    std::cout << " -m <m_file>     append results to <m_file>" << std::endl;
+    std::cout << " <queries_file>  queries written by gen-range-queries for <input_file>" << std::endl;
+    std::cout << " <min_win>       log2 of the smallest square grid window (default: 11)" << std::endl;
+    std::cout << " <max_win>       log2 of the largest square grid window (default: 16)" << std::endl;
+    exit(-1);
+}
+
+void bench(const range_ds_kind& kind, uint64_t win_size) {
+    std::cout << "benchmarking " << kind.name() << std::flush;
     if (win_size != 0) std::cout << " with window size " << win_size << std::flush;
 
-    cur_win_size = win_size;
-    using point_t = range_ds_t<sidx_t>::point_t;
-    std::vector<pos_t> sampling_local;
+    bench_win_size = win_size;
+    using point_t = range_ds::point_t;
+    std::vector<uint40_t> sampling_local;
     std::vector<point_t> points_local;
 
     for (uint64_t s : sampling) {
@@ -97,72 +98,54 @@ void bench(uint64_t win_size, std::string log_name) {
             point_t p_add {};
             p_add.x = p.x;
             p_add.y = p.y;
-            if constexpr (range_ds_t<pos_t>::is_static()) p_add.weight = p.weight;
+            if (kind.is_static()) p_add.weight = p.weight;
             points_local.emplace_back(p_add);
         }
 
-        range_ds_t<sidx_t> ds;
+        range_ds* ds = nullptr;
         malloc_count_reset_peak();
-        uint64_t alloc_before = malloc_count_current();
+        uint64_t baseline_bytes = malloc_count_current();
         auto t0 = now();
 
-        if constexpr (range_ds_t<sidx_t>::is_decomposed()) {
-            ds = range_ds_t<sidx_t>(T.data(), sampling_local, points_local);
+        if (kind.decomposed) {
+            ds = make_range_ds(kind, T.data(), sampling_local, points_local, 1);
         } else {
-            ds = range_ds_t<sidx_t>(points_local, points.size());
+            ds = make_range_ds(kind, points_local, points.size(), 1);
         }
 
         auto t1 = now();
-        
-        if constexpr (range_ds_t<sidx_t>::is_static()) {
+
+        if (kind.is_static()) {
             points_local.clear();
             points_local.shrink_to_fit();
         }
-        
+
         check_sum = 0;
         time_build += time_diff_ns(t0, t1);
         t1 = now();
 
         for (operation op : operations) {
             if (op.is_insert) {
-                if constexpr (range_ds_t<sidx_t>::is_dynamic()) {
+                if (kind.is_dynamic()) {
                     point_t p {};
                     p.x = op.x_1;
                     p.y = op.y_1;
-
-                    if constexpr (range_ds_t<sidx_t>::is_decomposed()) {
-                        ds.insert(op.c, p);
-                    } else {
-                        ds.insert(p);
-                    }
+                    ds->insert(op.c, p);
                 }
             } else {
                 point_t p;
                 bool result;
 
-                if constexpr (range_ds_t<sidx_t>::is_static()) {
-                    if constexpr (range_ds_t<sidx_t>::is_decomposed()) {
-                        std::tie(p, result) = ds.lighter_point_in_range(
-                            op.c, op.weight,
-                            op.x_1, op.x_2,
-                            op.y_1, op.y_2);
-                    } else {
-                        std::tie(p, result) = ds.lighter_point_in_range(
-                            op.weight,
-                            op.x_1, op.x_2,
-                            op.y_1, op.y_2);
-                    }
+                if (kind.is_static()) {
+                    std::tie(p, result) = ds->lighter_point_in_range(
+                        op.c, op.weight,
+                        op.x_1, op.x_2,
+                        op.y_1, op.y_2);
                 } else {
-                    if constexpr (range_ds_t<sidx_t>::is_decomposed()) {
-                        std::tie(p, result) = ds.point_in_range(
-                            op.c,
-                            op.x_1, op.x_2,
-                            op.y_1, op.y_2);
-                    } else {
-                        std::tie(p, result) = ds.point_in_range(
-                            op.x_1, op.x_2,
-                            op.y_1, op.y_2);
-                    }
+                    std::tie(p, result) = ds->point_in_range(
+                        op.c,
+                        op.x_1, op.x_2,
+                        op.y_1, op.y_2);
                 }
 
                 if (result) {
@@ -178,29 +161,31 @@ void bench(uint64_t win_size, std::string log_name) {
 
         auto t2 = now();
         time_query += time_diff_ns(t1, t2);
-        mem_used = ds.size_in_bytes();
-        mem_peak = malloc_count_peak() < alloc_before ?
-            0 : (malloc_count_peak() - alloc_before);
+        mem_used = ds->size_in_bytes();
+        mem_peak = malloc_count_peak() < baseline_bytes ?
+            0 : (malloc_count_peak() - baseline_bytes);
+        delete ds;
     }
 
     time_query /= num_iterations;
     time_build /= num_iterations;
     uint64_t num_points = points.size();
     uint64_t num_operations = operations.size();
-    uint64_t num_queries = num_operations - num_points;
+    uint64_t num_queries = std::count_if(operations.begin(), operations.end(),
+        [](const operation& op) { return !op.is_insert; });
 
     std::cout << std::endl;
-    std::cout << "construction time: " << time_build / (1.0 * num_points) << " ns/point" << std::endl;
-    std::cout << "construction memory peak: " << mem_peak / (1.0 * num_points) << " bytes/point" << std::endl;
-    std::cout << (num_operations * 1000.0) / time_query << " inserts & queries/us" << std::endl;
-    std::cout << "size: " << mem_used / (1.0 * num_points) << " bytes/point" << std::endl;
-    std::cout << "checksum: " << check_sum << std::endl;
+    std::cout << "construction time = " << time_build / (1.0 * num_points) << " ns/point" << std::endl;
+    std::cout << "construction memory peak = " << mem_peak / (1.0 * num_points) << " bytes/point" << std::endl;
+    std::cout << "throughput = " << (num_operations * 1000.0) / time_query << " inserts & queries/us" << std::endl;
+    std::cout << "size = " << mem_used / (1.0 * num_points) << " bytes/point" << std::endl;
+    std::cout << "checksum = " << check_sum << std::endl;
     std::cout << std::endl;
 
-    if (results_file.is_open()) {
-        results_file << "RESULT"
-            << " text="  << text_name
-            << " ds=" << log_name
+    if (result_log::out.is_open()) {
+        result_log::out << "RESULT"
+            << " text_name=" << result_log::text_name
+            << " ds=" << kind.name()
             << " win_size=" << win_size
             << " num_points=" << num_points
             << " num_queries=" << num_queries
@@ -213,79 +198,59 @@ void bench(uint64_t win_size, std::string log_name) {
     }
 }
 
-template <typename pos_t, typename sidx_t>
 void bench_all() {
-    for (uint64_t win_size = min_win_size; win_size <= max_win_size; win_size *= 2) {
-        bench<pos_t, sidx_t, dynamic_square_grid>(win_size, "dsg");
+    for (bool decomposed : { false, true }) {
+        for (uint64_t win_size = min_win_size; win_size <= max_win_size; win_size *= 2) {
+            bench(range_ds_kind { .type = range_ds_type::sdsg, .decomposed = decomposed }, win_size);
+        }
     }
 
-    for (uint64_t win_size = min_win_size; win_size <= max_win_size; win_size *= 2) {
-        bench<pos_t, sidx_t, decomposed_dynamic_square_grid>(win_size, "ddsg");
+    for (bool decomposed : { false, true }) {
+        for (uint64_t win_size = min_win_size; win_size <= max_win_size; win_size *= 2) {
+            bench(range_ds_kind { .type = range_ds_type::swsg, .decomposed = decomposed }, win_size);
+        }
     }
 
-    for (uint64_t win_size = min_win_size; win_size <= max_win_size; win_size *= 2) {
-        bench<pos_t, sidx_t, semi_dynamic_square_grid>(win_size, "sdsg");
-    }
-
-    for (uint64_t win_size = min_win_size; win_size <= max_win_size; win_size *= 2) {
-        bench<pos_t, sidx_t, decomposed_semi_dynamic_square_grid>(win_size, "dsdsg");
-    }
-
-    for (uint64_t win_size = min_win_size; win_size <= max_win_size; win_size *= 2) {
-        bench<pos_t, sidx_t, static_weighted_square_grid>(win_size, "swsg");
-    }
-
-    for (uint64_t win_size = min_win_size; win_size <= max_win_size; win_size *= 2) {
-        bench<pos_t, sidx_t, decomposed_static_weighted_square_grid>(win_size, "dswsg");
-    }
-    
-    bench<pos_t, sidx_t, static_weighted_striped_square>(0, "swss");
-    bench<pos_t, sidx_t, decomposed_static_weighted_striped_square>(0, "dswss");
-    bench<pos_t, sidx_t, static_weighted_kd_tree>(0, "swkdt");
-    bench<pos_t, sidx_t, decomposed_static_weighted_kd_tree>(0, "dswkdt");
+    bench(range_ds_kind { .type = range_ds_type::swkdt }, 0);
+    bench(range_ds_kind { .type = range_ds_type::swkdt, .decomposed = true }, 0);
 }
 
 int main(int argc, char** argv)
 {
-    if (!(3 <= argc && argc <= 6)) {
-        std::cout << "usage: bench_range_queries <file> <queries_file> <results_file> <min_win_size> <max_win_size>" << std::endl;
-        std::cout << "       the last three parameters are optional" << std::endl;
-        exit(-1);
+    int arg_idx = 1;
+
+    if (arg_idx + 1 < argc && std::string(argv[arg_idx]) == "-m") {
+        result_log::path = argv[arg_idx + 1];
+        arg_idx += 2;
     }
 
+    if ((argc - arg_idx != 2 && argc - arg_idx != 4) || argv[arg_idx][0] == '-') help("");
     omp_set_num_threads(1);
-    std::string file_path = argv[1];
-    text_name = file_path.substr(file_path.find_last_of("/\\") + 1);
+    std::string file_path = argv[arg_idx];
+    result_log::text_name = file_path.substr(file_path.find_last_of("/\\") + 1);
     std::ifstream input_file(file_path);
-    std::ifstream queries_file(argv[2]);
+    std::ifstream queries_file(argv[arg_idx + 1]);
+    if (!input_file.good()) help("error: could not read <input_file>");
+    if (!queries_file.good()) help("error: could not read <queries_file>");
 
-    if (!input_file.good()) {
-        std::cout << "error: could not read <input_file>" << std::endl;
-        exit(-1);
+    if (argc - arg_idx == 4) {
+        const uint64_t log2_min_win_size = atoi(argv[arg_idx + 2]);
+        const uint64_t log2_max_win_size = atoi(argv[arg_idx + 3]);
+        if (log2_min_win_size > log2_max_win_size || log2_max_win_size > 32) help("error: invalid range of window sizes");
+        min_win_size = uint64_t { 1 } << log2_min_win_size;
+        max_win_size = uint64_t { 1 } << log2_max_win_size;
     }
 
-    if (!queries_file.good()) {
-        std::cout << "error: could not read <queries_file>" << std::endl;
-        exit(-1);
+    if (result_log::path != "") {
+        result_log::out.open(result_log::path, std::ios::app);
+        if (!result_log::out.good()) help("error: could not write to <m_file>");
     }
 
-    if (argc >= 4) {
-        results_file.open(argv[3], std::ios::app);
-
-        if (!results_file.good()) {
-            std::cout << "error: could not read <results_file>" << std::endl;
-            exit(-1);
-        }
-    }
-
-    if (argc >= 5) min_win_size = 1 << atoi(argv[4]);
-    if (argc >= 6) max_win_size = 1 << atoi(argv[5]);
-    
-    n = std::filesystem::file_size(argv[1]);
+    n = std::filesystem::file_size(file_path);
     auto t0 = now();
     std::cout << "reading input (" << format_size(n) << ")" << std::flush;
     no_init_resize_with_excess(T, n, 4 * 4096);
-    read_from_file(input_file, T.data(), n);
+    read_fully(input_file, T.data(), n);
     input_file.close();
     log_runtime(t0);
 
@@ -316,15 +281,6 @@ int main(int argc, char** argv)
 
     std::cout << std::endl << std::endl;
 
-    if (n <= std::numeric_limits<uint32_t>::max()) {
-        bench_all<uint32_t, uint32_t>();
-    } else {
-        if (num_points <= std::numeric_limits<uint32_t>::max()) {
-            bench_all<uint64_t, uint32_t>();
-        } else {
-            bench_all<uint64_t, uint64_t>();
-        }
-    }
-    
+    bench_all();
     return 0;
 }

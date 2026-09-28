@@ -34,7 +34,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <iterator>
-#include <memory>
+#include <vector>
 #include <string_view>
 #include <type_traits>
 
@@ -54,42 +54,42 @@ private:
     static constexpr uint64_t stack_half = stack_size / 2;
     static constexpr uint64_t stack_mask = stack_size - 1;
 
-    template <typename pos_t>
-    static pos_t lce(const std::string_view& t, pos_t i, pos_t j)
+    template <typename sa_t>
+    static sa_t lce(const std::string_view& t, sa_t i, sa_t j)
     {
-        pos_t n = t.length();
-        pos_t l = 0;
+        sa_t n = t.length();
+        sa_t l = 0;
         while (i + l < n && j + l < n && t[i + l] == t[j + l]) ++l;
         return l;
     }
 
     uint64_t min_ref_len;
 
-    template <typename pos_t>
+    template <typename sa_t>
     void factorize(
         const std::string_view& t,
         emit_function emit_literal, emit_function emit_reference)
     {
-        using spos_t = std::make_signed_t<pos_t>;
+        using signed_sa_t = std::make_signed_t<sa_t>;
 
-        pos_t n = t.size();
-        auto cs = std::make_unique<spos_t[]>(n + 5);
+        sa_t n = t.size();
+        std::vector<signed_sa_t> cs(n + 5);
         {
-            auto sa = std::make_unique<pos_t[]>(n);
+            std::vector<sa_t> sa(n);
 
-            if constexpr (std::is_same_v<pos_t, uint64_t>) {
-                libsais64((const uint8_t*) t.data(), (int64_t*) sa.get(), n, 0, nullptr);
+            if constexpr (std::is_same_v<sa_t, uint64_t>) {
+                libsais64((const uint8_t*) t.data(), (int64_t*) sa.data(), n, 0, nullptr);
             } else {
-                libsais((const uint8_t*) t.data(), (int32_t*) sa.get(), n, 0, nullptr);
+                libsais((const uint8_t*) t.data(), (int32_t*) sa.data(), n, 0, nullptr);
             }
 
-            auto stack = std::make_unique<spos_t[]>(stack_size + 5);
-            spos_t top = 0;
+            std::vector<signed_sa_t> stack(stack_size + 5);
+            signed_sa_t top = 0;
             stack[top] = 0;
 
             cs[0] = -1;
-            for (pos_t i = 1; i <= n; i++) {
-                spos_t sai = sa[i - 1] + 1;
+            for (sa_t i = 1; i <= n; i++) {
+                signed_sa_t sai = sa[i - 1] + 1;
                 while (stack[top] > sai) --top;
 
                 if ((top & stack_mask) == 0) {
@@ -100,7 +100,7 @@ private:
                         stack[1] = top;
                         top = 1;
                     } else if (top == stack_size) {
-                        for (pos_t j = stack_half; j <= stack_size; j++) {
+                        for (sa_t j = stack_half; j <= stack_size; j++) {
                             stack[j - stack_half] = stack[j];
                         }
                         stack[0] = -stack[0];
@@ -108,28 +108,28 @@ private:
                     }
                 }
 
-                cs[sai] = std::max(spos_t(0), stack[top]);
+                cs[sai] = std::max(signed_sa_t(0), stack[top]);
                 ++top;
                 stack[top] = sai;
             }
         }
 
         cs[0] = 0;
-        pos_t next = 1;
-        for (pos_t i = 1; i <= n; i++) {
-            spos_t psv = cs[i];
-            spos_t nsv = cs[psv];
+        sa_t next = 1;
+        for (sa_t i = 1; i <= n; i++) {
+            signed_sa_t psv = cs[i];
+            signed_sa_t nsv = cs[psv];
 
             if (i == next) {
-                pos_t psv_lcp = psv >= 0 ? lce<pos_t>(t, i - 1, pos_t(psv) - 1) : 0;
-                pos_t nsv_lcp = nsv >= 0 ? lce<pos_t>(t, i - 1, pos_t(nsv) - 1) : 0;
+                sa_t psv_lcp = psv >= 0 ? lce<sa_t>(t, i - 1, sa_t(psv) - 1) : 0;
+                sa_t nsv_lcp = nsv >= 0 ? lce<sa_t>(t, i - 1, sa_t(nsv) - 1) : 0;
 
-                pos_t max_lcp = std::max(psv_lcp, nsv_lcp);
+                sa_t max_lcp = std::max(psv_lcp, nsv_lcp);
                 if (max_lcp >= min_ref_len) {
-                    spos_t max_pos = max_lcp == psv_lcp ? psv : nsv;
+                    signed_sa_t max_pos = max_lcp == psv_lcp ? psv : nsv;
                     assert(max_pos >= 0);
-                    assert(pos_t(max_pos) < i);
-                    emit_reference(factor(i - max_pos, max_lcp));
+                    assert(sa_t(max_pos) < i);
+                    emit_reference(factor(max_pos - 1, max_lcp));
                     next += max_lcp;
                 } else {
                     emit_literal(factor(t[i - 1]));

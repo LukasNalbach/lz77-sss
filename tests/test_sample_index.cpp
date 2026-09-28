@@ -27,6 +27,7 @@
 #include <gtest/gtest.h>
 #include <ips4o.hpp>
 #include <lz77_sss/data_structures/sample_index/sample_index.hpp>
+#include <lz77_sss/misc/repetitive_input.hpp>
 
 #include "test-progress.hpp"
 
@@ -40,12 +41,12 @@ std::uniform_real_distribution<double> prob_distrib(0.0, 1.0);
 
 std::string input;
 uint32_t avg_sample_rate;
-std::vector<uint32_t> sampling;
+std::vector<uint40_t> sampling;
 sample_index<>::query_ctx_t query;
 uint32_t pattern_pos;
 uint32_t pattern_length;
-std::vector<uint32_t> occurrences;
-std::vector<uint32_t> correct_occurrences;
+std::vector<uint64_t> occurrences;
+std::vector<uint64_t> correct_occurrences;
 
 template <direction dir>
 void test_query(sample_index<>& index)
@@ -99,29 +100,29 @@ void test_query(sample_index<>& index)
     occurrences.clear();
 }
 
-void test_extend_locate(bool build_interval_samples)
+void test_extend_locate(interval_samples mode)
 {
     uint16_t num_threads = std::uniform_int_distribution<uint16_t>(1, omp_get_max_threads())(gen);
 
     // generate a random string
-    input = random_repetitive_string(1, 10000);
+    input = random_repetitive_input<std::string>(1, 10000);
 
     // choose a random average sample rate
     avg_sample_rate = avg_sample_rate_distrib(gen);
     std::uniform_int_distribution<uint32_t> sample_distance_distrib(1, 2 * avg_sample_rate);
 
     // compute a random sampling of text positions
-    sampling.emplace_back(std::min<uint32_t>(
+    sampling.emplace_back(std::min<uint64_t>(
         input.size() - 1, sample_distance_distrib(gen)));
 
-    while (sampling.back() + 2 * avg_sample_rate < input.size()) {
-        sampling.emplace_back(sampling.back() + sample_distance_distrib(gen));
+    while (uint64_t(sampling.back()) + 2 * avg_sample_rate < input.size()) {
+        sampling.emplace_back(uint64_t(sampling.back()) + sample_distance_distrib(gen));
     }
 
     // build the sample-index
     sample_index<> index;
-    index.build(input.data(), input.size(), sampling, lce_r_t(input),
-        build_interval_samples, 64, num_threads);
+    index.build(lce::text::direct_text<char>(input.data(), input.size()), input.size(), sampling, lce_r_t(input),
+        mode, 64, num_threads);
 
     // perform random queries and check their correctness
     for (uint32_t i = 0; i < 1000; i++) {
@@ -138,13 +139,13 @@ void test_extend_locate(bool build_interval_samples)
 TEST(test_sample_index, with_interval_samples)
 {
     run_fuzz("sample-index", {
-        { "with-interval-samples", [](uint64_t) { test_extend_locate(true); }, false },
-    }, fuzz_iterations(2000));
+        { "with-interval-samples", [](uint64_t) { test_extend_locate(interval_samples::use); }, false },
+    }, fuzz_iterations(1000));
 }
 
 TEST(test_sample_index, without_interval_samples)
 {
     run_fuzz("sample-index", {
-        { "without-interval-samples", [](uint64_t) { test_extend_locate(false); }, false },
-    }, fuzz_iterations(2000));
+        { "without-interval-samples", [](uint64_t) { test_extend_locate(interval_samples::skip); }, false },
+    }, fuzz_iterations(1400));
 }

@@ -58,18 +58,18 @@
 #include <limits>
 #include <type_traits>
 
-template <typename pos_t>
+template <typename uint_t>
 struct vbyte_traits
 {
-    static constexpr pos_t mask = std::numeric_limits<uint8_t>::max() >> 1;
-    static constexpr pos_t rsh = std::numeric_limits<uint8_t>::digits - 1;
+    static constexpr uint64_t mask = std::numeric_limits<uint8_t>::max() >> 1;
+    static constexpr uint64_t rsh = std::numeric_limits<uint8_t>::digits - 1;
 };
 
-template <typename pos_t>
-inline pos_t encode_vbyte(std::ostream& out, pos_t x)
+template <typename uint_t>
+inline uint64_t encode_vbyte(std::ostream& out, uint_t x)
 {
-    using traits = vbyte_traits<pos_t>;
-    pos_t written = 0;
+    using traits = vbyte_traits<uint_t>;
+    uint64_t written = 0;
     
     do {
         uint8_t byte = x & traits::mask;
@@ -82,12 +82,12 @@ inline pos_t encode_vbyte(std::ostream& out, pos_t x)
     return written;
 }
 
-template <typename pos_t>
-inline pos_t decode_vbyte(std::istream& in)
+template <typename uint_t>
+inline uint_t decode_vbyte(std::istream& in)
 {
-    using traits = vbyte_traits<pos_t>;
-    pos_t x = 0;
-    pos_t lsh = 0;
+    using traits = vbyte_traits<uint_t>;
+    uint64_t x = 0;
+    uint64_t lsh = 0;
     bool has_next;
 
     do {

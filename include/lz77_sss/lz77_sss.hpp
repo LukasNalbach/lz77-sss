@@ -30,83 +30,98 @@
 #include <functional>
 #include <vector>
 
-#include <ds/lce_classic.hpp>
-#include <ds/lce_naive_wordwise_xor.hpp>
 #include <ds/lce_sss.hpp>
+#include <text/direct_text.hpp>
+#include <text/packed_text.hpp>
+#include <text/split_text.hpp>
 
-#include <lz77_sss/algorithms/lce_l.hpp>
-#include <lz77_sss/data_structures/dynamic_range/dynamic_square_grid.hpp>
-#include <lz77_sss/data_structures/dynamic_range/semi_dynamic_square_grid.hpp>
-#include <lz77_sss/data_structures/parallel_rolling_hash_index_107.hpp>
-#include <lz77_sss/data_structures/rolling_hash_index_107.hpp>
+#include <lz77_sss/data_structures/range/range.hpp>
+#include <lz77_sss/data_structures/min_tree.hpp>
+#include <lz77_sss/data_structures/exact_gap_index.hpp>
+#include <lz77_sss/data_structures/rolling_hash_index.hpp>
 #include <lz77_sss/data_structures/sample_index/sample_index.hpp>
-#include <lz77_sss/data_structures/static_weighted_range/static_weighted_kd_tree.hpp>
-#include <lz77_sss/data_structures/static_weighted_range/static_weighted_square_grid.hpp>
-#include <lz77_sss/data_structures/static_weighted_range/static_weighted_striped_square.hpp>
+#include <lz77_sss/misc/direct_io.hpp>
+#include <lz77_sss/data_structures/bit_aligned_interleaved_vectors.hpp>
+#include <lz77_sss/misc/progress.hpp>
+#include <lz77_sss/misc/log.hpp>
+#include <lz77_sss/misc/search.hpp>
 #include <lz77_sss/misc/utils.hpp>
 
-enum phrase_mode {
-    lpf_naive,
-    lpf_lnf_naive,
-    lpf_opt,
-    lpf_lnf_opt
-};
-
-enum factorize_mode {
-    greedy_naive,
-    greedy,
-    skip_phrases
-};
-
-enum transform_mode {
-    naive,
-    with_samples,
-    without_samples,
-};
-
-struct parameters {
-    uint16_t num_threads = 0;
-    bool log = false;
-};
-
-template <typename pos_t = uint32_t>
 class lz77_sss {
 public:
-    static_assert(std::is_same_v<pos_t, uint32_t> || std::is_same_v<pos_t, uint64_t>);
+    enum factorize_mode {
+        auto_gaps = 1,
+        skip_gaps = 2,
+        exact_gaps = 3
+    };
 
-    static constexpr phrase_mode        default_phr_mode         = lpf_opt;
-    static constexpr factorize_mode     default_fact_mode        = greedy;
-    static constexpr transform_mode     default_transf_mode      = without_samples;
-    template <typename sidx_t> using    default_range_ds_t       = decomposed_static_weighted_square_grid<sidx_t>;
+    enum transform_mode {
+        with_interval_samples = 1,
+        without_interval_samples = 2
+    };
 
-    static constexpr uint64_t           default_tau              = 512;
-    static constexpr uint64_t           max_delta                = 256;
-    static constexpr uint64_t           rks_sample_rate          = 16;
-    static constexpr uint64_t           range_scan_threshold     = 4096;
-    static constexpr uint64_t           min_par_input_size       = 500'000;
-    static constexpr double             min_par_rel_gap_len      = 0.2;
-    static constexpr uint64_t           min_par_gap_blk_size     = 4096;
-    static constexpr uint64_t           max_par_gap_blks         = 512;
-    static constexpr uint64_t           num_patt_lens            = 5;
-    static constexpr uint64_t           min_rh_index_size        = 1 << 20;
-    static constexpr uint64_t           max_rh_index_size        = 1 << 30;
-    static constexpr double             min_rel_rh_index_size    = 0.1;
-    static constexpr uint64_t           num_par_sect_per_thr     = 16;
+    enum exact_algorithm {
+        auto_select = 1,
+        sss_based = 2,
+        sa_based = 3
+    };
 
-    using entry_t = std::pair<double, std::array<pos_t, num_patt_lens>>;
-    static constexpr double infty = std::numeric_limits<double>::max();
+    struct parameters {
+        uint16_t num_threads = 0;
+        bool log = false;
+        std::chrono::steady_clock::time_point time_start { };
+        uint64_t tau = 512;
+        factorize_mode fact_mode = auto_gaps;
+        transform_mode transf_mode = with_interval_samples;
+        range_ds_kind range_ds { .type = range_ds_type::swsg, .decomposed = true };
+        exact_algorithm exact_alg = auto_select;
+        bool log_factor_count = true;
+    };
 
-    static constexpr std::array<entry_t, 10> patt_len_table {
-        entry_t { 6, { 2, 3, 4, 5, 6 } },
-        entry_t { 8, { 2, 3, 4, 6, 8 } },
-        entry_t { 12, { 2, 3, 4, 8, 12 } },
-        entry_t { 16, { 2, 4, 6, 9, 16 } },
-        entry_t { 32, { 2, 4, 6, 10, 20 } },
-        entry_t { 64, { 2, 4, 7, 12, 28 } },
-        entry_t { 128, { 2, 4, 8, 16, 36 } },
-        entry_t { 256, { 2, 5, 10, 20, 42 } },
-        entry_t { 1024, { 2, 6, 12, 24, 48 } },
-        entry_t { infty, { 2, 8, 16, 32, 64 } }
+    static constexpr uint64_t       max_input_size                      = uint40_t::max;
+
+    static constexpr factorize_mode default_fact_mode                   = auto_gaps;
+    static constexpr transform_mode default_transf_mode                 = with_interval_samples;
+
+    static constexpr uint64_t       default_tau                         = 512;
+    static constexpr uint64_t       max_delta                           = 256;
+    static constexpr uint64_t       rks_sample_rate                     = 32;
+    static constexpr uint64_t       range_scan_threshold                = 4096;
+    static constexpr uint64_t       par_gap_blk_len                     = 4096;
+    static constexpr uint64_t       par_blks_per_thr                    = 4;
+    static constexpr uint64_t       par_owners_per_thr                  = 4;
+    static constexpr uint64_t       par_fact_bufs                       = 4;
+    static constexpr uint64_t       sa_sects_ahead_per_thr              = 4;
+    static constexpr uint64_t       num_patt_lens                       = 5;
+    static constexpr uint64_t       par_sects_per_thr                   = 16;
+    static constexpr uint64_t       lpf_chunks_per_thr                  = 64;
+    static constexpr uint64_t       max_sa_input_size                   = 1ULL << 38;
+    static constexpr uint64_t       min_sa_sect_len                     = 64;
+    static constexpr uint64_t       max_sa_sect_len                     = 1'048'576;
+    static constexpr uint64_t       max_gap_ctx_per_tau                 = 2;
+    static constexpr uint64_t       min_hash_gap_ctx                    = 16;
+    static constexpr double         hash_gap_ctx_factor                 = 24;
+    static constexpr double         max_sa_peak_ratio                   = 1.25;
+    static constexpr double         sa_extra_bytes_per_char             = 0.5;
+    static constexpr double         without_iv_smpl_peak_bytes_per_char = 1.7;
+    static constexpr double         without_iv_smpl_peak_bytes_per_fact = 44.6;
+    static constexpr double         with_iv_smpl_peak_bytes_per_char    = 1.34;
+    static constexpr double         with_iv_smpl_peak_bytes_per_fact    = 115.7;
+
+    using patt_len_entry_t = std::pair<double, std::array<uint64_t, num_patt_lens>>;
+    static constexpr double         infty                               = std::numeric_limits<double>::max();
+
+    static constexpr std::array<patt_len_entry_t, 10> patt_len_table {
+        patt_len_entry_t { 6, { 2, 3, 4, 5, 6 } },
+        patt_len_entry_t { 8, { 2, 3, 4, 6, 8 } },
+        patt_len_entry_t { 12, { 2, 3, 4, 8, 12 } },
+        patt_len_entry_t { 16, { 2, 4, 6, 9, 16 } },
+        patt_len_entry_t { 32, { 2, 4, 6, 10, 20 } },
+        patt_len_entry_t { 64, { 2, 4, 7, 12, 28 } },
+        patt_len_entry_t { 128, { 2, 4, 8, 16, 36 } },
+        patt_len_entry_t { 256, { 2, 5, 10, 20, 42 } },
+        patt_len_entry_t { 1024, { 2, 6, 12, 24, 48 } },
+        patt_len_entry_t { infty, { 2, 8, 16, 32, 64 } }
     };
     
     static double get_patt_len_guess(double avg_gap_len, double avg_lpf_phr_len, double rel_len_gaps)
@@ -114,11 +129,23 @@ public:
         return std::min<double>({avg_gap_len, avg_lpf_phr_len, 8.0 * std::pow(128, 1.0 - rel_len_gaps)});
     }
 
-    static uint64_t get_target_gap_idx_size(uint64_t n, double rel_len_gaps)
+    static uint64_t exact_gaps_bytes(uint64_t len_G, uint64_t num_gaps)
     {
-        return std::min<uint64_t>(max_rh_index_size, std::max<uint64_t>({min_rh_index_size,
-            malloc_count_peak() - malloc_count_current(),
-            (uint64_t)((n / 3.0) * rel_len_gaps)}));
+        const uint64_t sa_bytes = len_G <= INT32_MAX ? sizeof(int32_t) : sizeof(sa_int40_t);
+        return len_G * (1 + 2 * sa_bytes) + (len_G / 8) * (1 + sizeof(factor)) + num_gaps * 3 * sizeof(uint64_t);
+    }
+
+    static double estimated_sa_peak(uint64_t n, uint64_t text_bytes)
+    {
+        const uint64_t sa_bytes = n <= INT32_MAX ? sizeof(int32_t) : sizeof(sa_int40_t);
+        return text_bytes + n * (2.0 * sa_bytes + sa_extra_bytes_per_char);
+    }
+
+    static double estimated_sss_peak(uint64_t n, uint64_t num_aprx_fact, transform_mode transf_mode)
+    {
+        return transf_mode == with_interval_samples
+            ? n * with_iv_smpl_peak_bytes_per_char + num_aprx_fact * with_iv_smpl_peak_bytes_per_fact
+            : n * without_iv_smpl_peak_bytes_per_char + num_aprx_fact * without_iv_smpl_peak_bytes_per_fact;
     }
 
     static uint64_t get_max_smpl_len_right(double aprx_comp_ratio)
@@ -127,88 +154,197 @@ public:
     }
 
     struct factor {
-        pos_t src;
-        pos_t len;
+        uint40_t src;
+        uint40_t len;
 
         friend class lz77_sss;
 
-        pos_t length() const
-        {
-            return std::max<pos_t>(1, len);
-        }
+        static factor literal(uint8_t chr) { return factor { .src = chr, .len = 0 }; }
 
-        static constexpr pos_t size_of()
-        {
-            if constexpr (std::is_same_v<pos_t, uint32_t>) {
-                return 8;
-            } else {
-                return 10;
-            }
-        }
+        static factor gap(uint64_t len) { return factor { .src = len, .len = 0 }; }
+
+        bool is_literal() const { return len == 0; }
+
+        bool is_gap() const { return len == 0; }
+
+        uint64_t text_len() const { return std::max<uint64_t>(1, len); }
+
+        static constexpr uint64_t size_of() { return 10; }
 
         friend std::istream& operator>>(std::istream& in, factor& f)
         {
-            if constexpr (std::is_same_v<pos_t, uint32_t>) {
-                in.read((char*) &f, 8);
-            } else {
-                f.src = 0;
-                f.len = 0;
-                in.read((char*) &f.src, 5);
-                in.read((char*) &f.len, 5);
-            }
-
+            in.read((char*) &f.src, 5);
+            in.read((char*) &f.len, 5);
             return in;
         }
 
         friend std::ostream& operator<<(std::ostream& out, const factor& f)
         {
-            if constexpr (std::is_same_v<pos_t, uint32_t>) {
-                out.write((char*) &f, 8);
-            } else {
-                out.write((char*) &f.src, 5);
-                out.write((char*) &f.len, 5);
-            }
-
+            out.write((char*) &f.src, 5);
+            out.write((char*) &f.len, 5);
             return out;
         }
     };
 
-    template <
-        factorize_mode  fact_mode = default_fact_mode,
-        phrase_mode     phr_mode  = default_phr_mode,
-        uint64_t        tau       = default_tau,
-        typename char_t,
-        typename output_fnc_t
-    >
-    static void factorize_approximate(char_t* input, pos_t input_size, output_fnc_t output, parameters params = { })
+    class factor_sink {
+        static constexpr uint64_t capacity = 8192;
+
+        void* ctx = nullptr;
+        void (*emit)(void*, const factor*, uint64_t) = nullptr;
+        std::vector<factor> buf;
+
+    public:
+        factor_sink() = default;
+
+        template <typename fnc_t>
+        explicit factor_sink(fnc_t& fnc)
+            : ctx(&fnc)
+            , emit([](void* c, const factor* f, uint64_t num) {
+                  fnc_t& g = *static_cast<fnc_t*>(c);
+                  for (uint64_t i = 0; i < num; i++) g(f[i]);
+              })
+        {
+            buf.reserve(capacity);
+        }
+
+        inline void operator()(factor f)
+        {
+            buf.emplace_back(f);
+            if (buf.size() == capacity) [[unlikely]] flush();
+        }
+
+        void flush()
+        {
+            if (buf.empty()) return;
+            emit(ctx, buf.data(), buf.size());
+            buf.clear();
+        }
+    };
+
+    using direct_text = lce::text::direct_text<char>;
+    using packed_text = lce::text::packed_text;
+    using split_text = lce::text::split_text<>;
+
+    template <typename text_t, typename output_fnc_t>
+    static void factorize_approximate(text_t text, output_fnc_t output, parameters params = { })
     {
-        factorizer<tau, char_t>(input, input_size, params).template factorize<approximate, fact_mode, phr_mode>(output);
+        factor_sink sink(output);
+        factorizer<text_t>(text, params).factorize(approximate, sink);
+        sink.flush();
     }
 
-    template <
-        factorize_mode               fact_mode   = default_fact_mode,
-        phrase_mode                  phr_mode    = default_phr_mode,
-        transform_mode               transf_mode = default_transf_mode,
-        template <typename> typename range_ds_t  = default_range_ds_t,
-        uint64_t                     tau         = default_tau,
-        typename char_t,
-        typename output_fnc_t
-    >
-    static void factorize_exact(char_t* input, pos_t input_size, output_fnc_t output, parameters params = { })
+    template <typename text_t, typename output_fnc_t>
+    static void factorize_exact(text_t text, output_fnc_t output, parameters params = { })
     {
-        factorizer<tau, char_t>(input, input_size, params).template factorize<exact, fact_mode, phr_mode, transf_mode, range_ds_t>(output);
+        factor_sink sink(output);
+        factorizer<text_t>(text, params).factorize(exact, sink);
+        sink.flush();
+    }
+
+    template <typename text_t, typename gapped_fnc_t>
+    static void factorize_gapped(text_t text, gapped_fnc_t fnc, parameters params = { })
+    {
+        params.fact_mode = skip_gaps;
+        factorizer<text_t> impl(text, params);
+        impl.gapped_fnc = [&fnc](const gapped_factorization& gapped) { fnc(gapped); };
+        factor_sink sink;
+        impl.factorize(approximate, sink);
+    }
+
+    template <typename output_fnc_t>
+    static void factorize_approximate(char* input, uint64_t input_size, output_fnc_t output, parameters params = { })
+    {
+        factorize_approximate(direct_text(input, input_size), output, params);
+    }
+
+    template <typename output_fnc_t>
+    static void factorize_exact(char* input, uint64_t input_size, output_fnc_t output, parameters params = { })
+    {
+        factorize_exact(direct_text(input, input_size), output, params);
     }
     
     template <std::input_iterator fact_it_t, typename out_it_t>
-    static void decode(fact_it_t fact_it, out_it_t out_it, pos_t output_size);
+    static void decode(fact_it_t fact_it, out_it_t out_it, uint64_t output_size);
 
 protected:
-    struct lpf {
-        pos_t beg;
-        pos_t end;
-        pos_t src;
+    struct __attribute__((packed)) lpf_phrase {
+        uint40_t beg;
+        uint40_t end;
+        uint40_t src;
     };
 
+    class lpf_array {
+    public:
+        void init(uint64_t max_value) { data.reset(0, { max_value, max_value, max_value }); }
+
+        inline void emplace_back(lpf_phrase phrase)
+        {
+            data.push_back({ uint64_t(phrase.beg), uint64_t(phrase.end), uint64_t(phrase.src) });
+        }
+
+        inline lpf_phrase operator[](uint64_t i) const
+        {
+            return lpf_phrase { .beg = uint40_t(data.get<0>(i)), .end = uint40_t(data.get<1>(i)),
+                .src = uint40_t(data.get<2>(i)) };
+        }
+
+        inline void set(uint64_t i, lpf_phrase phrase)
+        {
+            data.set<0>(i, uint64_t(phrase.beg));
+            data.set<1>(i, uint64_t(phrase.end));
+            data.set<2>(i, uint64_t(phrase.src));
+        }
+
+        inline lpf_phrase back() const { return (*this)[data.size() - 1]; }
+        inline uint64_t size() const { return data.size(); }
+        inline bool empty() const { return data.size() == 0; }
+        uint64_t size_in_bytes() const { return data.size_in_bytes(); }
+
+        std::vector<lpf_phrase> to_vector() const
+        {
+            std::vector<lpf_phrase> out;
+            no_init_resize(out, data.size());
+            for (uint64_t i = 0; i < data.size(); i++) out[i] = (*this)[i];
+            return out;
+        }
+
+        void from_vector(std::vector<lpf_phrase>& in, uint64_t max_value)
+        {
+            data.reset(in.size(), { max_value, max_value, max_value });
+            for (const lpf_phrase& phrase : in) emplace_back(phrase);
+            in.clear();
+            in.shrink_to_fit();
+        }
+
+    private:
+        bit_aligned_interleaved_vectors<3> data;
+    };
+
+public:
+    class gapped_factorization {
+    public:
+        gapped_factorization(std::vector<lpf_array>& phrases, uint64_t n);
+
+        uint64_t num_sections() const { return sections.size(); }
+
+        uint64_t section_begin(uint64_t s) const { return s == 0 ? 0 : sections[s].beg; }
+
+        void emit_section(uint64_t s, factor_sink& out) const;
+
+    private:
+        struct sect_t {
+            uint64_t chunk;
+            uint64_t first;
+            uint64_t beg;
+            uint64_t nxt;
+        };
+
+        const std::vector<lpf_array>* lpf_chunks = nullptr;
+        uint64_t n = 0;
+        std::vector<sect_t> sections;
+    };
+
+protected:
     enum quality_mode {
         approximate,
         exact
@@ -220,433 +356,470 @@ protected:
     lz77_sss& operator=(lz77_sss&& other) = delete;
     lz77_sss& operator=(const lz77_sss& other) = delete;
 
-    template <uint64_t tau, typename char_t>
+    template <typename text_t>
     class factorizer {
     public:
-        using lce_t = lce::ds::lce_sss<char_t, tau, pos_t, false>;
-        using gap_idx_t = rolling_hash_index_107<pos_t, num_patt_lens, char_t>;
-        using par_gap_idx_t = parallel_rolling_hash_index_107<pos_t, num_patt_lens, char_t>;
-        using fp_arr_t = par_gap_idx_t::fp_arr_t;
+        using lce_t = lce::ds::lce_sss<text_t, uint40_t>;
+        using rh_idx_t = rolling_hash_index<num_patt_lens, text_t>;
+
+        static uint64_t target_rh_idx_bytes_for(uint64_t n, double rel_len_gaps)
+        {
+            return std::min<uint64_t>(rh_idx_t::max_bytes, std::max<uint64_t>({rh_idx_t::min_bytes,
+                malloc_count_peak() - malloc_count_current(),
+                (uint64_t)((n / 3.0) * rel_len_gaps)}));
+        }
+
         std::chrono::steady_clock::time_point time_start, time;
-        uint64_t baseline_memory_alloc = 0;
-        uint64_t target_index_size = 0;
+        uint64_t baseline_bytes = 0;
+        uint64_t target_rh_idx_bytes = 0;
         bool log = false;
         uint16_t p = 0;
-        pos_t roll_threshold = 0;
+        uint64_t tau = default_tau;
+        factorize_mode fact_mode = default_fact_mode;
+        transform_mode transf_mode = default_transf_mode;
+        range_ds_kind kind { .type = range_ds_type::swsg, .decomposed = true };
+        exact_algorithm exact_alg = auto_select;
+        bool log_factor_count = true;
+        std::function<void(const gapped_factorization&)> gapped_fnc;
 
-        char_t* T;
-        pos_t n = 0;
-        pos_t size_sss = 0;
-        pos_t num_lpf = 0;
-        pos_t len_lpf_phr = 0;
-        pos_t num_fact = 0;
-        pos_t len_gaps = 0;
-        pos_t num_gaps = 0;
+        text_t T;
+        uint64_t n = 0;
+        uint64_t size_sss = 0;
+        uint64_t num_lpf_phr = 0;
+        uint64_t len_lpf_phr = 0;
+        uint64_t num_fact = 0;
+        uint64_t len_gaps = 0;
+        uint64_t num_gaps = 0;
+        uint64_t gap_ctx = 0;
+        bool factorize_gaps_exact = false;
 
         lce_t LCE;
-        std::vector<std::vector<lpf>> LPF;
-        std::array<pos_t, num_patt_lens> patt_lens;
-        gap_idx_t gap_idx;
-        par_gap_idx_t par_gap_idx;
+        std::vector<lpf_array> LPF;
+        std::array<uint64_t, num_patt_lens> patt_lens;
+        rh_idx_t rh_idx;
 
-        std::vector<uint32_t> PSV_S;
-        std::vector<uint32_t> NSV_S;
-        std::vector<uint32_t> PGV_S;
-        std::vector<uint32_t> NGV_S;
 
-        struct lpf_pos_t {
-            uint16_t i_p;
-            uint32_t i;
+        struct lpf_cursor_t {
+            uint64_t chunk;
+            uint64_t i;
         };
         
-        struct block_info_t {
-            uint16_t i_p;
-            uint32_t i;
-            pos_t beg;
+        struct par_blk_t {
+            uint64_t beg;
+            lpf_cursor_t lpf_cursor;
+            uint64_t dist_prev;
         };
 
-        std::vector<block_info_t> blk_info;
-        std::vector<std::vector<factor>> factors;
+        struct par_gap_t {
+            uint64_t beg;
+            uint64_t end;
+            uint64_t ref_beg;
+            uint64_t dist_prev;
+            uint64_t dist_next;
+        };
 
-        factorizer(char_t* input, pos_t input_size, parameters params)
-            : log(params.log)
+        class merging_output {
+        public:
+            merging_output(factor_sink& sink, uint64_t& fact_counter)
+                : output(sink)
+                , num_fact(fact_counter)
+            { }
+
+            void add(uint64_t pos, factor f)
+            {
+                if (f.len > 0 && pending.len > 0 && pos == pending_pos + pending.len &&
+                    pos - f.src == pending_pos - pending.src) {
+                    pending.len = pending.len + f.len;
+                    return;
+                }
+
+                flush();
+
+                if (f.is_literal()) {
+                    output(f);
+                    num_fact++;
+                    return;
+                }
+
+                pending = f;
+                pending_pos = pos;
+            }
+
+            void flush()
+            {
+                if (pending.len == 0) return;
+                output(pending);
+                num_fact++;
+                pending.len = 0;
+            }
+
+        private:
+            factor_sink& output;
+            uint64_t& num_fact;
+            factor pending { .src = 0, .len = 0 };
+            uint64_t pending_pos = 0;
+        };
+
+        struct par_buf_t {
+            uint64_t num_pos = 0;
+            std::vector<par_gap_t> gaps;
+            std::vector<uint32_t> slot_refs;
+            std::vector<uint32_t> slots;
+            std::vector<uint40_t> vals;
+            std::vector<uint64_t> owner_beg;
+            std::vector<uint64_t> owner_fill;
+        };
+
+        factorizer(const text_t& input, parameters params)
+            : time_start(params.time_start)
+            , log(params.log)
             , p(params.num_threads)
+            , tau(params.tau)
+            , fact_mode(params.fact_mode)
+            , transf_mode(params.transf_mode)
+            , kind(params.range_ds)
+            , exact_alg(params.exact_alg)
+            , log_factor_count(params.log_factor_count)
             , T(input)
-            , n(input_size)
+            , n(input.size())
         { }
 
-        template <
-            quality_mode qual_mode,
-            factorize_mode fact_mode = default_fact_mode,
-            phrase_mode phr_mode = default_phr_mode,
-            transform_mode transf_mode = default_transf_mode,
-            template <typename> typename range_ds_t = default_range_ds_t,
-            typename output_fnc_t>
-        void factorize(output_fnc_t output)
+        void factorize(quality_mode qual_mode, factor_sink& output)
         {
-            static_assert(sizeof(char_t) == 1);
+            if (n == 0) {
+                return;
+            }
 
             if (p == 0) {
                 p = omp_get_max_threads();
             }
 
-            baseline_memory_alloc = malloc_count_current();
+            baseline_bytes = malloc_count_current();
             malloc_count_reset_peak();
+
+            struct omp_threads_guard {
+                int saved = omp_get_max_threads();
+                ~omp_threads_guard() { omp_set_num_threads(saved); }
+            } omp_threads;
+
             omp_set_num_threads(p);
 
             if (log) {
-                #ifdef LZ77_SSS_BENCH
-                if (result_file_path != "") {
+                if (result_log::write_rows && result_log::out.is_open()) {
                     uint16_t transf_mode_int = qual_mode != exact ? 0 : (transf_mode + 1);
 
-                    result_file << "RESULT"
-                        << " text_name=" << text_name
+                    result_log::out << "RESULT"
+                        << " text_name=" << result_log::text_name
                         << " n=" << n
                         << " alg=lz77_sss"
                         << " num_threads=" << p
                         << " tau=" << tau
-                        << " phr_mode=" << phr_mode
                         << " fact_mode=" << fact_mode
                         << " transf_mode=" << transf_mode_int;
                 }
-                #endif
 
                 time = now();
-                time_start = time;
+                if (time_start.time_since_epoch().count() == 0) time_start = time;
             }
 
-            if constexpr (qual_mode == exact) {
-                static_assert(fact_mode != skip_phrases);
+            if (qual_mode == exact && (exact_alg == sa_based && n <= max_sa_input_size)) {
+                factorize_exact_sa(output);
+            } else if (qual_mode == exact) {
                 std::string aprx_file_name = std::filesystem::temp_directory_path().string()
                     + "/aprx_" + random_alphanumeric_string(10);
-                std::ofstream ofile_aprx(aprx_file_name, std::ios::binary);
-                std::ostream_iterator<factor> ofile_aprx_it(ofile_aprx, "");
-                compute_approximation<fact_mode, phr_mode>([&](factor f) { *ofile_aprx_it++ = f; });
-                ofile_aprx.close();
-                pos_t delta = std::min<pos_t>(n / num_fact, max_delta);
-                pos_t max_num_samples = num_fact + n / delta;
+                direct_ofstream aprx_ofile(aprx_file_name);
+                std::ostream_iterator<factor> aprx_ofile_it(aprx_ofile, "");
+                auto write_aprx = [&](factor f) { *aprx_ofile_it++ = f; };
+                factor_sink aprx_sink(write_aprx);
+                compute_approximation(aprx_sink);
+                aprx_sink.flush();
+                aprx_ofile.close();
+                const double peak_sa = estimated_sa_peak(n, T.size_in_bytes());
+                const double peak_sss = estimated_sss_peak(n, num_fact, transf_mode);
 
-                if (std::is_same_v<pos_t, uint32_t> ||
-                    max_num_samples <= std::numeric_limits<uint32_t>::max()
-                ) {
-                    exact_factorizer<uint32_t, transf_mode, range_ds_t>(
-                        T, n, LCE, aprx_file_name, delta, num_fact, p, log)
-                        .transform_to_exact(output);
+                if (exact_alg == auto_select && peak_sa <= max_sa_peak_ratio * peak_sss && n <= max_sa_input_size) {
+                    std::filesystem::remove(aprx_file_name);
+                    LCE = lce_t();
+                    release_free_memory();
+                    factorize_exact_sa(output);
                 } else {
-                    exact_factorizer<uint64_t, transf_mode, range_ds_t>(
-                        T, n, LCE, aprx_file_name, delta, num_fact, p, log)
-                        .transform_to_exact(output);
-                }
+                    uint64_t delta = std::min<uint64_t>(n / num_fact, max_delta);
 
-                std::filesystem::remove(aprx_file_name);
+                    exact_transformer(
+                        T, n, LCE, aprx_file_name, delta, num_fact, p, log, transf_mode, kind)
+                        .transform_to_exact(output);
+
+                    std::filesystem::remove(aprx_file_name);
+                }
             } else {
-                compute_approximation<fact_mode, phr_mode>(output);
+                compute_approximation(output);
             }
 
-            if (log && fact_mode != skip_phrases) {
+            if (log && fact_mode != skip_gaps) {
                 uint64_t time_total = time_diff_ns(time_start, now());
-                uint64_t mem_peak = malloc_count_peak() - baseline_memory_alloc + n;
+                uint64_t peak_bytes = malloc_count_peak() - baseline_bytes + T.size_in_bytes();
                 double comp_ratio = n / (double) num_fact;
 
-                std::cout << "num. of factors: " << num_fact << std::endl;
-                std::cout << "input length / num. of factors: " << comp_ratio << std::endl;
-                std::cout << "total time: " << format_time(time_total) << std::endl;
-                std::cout << "throughput: " << format_throughput(n, time_total) << std::endl;
-                std::cout << "peak memory consumption: " << format_size(mem_peak) << std::endl;
+                if (log_factor_count) {
+                    std::cout << "num. of factors = " << num_fact << std::endl;
+                    std::cout << "input length / num. of factors = " << comp_ratio << std::endl;
+                }
 
-                #ifdef LZ77_SSS_BENCH
-                if (result_file_path != "") {
-                    result_file
+                std::cout << "total time = " << format_time(time_total) << std::endl;
+                std::cout << "throughput = " << format_throughput(n, time_total) << std::endl;
+                std::cout << "peak memory consumption = " << format_size(peak_bytes);
+                std::cout << " (" << (100.0 * peak_bytes) / n << " % of input)" << std::endl;
+
+                if (result_log::write_rows && result_log::out.is_open()) {
+                    result_log::out
                         << " num_factors=" << num_fact
                         << " comp_ratio=" << comp_ratio
                         << " time=" << time_total
-                        << " throughput=" << throughput(n, time_total)
-                        << " mem_peak=" << mem_peak << std::endl;
+                        << " throughput=" << throughput_mb_per_s(n, time_total)
+                        << " mem_peak=" << peak_bytes << std::endl;
                 }
-                #endif
             }
         }
 
-        template <
-            factorize_mode fact_mode = default_fact_mode,
-            phrase_mode phr_mode = default_phr_mode,
-            typename output_fnc_t>
-        void compute_approximation(output_fnc_t output)
+        void compute_approximation(factor_sink& output)
         {
-            LPF.resize(p);
 
-            if constexpr (phr_mode == lpf_naive) {
-                build_lce();
-                build_LPF_naive();
-            } else if constexpr (phr_mode == lpf_opt) {
-                build_lce();
-                build_LPF_opt();
-            } else {
-                if (log) std::cout << "reversing input" << std::flush;
-                std::reverse(T, T + n);
-                if (log) time = log_runtime(time);
-                build_lce();
-                build_LNF_all<phr_mode>();
-                LCE = lce_t();
-                if (log) std::cout << "reversing input" << std::flush;
-                std::reverse(T, T + n);
-                if (log) time = log_runtime(time);
-                build_lce();
-                build_LPF_all<phr_mode>();
-            }
+            build_LCE();
+            build_LPF();
+            LCE.free_sa_s();
 
-            LCE.delete_sa_s();
-
-            if constexpr (phr_mode == lpf_lnf_naive || phr_mode == lpf_lnf_opt) {
-                if (log) {
-                    std::cout << "selecting LPF phrases" << std::flush;
-                }
-
-                #pragma omp parallel num_threads(p)
-                {
-                    uint16_t i_p = omp_get_thread_num();
-                    greedy_phrase_selection(LPF[i_p]);
-                }
-
-                if (log) {
-                    log_phase("select_phrases", time_diff_ns(time, now()));
-                    time = log_runtime(time);
-                }
-            }
-
-            if constexpr (fact_mode == skip_phrases) {
-                LPF[p - 1].emplace_back(lpf { .beg = n, .end = n + 1, .src = 0 });
+            if (fact_mode == skip_gaps) {
+                LPF.back().emplace_back(lpf_phrase { .beg = n, .end = n + 1, .src = 0 });
             } else {
                 if (log) std::cout << "computing LPF statistics" << std::flush;
 
-                get_phrase_info();
-                LPF[p - 1].emplace_back(lpf { .beg = n, .end = n + 1, .src = 0 });
+                compute_lpf_stats();
+                LPF.back().emplace_back(lpf_phrase { .beg = n, .end = n + 1, .src = 0 });
 
                 len_gaps = n - len_lpf_phr;
-                double lpf_phr_per_sync = num_lpf / (double)size_sss;
+                double lpf_phr_per_sync = num_lpf_phr / (double)size_sss;
                 double rel_len_gaps = len_gaps / (double)n;
-                double gaps_per_lpf_phr = num_gaps / (double)num_lpf;
+                double gaps_per_lpf_phr = num_gaps / (double)num_lpf_phr;
                 double avg_gap_len = len_gaps / (double)num_gaps;
-                double avg_lpf_phr_len = len_lpf_phr / (double)num_lpf;
-                target_index_size = get_target_gap_idx_size(n, rel_len_gaps);
+                double avg_lpf_phr_len = len_lpf_phr / (double)num_lpf_phr;
+                target_rh_idx_bytes = target_rh_idx_bytes_for(n, rel_len_gaps);
                 double patt_len_guess = get_patt_len_guess(avg_gap_len, avg_lpf_phr_len, rel_len_gaps);
+                const uint64_t cur_bytes = malloc_count_current() - baseline_bytes;
+                const uint64_t budget_bytes = std::max<uint64_t>(malloc_count_peak() - baseline_bytes,
+                    cur_bytes + rh_idx_t::size_in_bytes_for(n, target_rh_idx_bytes));
+                auto exact_gaps_peak_bytes = [&](uint64_t ctx) {
+                    return cur_bytes + exact_gaps_bytes(len_gaps + num_gaps * (1 + 2 * ctx), num_gaps);
+                };
+                factorize_gaps_exact = fact_mode == exact_gaps || exact_gaps_peak_bytes(0) <= budget_bytes;
+                gap_ctx = 0;
+
+                for (uint64_t step = max_gap_ctx_per_tau * tau; factorize_gaps_exact && step > 0; step /= 2) {
+                    if (gap_ctx + step <= max_gap_ctx_per_tau * tau && exact_gaps_peak_bytes(gap_ctx + step) <= budget_bytes) {
+                        gap_ctx += step;
+                    }
+                }
+
+                if (!factorize_gaps_exact) {
+                    gap_ctx = std::clamp<uint64_t>(hash_gap_ctx_factor / std::max(rel_len_gaps, 1e-9),
+                        std::min<uint64_t>(min_hash_gap_ctx, tau), tau);
+                }
 
                 if (log) {
-                    log_phase("phrase_info", time_diff_ns(time, now()));
+                    record_phase_time("lpf_stats", time_diff_ns(time, now()));
                     time = log_runtime(time);
                     std::cout << "|S| / (2n / tau) = " << size_sss / ((2.0 * n) / tau) << std::endl;
                     std::cout << "the density condition has " << (LCE.has_runs() ? "" : "not ") << "been applied" << std::endl;
                     std::cout << "num. of LPF phrases / SSS size = " << lpf_phr_per_sync << std::endl;
-                    std::cout << "gaps length / input length: " << rel_len_gaps << std::endl;
-                    std::cout << "num. of gaps / num. of LPF phrases: " << gaps_per_lpf_phr << std::endl;
-                    std::cout << "avg. gap length: " << avg_gap_len << std::endl;
-                    std::cout << "avg. LPF phrase length: " << avg_lpf_phr_len << std::endl;
-                    std::cout << "pattern length guess: " << patt_len_guess << std::endl;
-                    std::cout << "peak memory consumption: " << format_size(malloc_count_peak() - baseline_memory_alloc) << std::endl;
-                    std::cout << "current memory consumption: " << format_size(malloc_count_current() - baseline_memory_alloc) << std::endl;
-                    std::cout << "target index size: " << format_size(target_index_size) << std::endl;
+                    std::cout << "gaps length / input length = " << rel_len_gaps << std::endl;
+                    std::cout << "num. of gaps / num. of LPF phrases = " << gaps_per_lpf_phr << std::endl;
+                    std::cout << "avg. gap length = " << avg_gap_len << std::endl;
+                    std::cout << "avg. LPF phrase length = " << avg_lpf_phr_len << std::endl;
+                    std::cout << "pattern length guess = " << patt_len_guess << std::endl;
+                    std::cout << "peak memory consumption = " << format_size(malloc_count_peak() - baseline_bytes + T.size_in_bytes()) << std::endl;
+                    std::cout << "current memory consumption = " << format_size(malloc_count_current() - baseline_bytes + T.size_in_bytes()) << std::endl;
+                    std::cout << "target index size = " << format_size(target_rh_idx_bytes) << std::endl;
                 }
 
-                for (auto [threshold, lens] : patt_len_table) {
-                    if (patt_len_guess <= threshold) {
-                        patt_lens = lens;
-                        break;
+                if (!factorize_gaps_exact) {
+                    for (auto [threshold, lens] : patt_len_table) {
+                        if (patt_len_guess <= threshold) {
+                            patt_lens = lens;
+                            break;
+                        }
+                    }
+
+                    if (log) {
+                        std::cout << "pattern lengths for the rolling hash index: ";
+                        for (uint64_t i = 0; i < num_patt_lens - 1; i++) std::cout << patt_lens[i] << ", ";
+                        std::cout << patt_lens[num_patt_lens - 1] << std::endl;
+                        std::cout << "initializing rolling hash index" << std::flush;
+                    }
+
+                    rh_idx = rh_idx_t(T, n, patt_lens, target_rh_idx_bytes, p);
+                    if (log) std::cout << " (size = " << format_size(rh_idx.size_in_bytes()) << ")";
+
+                    if (log) {
+                        record_phase_time("init_rh_idx", time_diff_ns(time, now()));
+                        time = log_runtime(time);
                     }
                 }
-
-                for_constexpr<0, num_patt_lens, 1>([&](auto j) {
-                    roll_threshold += patt_lens[j];
-                });
-
-                roll_threshold /= num_patt_lens;
-
-                if (log) {
-                    std::cout << "pattern lengths for the rolling hash index: ";
-                    for (pos_t i = 0; i < num_patt_lens - 1; i++) std::cout << patt_lens[i] << ", ";
-                    std::cout << patt_lens[num_patt_lens - 1] << std::endl;
-                    std::cout << "initializing rolling hash index" << std::flush;
-                }
-
-                if (fact_mode == greedy && !LCE.has_runs() && size_sss < 1.3 * ((2.0 * n) / tau) &&
-                    n > min_par_input_size && rel_len_gaps > min_par_rel_gap_len && p > 1
-                ) {
-                    par_gap_idx = par_gap_idx_t(T, n, patt_lens, target_index_size, p);
-                    if (log) std::cout << " (size: " << format_size(par_gap_idx.size_in_bytes()) << ")";
-                } else {
-                    gap_idx = gap_idx_t(T, n, patt_lens, target_index_size);
-                    if (log) std::cout << " (size: " << format_size(gap_idx.size_in_bytes()) << ")";
-                }
-
-                if (log) {
-                    log_phase("init_gap_idx", time_diff_ns(time, now()));
-                    time = log_runtime(time);
-                }
             }
 
-            factorize<fact_mode>(output);
+            factorize_from_lpf(output);
             LPF.clear();
             LPF.shrink_to_fit();
-            gap_idx = gap_idx_t();
-            par_gap_idx = par_gap_idx_t();
+            rh_idx = rh_idx_t();
+            release_free_memory();
         }
 
-        inline pos_t LCE_R(pos_t i, pos_t j)
+        inline uint64_t LCE_R(uint64_t i, uint64_t j) { return LCE.lce(i, j); }
+
+        inline uint64_t LCE_L(uint64_t i, uint64_t j, uint64_t max_lce = std::numeric_limits<uint64_t>::max())
         {
-            return LCE.lce(i, j);
+            return T.lce_left(i, j, max_lce);
         }
 
-        inline pos_t LCE_L(pos_t i, pos_t j, pos_t max_lce = std::numeric_limits<pos_t>::max())
-        {
-            return lce_l_64<pos_t>(T, i, j, max_lce);
-        }
+        void build_LCE();
 
-        static void greedy_phrase_selection(std::vector<lpf>& P);
+        void build_LPF();
 
-        void build_lce();
+        void compute_lpf_stats();
 
-        void build_PSV_NSV_S();
+        inline factor longest_prev_occ(const par_buf_t& buf, uint64_t& gap, uint64_t pos);
 
-        void build_PGV_NGV_S();
+        template <typename next_lpf_t>
+        void prepare_block(next_lpf_t next_lpf, const par_blk_t& blk, uint64_t end,
+            par_buf_t& buf, uint64_t num_owners, std::vector<uint64_t>& prefix_fps);
 
-        void build_LPF_naive();
+        void exchange_block(par_buf_t& buf);
 
-        void build_LPF_opt();
+        void update_rh_idx(std::vector<par_buf_t>& bufs, uint64_t owner, uint64_t num_blks_in_round);
 
-        template <phrase_mode phr_mode>
-        void build_LNF_all();
-        
-        template <phrase_mode phr_mode>
-        void build_LPF_all();
+        void output_blocks(merging_output& output, const std::vector<par_blk_t>& blks,
+            const std::vector<std::array<std::vector<factor>, par_fact_bufs>>& facts,
+            uint64_t round, uint64_t blks_per_round, uint64_t num_blks_in_round, uint64_t& out_end);
 
-        void get_phrase_info();
+        template <typename next_lpf_t>
+        void factorize_block(next_lpf_t next_lpf, const par_blk_t& blk, uint64_t end,
+            const par_buf_t& buf, std::vector<factor>& facts);
 
-        inline factor longest_prev_occ(pos_t pos);
+        void factorize_from_lpf(factor_sink& output);
 
-        template <bool first_block>
-        inline factor longest_prev_occ_par(fp_arr_t& fps, pos_t pos, pos_t blk_end);
+        void factorize_skip_gaps(factor_sink& output);
 
-        template <bool first_block, typename next_lpf_t>
-        void factorize_block(next_lpf_t next_lpf, pos_t blk_beg, pos_t blk_end);
+        template <typename lpf_beg_t, typename next_lpf_t>
+        void factorize_hashed_gaps(factor_sink& output, lpf_beg_t lpf_beg, next_lpf_t next_lpf);
 
-        template <factorize_mode fact_mode, typename output_fnc_t>
-        void factorize(output_fnc_t output);
+        template <typename lpf_beg_t, typename next_lpf_t>
+        void factorize_exact_gaps(factor_sink& output, lpf_beg_t lpf_beg, next_lpf_t next_lpf);
 
-        template <factorize_mode fact_mode, typename output_fnc_t, typename lpf_beg_t, typename next_lpf_t>
-        void factorize_sequential(output_fnc_t output, lpf_beg_t lpf_beg, next_lpf_t next_lpf)
-        {
-            if constexpr (fact_mode == skip_phrases) {
-                factorize_skip_gaps(output, lpf_beg, next_lpf);
-            } else if constexpr (fact_mode == greedy) {
-                factorize_greedy(output, lpf_beg, next_lpf);
-            } else if constexpr (fact_mode == greedy_naive) {
-                factorize_greedy_naive(output, lpf_beg, next_lpf);
-            }
-        }
+        static std::vector<uint8_t> symbols_of(const text_t& text, uint16_t p);
 
-        template <typename output_fnc_t, typename lpf_beg_t, typename next_lpf_t>
-        void factorize_skip_gaps(output_fnc_t output, lpf_beg_t lpf_beg, next_lpf_t next_lpf);
+        void factorize_exact_sa(factor_sink& output);
 
-        template <typename output_fnc_t, typename lpf_beg_t, typename next_lpf_t>
-        void factorize_greedy_naive(output_fnc_t output, lpf_beg_t lpf_beg, next_lpf_t next_lpf);
+        template <typename sa_t>
+        void factorize_exact_sa(factor_sink& output);
 
-        template <typename output_fnc_t, typename lpf_beg_t, typename next_lpf_t>
-        void factorize_greedy(output_fnc_t output, lpf_beg_t lpf_beg, next_lpf_t next_lpf);
-
-        template <typename output_fnc_t, typename lpf_beg_t, typename next_lpf_t>
-        void factorize_greedy_parallel(output_fnc_t output, lpf_beg_t lpf_beg, next_lpf_t next_lpf);
-
-        template <
-            typename sidx_t,
-            transform_mode transf_mode,
-            template <typename> typename range_ds_t>
-        class exact_factorizer {
+        class exact_transformer {
         public:
-            using sample_index_t = sample_index<pos_t, sidx_t, char_t, lce_t>;
-            using point_t = typename range_ds_t<sidx_t>::point_t;
+            using sample_index_t = sample_index<text_t, lce_t, bit_aligned_vector>;
+            using point_t = range_ds::point_t;
             using interval_t = sample_index_t::interval_t;
-            using query_context_t = sample_index_t::query_ctx_t;
+            using query_ctx_t = sample_index_t::query_ctx_t;
 
             std::chrono::steady_clock::time_point time_start, time;
             std::string aprx_file_name;
             std::string fact_file_name;
             bool log = false;
+            bool write_queries = result_log::queries_out.is_open();
             uint16_t p = 0;
+            transform_mode transf_mode = default_transf_mode;
+            range_ds_kind kind;
 
-            char_t* T;
+            text_t T;
             const lce_t& LCE;
 
-            pos_t n = 0;
-            pos_t c = 0;
-            pos_t delta = 0;
-            pos_t& num_fact;
-            pos_t num_par_sect;
+            uint64_t n = 0;
+            uint64_t c = 0;
+            uint64_t delta = 0;
+            uint64_t num_aprx_fact = 0;
+            uint64_t& num_fact;
+            uint64_t num_par_sect;
 
             struct sect_info_t {
-                pos_t beg;
-                sidx_t phr_idx;
+                uint64_t beg;
+                uint64_t first_aprx;
             };
 
             std::vector<sect_info_t> par_sect;
 
-            std::vector<pos_t> C;
+            bit_aligned_vector C;
             sample_index_t idx_C;
-            std::vector<point_t> P;
-            range_ds_t<sidx_t> R;
-            std::vector<sidx_t> Pi;
-            std::vector<sidx_t> Psi;
+            bit_aligned_interleaved_vectors<3> P;
+            range_ds* R = nullptr;
+            bit_aligned_vector Pi;
+            bit_aligned_vector Psi;
+            std::vector<uint8_t> is_smpl_len_left;
 
-            inline pos_t LCE_R(pos_t i, pos_t j)
-            {
-                return LCE.lce(i, j);
-            }
+            inline uint64_t LCE_R(uint64_t i, uint64_t j) { return LCE.lce(i, j); }
 
-            exact_factorizer(char_t* T, pos_t n, const lce_t& LCE, std::string aprx_file_name,
-                pos_t delta, pos_t& num_fact, uint16_t p, bool log
-            ) : aprx_file_name(aprx_file_name), log(log), p(p), T(T), LCE(LCE), n(n), delta(delta), num_fact(num_fact) { }
+            exact_transformer(const text_t& T, uint64_t n, const lce_t& LCE, std::string aprx_file_name,
+                uint64_t delta, uint64_t& num_fact, uint16_t p, bool log, transform_mode transf_mode,
+                range_ds_kind kind
+            ) : aprx_file_name(aprx_file_name), log(log), p(p), transf_mode(transf_mode),
+                kind(kind),
+                T(T), LCE(LCE), n(n), delta(delta), num_aprx_fact(num_fact), num_fact(num_fact) { }
 
-            template <typename output_fnc_t>
-            void transform_to_exact(output_fnc_t output)
+            exact_transformer(const exact_transformer&) = delete;
+            exact_transformer& operator=(const exact_transformer&) = delete;
+
+            ~exact_transformer() { delete R; }
+
+            void transform_to_exact(factor_sink& output)
             {
                 if (log) {
                     time = now();
                     time_start = time;
                 }
 
-                build_c();
+                build_C();
                 build_idx_C();
-                build_p();
-
-                if constexpr (transf_mode != naive) {
-                    build_pi_psi();
-                }
+                build_P();
+                build_Pi_Psi();
 
                 if (log) {
-                    std::cout << "building " << range_ds_t<sidx_t>::name() << std::flush;
+                    std::cout << "building " << kind.name() << std::flush;
                 }
 
-                if constexpr (range_ds_t<sidx_t>::is_decomposed()) {
-                    R = range_ds_t<sidx_t>(T, C, P, p);
+                if (kind.decomposed) {
+                    R = make_range_ds(kind, T, C, P, p);
+
+                    if (kind.is_static() && !write_queries) P.clear();
                 } else {
-                    R = range_ds_t<sidx_t>(P, c, p);
-                }
+                    std::vector<point_t> points;
+                    no_init_resize(points, c);
 
-                if constexpr (range_ds_t<sidx_t>::is_static()) {
-                    #if not defined(GEN_RANGE_QUERIES)
-                    P.clear();
-                    P.shrink_to_fit();
-                    #endif
+                    #pragma omp parallel for num_threads(p) schedule(dynamic, 65536)
+                    for (uint64_t i = 0; i < c; i++) {
+                        points[i] = point_t { .x = P.get<0>(i), .y = P.get<1>(i),
+                            .weight = P.get<2>(i) };
+                    }
+
+                    if (kind.is_static() && !write_queries) P.clear();
+
+                    R = make_range_ds(kind, points, c, p);
                 }
 
                 if (log) {
-                    log_phase("range_ds", time_diff_ns(time, now()));
-                    std::cout << " (" << format_size(R.size_in_bytes()) << ")";
+                    record_phase_time("range_ds", time_diff_ns(time, now()));
+                    std::cout << " (" << format_size(R->size_in_bytes()) << ")";
                     time = log_runtime(time);
                 }
 
-                if (range_ds_t<sidx_t>::is_dynamic()) {
+                if (R->is_dynamic()) {
                     num_par_sect = 1;
                     par_sect.resize(2);
-                    par_sect[1] = {.beg = n, .phr_idx = (sidx_t)(num_fact)};
+                    par_sect[1] = {.beg = n, .first_aprx = num_aprx_fact};
                 }
 
                 if (p > 1) {
@@ -654,76 +827,75 @@ protected:
                         + "/fact_" + random_alphanumeric_string(10);
                 }
 
-                if constexpr (transf_mode == naive) {
-                    transform_to_exact_naive(output);
-                } else if constexpr (transf_mode == with_samples) {
-                    transform_to_exact_with_samples(output);
-                } else if constexpr (transf_mode == without_samples) {
-                    transform_to_exact_without_samples(output);
+                if (transf_mode == with_interval_samples) {
+                    transform_to_exact_with_interval_samples(output);
+                } else if (transf_mode == without_interval_samples) {
+                    transform_to_exact_without_interval_samples(output);
                 }
 
                 if (log) {
-                    log_phase("compute_exact", time_diff_ns(time, now()));
+                    record_phase_time("compute_exact", time_diff_ns(time, now()));
                     time = log_runtime(time);
                 }
 
-                if (log && range_ds_t<sidx_t>::is_dynamic()) {
-                    std::cout << "final size of " << range_ds_t<sidx_t>::name()
-                              << ": " << format_size(R.size_in_bytes()) << std::endl;
+                if (log && R->is_dynamic()) {
+                    std::cout << "final size of " << R->name()
+                              << " = " << format_size(R->size_in_bytes()) << std::endl;
                 }
             }
 
-            void build_c();
+            void build_C();
 
             void build_idx_C();
 
-            void build_pi_psi();
+            void build_Pi_Psi();
 
-            void build_p();
+            void build_P();
 
-            void insert_points(sidx_t& x_c, pos_t i);
+            void insert_points_before(uint64_t& x_r, uint64_t i);
 
-            void find_close_sources(factor& f, pos_t i, pos_t e);
+            void find_close_sources(factor& f, uint64_t i, uint64_t e);
 
-            inline void adjust_xc(sidx_t& gap_idx, pos_t pos);
+            inline void seek_x_c(uint64_t& x_c, uint64_t pos);
 
             bool intersect(
                 const interval_t& pa_c_iv, const interval_t& sa_c_iv,
-                pos_t i, pos_t j, pos_t lce_l, pos_t lce_r, sidx_t& x_c, factor& f);
+                uint64_t i, uint64_t j, uint64_t lce_l, uint64_t lce_r, uint64_t& x_c, factor& f);
 
-            template <typename output_fnc_t>
-            void transform_to_exact_naive(output_fnc_t output);
+            void improve_factor_without_interval_samples(uint64_t i, uint64_t e, uint64_t& x_c, factor& f);
 
-            template <typename output_fnc_t>
-            void transform_to_exact_without_samples(output_fnc_t output);
+            void transform_to_exact_without_interval_samples(factor_sink& output);
 
-            void extend_right_with_samples(
+            void extend_right_with_interval_samples(
                 const interval_t& pa_c_iv,
-                pos_t i, pos_t j, pos_t e, sidx_t& x_c, factor& f);
+                uint64_t i, uint64_t j, uint64_t e, uint64_t& x_c, factor& f);
 
-            template <typename output_fnc_t>
-            void transform_to_exact_with_samples(output_fnc_t output);
+            void improve_factor_with_interval_samples(
+                uint64_t i, uint64_t e, uint64_t& x_c, std::vector<uint64_t>& fp_left, factor& f);
 
-            template <typename output_fnc_t>
-            void combine_factorizations(output_fnc_t output);
+            void transform_to_exact_with_interval_samples(factor_sink& output);
+
+            factor aprx_factor_at(uint64_t i);
+
+            template <typename factor_at_t>
+            void combine_factorizations(factor_sink& output, factor_at_t factor_at);
         };
     };
 };
 
+#ifndef LZ77_SSS_DECLARATIONS_ONLY
 #include "algorithms/common.cpp"
 
-#include "algorithms/approximate/common.cpp"
-#include "algorithms/approximate/factorize/common.cpp"
-#include "algorithms/approximate/factorize/greedy.cpp"
-#include "algorithms/approximate/factorize/greedy_naive.cpp"
-#include "algorithms/approximate/factorize/greedy_parallel.cpp"
-#include "algorithms/approximate/factorize/skip_gaps.cpp"
-#include "algorithms/approximate/lpf_lnf/nxv_pxv.cpp"
-#include "algorithms/approximate/lpf_lnf/lpf_naive.cpp"
-#include "algorithms/approximate/lpf_lnf/lpf_opt.cpp"
-#include "algorithms/approximate/lpf_lnf/lpf_lnf.cpp"
+#include "algorithms/aprx/lpf_stats.cpp"
+#include "algorithms/aprx/fact/common.cpp"
+#include "algorithms/aprx/fact/hashed_gaps.cpp"
+#include "algorithms/aprx/fact/exact_gaps.cpp"
+#include "algorithms/aprx/fact/skip_gaps.cpp"
+#include "algorithms/aprx/lpf.cpp"
 
-#include "algorithms/transform_to_exact/common.cpp"
-#include "algorithms/transform_to_exact/naive.cpp"
-#include "algorithms/transform_to_exact/with_samples.cpp"
-#include "algorithms/transform_to_exact/without_samples.cpp"
+#include "algorithms/aprx_to_exact/common.cpp"
+#include "algorithms/aprx_to_exact/with_interval_samples.cpp"
+#include "algorithms/aprx_to_exact/without_interval_samples.cpp"
+
+#include "algorithms/exact_sa.cpp"
+#endif

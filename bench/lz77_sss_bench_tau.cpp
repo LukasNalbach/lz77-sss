@@ -26,77 +26,74 @@
 
 #include <fstream>
 
-std::string text_name;
-std::string result_file_path;
-std::ofstream result_file;
-#define LZ77_SSS_BENCH 1
+#include <lz77_sss/inst.hpp>
+#include <lz77_sss/misc/text_reader.hpp>
 
-#include <lz77_sss/lz77_sss.hpp>
+void help(std::string message)
+{
+    if (message != "") std::cout << message << std::endl;
+    std::cout << "usage: lz77-sss-bench-tau [-m <m_file>] <input_file> [<min_tau> <max_tau>]" << std::endl;
+    std::cout << " -m <m_file>  append results to <m_file>" << std::endl;
+    std::cout << " <min_tau>    smallest tau (default: 4, at least 4)" << std::endl;
+    std::cout << " <max_tau>    largest tau (default: 4096, at most 4096); every power of two" << std::endl;
+    std::cout << "              in between is run" << std::endl;
+    exit(-1);
+}
 
 int main(int argc, char** argv)
 {
-    if (!(2 <= argc && argc <= 5)) {
-        std::cout << "usage: lz77_sss_bench-tau <file> <result_file> <min_tau> <max_tau>" << std::endl;
-        std::cout << "       the last three parameters are optional" << std::endl;
-        std::cout << "       min_tau and max_tau must be in the range [4, 4096]" << std::endl;
-        exit(-1);
+    int arg_idx = 1;
+
+    if (arg_idx + 1 < argc && std::string(argv[arg_idx]) == "-m") {
+        result_log::path = argv[arg_idx + 1];
+        arg_idx += 2;
     }
 
-    std::string file_path = argv[1];
+    if ((argc - arg_idx != 1 && argc - arg_idx != 3) || argv[arg_idx][0] == '-') help("");
+    std::string file_path = argv[arg_idx];
     std::ifstream input_file(file_path);
-
-    if (!input_file.good()) {
-        std::cout << "error: could not read <file>" << std::endl;
-        exit(-1);
-    }
-
-    if (argc >= 3) {
-        text_name = file_path.substr(
-            file_path.find_last_of("/\\") + 1);
-        result_file_path = argv[2];
-        result_file.open(result_file_path, std::ofstream::app);
-    }
-
+    if (!input_file.good()) help("error: could not read <input_file>");
     uint64_t min_tau = 4;
     uint64_t max_tau = 4096;
 
-    if (argc >= 4)
-        min_tau = atol(argv[3]);
-    if (argc >= 5)
-        max_tau = atol(argv[4]);
+    if (argc - arg_idx == 3) {
+        min_tau = atol(argv[arg_idx + 1]);
+        max_tau = atol(argv[arg_idx + 2]);
+    }
 
-    uint64_t n = std::filesystem::file_size(argv[1]);
-    auto t0 = now();
-    std::cout << "reading input (" << format_size(n) << ")" << std::flush;
-    std::string T;
-    no_init_resize_with_excess(T, n, 4 * lz77_sss<>::default_tau);
-    read_from_file(input_file, T.data(), n);
+    if (min_tau < 4 || max_tau > 4096 || min_tau > max_tau) help("error: invalid range of tau");
+
+    if (result_log::path != "") {
+        if (!std::ofstream(result_log::path, std::ofstream::app).good()) help("error: could not write to <m_file>");
+        result_log::text_name = file_path.substr(file_path.find_last_of("/\\") + 1);
+    }
+
+    uint64_t n = std::filesystem::file_size(file_path);
     input_file.close();
-    log_runtime(t0);
+    fasta_headers headers;
 
-    for_constexpr_pow<4, 4096>([&](auto tau) {
-        if (min_tau <= tau && tau <= max_tau) {
+    with_text_from_file(file_path, n, auto_encoding, fasta_off, headers,
+        4 * max_tau, omp_get_max_threads(), true, [&](auto T) {
+        if (result_log::path != "") {
+            result_log::out.open(result_log::path, std::ofstream::app);
+            result_log::write_rows = true;
+        }
+
+        for (uint64_t tau = std::bit_ceil(min_tau); tau <= max_tau; tau *= 2) {
             std::cout << std::endl <<
                 "running LZ77 SSS 3-approximation with tau = "
                 << tau << ":" << std::endl;
             std::ofstream fact_sss_file("fact_sss_aprx");
 
-            if (n <= std::numeric_limits<uint32_t>::max()) {
-                lz77_sss<uint32_t>::factorize_approximate<
-                    greedy, lpf_opt, tau>(T.data(), n,
-                        [&](auto f){fact_sss_file << f;},
-                        { .num_threads = 1, .log = true });
-            } else {
-                lz77_sss<uint64_t>::factorize_approximate<
-                    greedy, lpf_opt, tau>(T.data(), n,
-                        [&](auto f){fact_sss_file << f;},
-                        { .num_threads = 1, .log = true });
-            }
+            lz77_sss::factorize_approximate(T,
+                    [&](auto f){fact_sss_file << f;},
+                    { .num_threads = 1, .log = true, .tau = tau,
+                      .fact_mode = lz77_sss::auto_gaps });
 
             fact_sss_file.close();
             std::filesystem::remove("fact_sss_aprx");
         }
     });
-    
+
     return 0;
 }
