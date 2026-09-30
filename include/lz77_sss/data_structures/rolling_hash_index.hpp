@@ -139,7 +139,7 @@ public:
         prefix[0] = 0;
 
         for (uint64_t j = beg; j < lim; j++) {
-            fp = fp * base + uint8_t(T[j]);
+            fp = fp * base + uint64_t(T[j]);
             prefix[j - beg + 1] = fp;
         }
 

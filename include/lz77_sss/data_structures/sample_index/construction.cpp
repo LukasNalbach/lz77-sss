@@ -181,8 +181,8 @@ void sample_index<text_t, lce_r_t, array_t>::build_interval_hash_sets(uint64_t m
     double lcx_s_rng = lcx_s_rng_max - lcx_s_rng_min;
     smpl_patt_lens[dir] = { 1, 2 };
     XIV_S[dir].resize(2);
-    if (lcx_s_rng_min >= lcx_s_rng_max) return;
-    uint64_t num_patt_lens = std::min<uint64_t>(max_smpl_len - 2,
+    if (byte_text && lcx_s_rng_min >= lcx_s_rng_max) return;
+    uint64_t num_patt_lens = lcx_s_rng_min >= lcx_s_rng_max ? 2 : std::min<uint64_t>(max_smpl_len - 2,
         2 + std::floor((2.0 * max_num_ivs + lcx_s_rng_max - lcx_s_rng_min) /
         (double)(lcx_s_rng_max + lcx_s_rng_min)));
     std::vector<uint64_t> patt_len_ranks(num_patt_lens, 0);
@@ -219,18 +219,18 @@ void sample_index<text_t, lce_r_t, array_t>::build_interval_hash_sets(uint64_t m
     num_patt_lens = smpl_patt_lens[dir].size();
     lcx_ranks.clear();
     lcx_ranks.shrink_to_fit();
-    if (num_patt_lens <= 2) return;
+    if (num_patt_lens <= first_hashed_len_idx) return;
 
     if (log) {
-        std::cout << "chose " << num_patt_lens - 2 << " pattern"
-            << " lengths in the range [" << smpl_patt_lens[dir][2]
+        std::cout << "chose " << num_patt_lens - first_hashed_len_idx << " pattern"
+            << " lengths in the range [" << smpl_patt_lens[dir][first_hashed_len_idx]
             << ", " << smpl_patt_lens[dir].back() << "]";
         time = log_runtime(time);
         std::cout << "sampling " << (dir == LEFT ? "P" : "S")
             << "A_C intervals" << std::flush;
     }
 
-    const uint64_t len_min = smpl_patt_lens[dir][2];
+    const uint64_t len_min = smpl_patt_lens[dir][first_hashed_len_idx];
     const uint64_t num_chunks = std::max<uint64_t>(1, std::min<uint64_t>(s, uint64_t(p) * 16));
     const uint64_t chunk_target = div_ceil(s, num_chunks);
     std::vector<uint64_t> sect_beg;
@@ -262,7 +262,7 @@ void sample_index<text_t, lce_r_t, array_t>::build_interval_hash_sets(uint64_t m
             if (lcx >= len_max) continue;
             const uint64_t pos_im1 = S[XA_S<dir>(i - 1)];
 
-            for (int64_t j = num_patt_lens - 1; j >= 2; j--) {
+            for (int64_t j = num_patt_lens - 1; j >= int64_t(first_hashed_len_idx); j--) {
                 const uint64_t len = smpl_patt_lens[dir][j];
                 if (lcx >= len) break;
 
@@ -277,7 +277,7 @@ void sample_index<text_t, lce_r_t, array_t>::build_interval_hash_sets(uint64_t m
     }
 
     #pragma omp parallel for num_threads(p) schedule(dynamic, 1)
-    for (uint64_t j = 2; j < num_patt_lens; j++) {
+    for (uint64_t j = first_hashed_len_idx; j < num_patt_lens; j++) {
         uint64_t cnt = 0;
         uint64_t max_width = 0;
 
@@ -300,7 +300,7 @@ void sample_index<text_t, lce_r_t, array_t>::build_interval_hash_sets(uint64_t m
             if (lcx >= len_max) continue;
             const uint64_t pos_im1 = S[XA_S<dir>(i - 1)];
 
-            for (int64_t j = num_patt_lens - 1; j >= 2; j--) {
+            for (int64_t j = num_patt_lens - 1; j >= int64_t(first_hashed_len_idx); j--) {
                 const uint64_t len = smpl_patt_lens[dir][j];
                 if (lcx >= len) break;
 
@@ -315,7 +315,7 @@ void sample_index<text_t, lce_r_t, array_t>::build_interval_hash_sets(uint64_t m
     }
 
     #pragma omp parallel for num_threads(p) schedule(dynamic, 1)
-    for (uint64_t j = 2; j < num_patt_lens; j++) {
+    for (uint64_t j = first_hashed_len_idx; j < num_patt_lens; j++) {
         XIV_S[dir][j].finish();
     }
 
@@ -479,7 +479,7 @@ void sample_index<text_t, lce_r_t, array_t>::build(
             std::cout << "building RKS" << std::flush;
         }
 
-        RKS = rabin_karp_substring<31, text_t>(T, n, rks_sample_rate, 0, p);
+        RKS = rks_t(T, n, rks_sample_rate, 0, p);
 
         if (log) {
             record_phase_time("rks", time_diff_ns(time, now()));
@@ -487,7 +487,7 @@ void sample_index<text_t, lce_r_t, array_t>::build(
             time = log_runtime(time);
         }
 
-        build_xiv_s_1_2(p, log);
+        if constexpr (byte_text) build_xiv_s_1_2(p, log);
         build_interval_hash_sets<LEFT>(max_patt_len_left, p, log);
         build_interval_hash_sets<RIGHT>(max_smpl_len_right, p, log);
     }

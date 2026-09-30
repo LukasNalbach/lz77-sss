@@ -32,4 +32,7 @@
 extern template class lz77_sss::factorizer<lz77_sss::direct_text>;
 extern template class lz77_sss::factorizer<lz77_sss::packed_text>;
 extern template class lz77_sss::factorizer<lz77_sss::split_text>;
+extern template class lz77_sss::factorizer<lz77_sss::int_direct_text>;
+extern template class lz77_sss::factorizer<lz77_sss::int_packed_text>;
+extern template class lz77_sss::factorizer<lz77_sss::int_split_text>;
 #endif

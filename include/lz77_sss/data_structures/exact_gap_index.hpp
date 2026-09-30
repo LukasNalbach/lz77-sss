@@ -74,6 +74,31 @@ public:
         step(size_in_bytes() - sa.size() * sizeof(sa_t));
     }
 
+    template <typename sym_t, typename step_t = no_step>
+        requires(std::is_same_v<sym_t, int32_t> || std::is_same_v<sym_t, sa_int40_t>)
+    exact_gap_index(const text_t& text, sym_t* symbols, uint64_t size, uint64_t sigma, uint16_t p, step_t step = { })
+        : text(&text)
+        , size(size)
+        , sa(build_sa(symbols, size, sigma, p))
+        , isa((step(sa.size() * sizeof(sa_t)), build_isa(sa, p)))
+        , smaller(sa, size, p)
+    {
+        step(size_in_bytes() - sa.size() * sizeof(sa_t));
+    }
+
+    template <typename sym_t, typename step_t = no_step>
+        requires(std::is_same_v<sym_t, int32_t> || std::is_same_v<sym_t, sa_int40_t>)
+    exact_gap_index(const text_t& text, std::vector<sym_t>&& symbols, uint64_t size, uint64_t sigma, uint16_t p,
+        step_t step = { })
+        : text(&text)
+        , size(size)
+        , sa(build_sa(std::move(symbols), size, sigma, p))
+        , isa((step(sa.size() * sizeof(sa_t)), build_isa(sa, p)))
+        , smaller(sa, size, p)
+    {
+        step(size_in_bytes() - sa.size() * sizeof(sa_t));
+    }
+
     exact_gap_index(const exact_gap_index&) = delete;
     exact_gap_index& operator=(const exact_gap_index&) = delete;
 
@@ -116,6 +141,39 @@ private:
     {
         std::vector<uint8_t> owned = std::move(bytes);
         return build_sa(owned.data(), size, p);
+    }
+
+    template <typename sym_t>
+    static std::vector<sa_t> build_sa(sym_t* symbols, uint64_t size, uint64_t sigma, uint16_t p)
+    {
+        std::vector<sa_t> sa;
+        no_init_resize(sa, size);
+
+        const int threads = lce::util::sais_threads(p);
+
+        if constexpr (std::is_same_v<sa_t, int32_t>) {
+            static_assert(std::is_same_v<sym_t, int32_t>);
+
+            if (libsais_int_omp(symbols, sa.data(), int32_t(size), int32_t(std::max<uint64_t>(sigma, 1)), 0, threads) != 0) {
+                throw std::runtime_error("libsais_int_omp failed");
+            }
+        } else {
+            static_assert(std::is_same_v<sym_t, sa_int40_t>);
+
+            if (libsais40_impl::libsais40_long_omp(symbols, sa.data(), int64_t(size),
+                    int64_t(std::max<uint64_t>(sigma, 1)), 0, threads) != 0) {
+                throw std::runtime_error("libsais40_long_omp failed");
+            }
+        }
+
+        return sa;
+    }
+
+    template <typename sym_t>
+    static std::vector<sa_t> build_sa(std::vector<sym_t>&& symbols, uint64_t size, uint64_t sigma, uint16_t p)
+    {
+        std::vector<sym_t> owned = std::move(symbols);
+        return build_sa(owned.data(), size, sigma, p);
     }
 
     static std::vector<sa_t> build_isa(const std::vector<sa_t>& sa, uint16_t p)

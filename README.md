@@ -201,6 +201,27 @@ int main()
 }
 ```
 
+### Integer Alphabets
+`factorize_approximate` and `factorize_exact` also accept a `const uint32_t*` input. They replace
+each value by its rank in the sorted alphabet, keep the ranks bit-packed and report literal factors
+with the original values. A text that already consists of ranks in `[0, sigma)` can be passed as one
+of these text types:
+
+| type                        | space per symbol                  |
+|-----------------------------|-----------------------------------|
+| `lz77_sss::int_direct_text` | 4 bytes (the text is not copied)  |
+| `lz77_sss::int_packed_text` | ⌈log2 sigma⌉ bits                 |
+| `lz77_sss::int_split_text`  | fewer bits for frequent symbols   |
+
+```c++
+std::vector<uint32_t> ranks = ...; // all values < sigma
+std::vector<lz77_sss::factor> factorization;
+lz77_sss::factorize_exact(lz77_sss::int_packed_text(ranks.data(), ranks.size(), sigma),
+    [&](auto f){factorization.emplace_back(f);});
+std::vector<uint32_t> decoded(ranks.size());
+lz77_sss::decode(factorization.begin(), decoded.data(), decoded.size());
+```
+
 ## References
 [1] Jonas Ellert. Sublinear Time Lempel-Ziv (LZ77) Factorization. In String Processing and Information Retrieval (SPIRE) 2023, pages 171-187. ([springer.com](https://link.springer.com/chapter/10.1007/978-3-031-43980-3_14))
 

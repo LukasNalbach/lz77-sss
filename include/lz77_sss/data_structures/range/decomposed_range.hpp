@@ -202,19 +202,21 @@ public:
         return bytes;
     }
 
-    void insert(uint8_t c, point_t point) override
+    void insert(uint64_t chr, point_t point) override
     {
         if constexpr (impl_t::is_dynamic()) {
+            const uint8_t c = uint8_t(chr);
             to_internal(c, point);
             R_c[c].insert(point);
             num_points++;
         }
     }
 
-    result_t lighter_point_in_range(uint8_t c, uint64_t weight,
+    result_t lighter_point_in_range(uint64_t chr, uint64_t weight,
         uint64_t x1, uint64_t x2, uint64_t y1, uint64_t y2) const override
     {
         if constexpr (impl_t::is_static()) {
+            const uint8_t c = uint8_t(chr);
             to_internal(c, x1, x2, y1, y2);
             auto [point, found] = R_c[c].lighter_point_in_range(weight, x1, x2, y1, y2);
             to_external(c, point);
@@ -224,10 +226,11 @@ public:
         }
     }
 
-    result_t point_in_range(uint8_t c,
+    result_t point_in_range(uint64_t chr,
         uint64_t x1, uint64_t x2, uint64_t y1, uint64_t y2) const override
     {
         if constexpr (impl_t::is_dynamic()) {
+            const uint8_t c = uint8_t(chr);
             to_internal(c, x1, x2, y1, y2);
             auto [point, found] = R_c[c].point_in_range(x1, x2, y1, y2);
             to_external(c, point);

@@ -39,7 +39,12 @@ void lz77_sss::decode(fact_it_t fact_it, out_it_t out_it, uint64_t output_size)
         f = *fact_it++;
 
         if (f.is_literal()) {
-            out_it[pos] = unsigned_to_char<uint64_t, char_t>(f.src);
+            if constexpr (sizeof(char_t) == 1) {
+                out_it[pos] = unsigned_to_char<uint64_t, char_t>(f.src);
+            } else {
+                out_it[pos] = char_t(uint64_t(f.src));
+            }
+
             pos++;
         } else {
             #ifndef NDEBUG
@@ -50,6 +55,45 @@ void lz77_sss::decode(fact_it_t fact_it, out_it_t out_it, uint64_t output_size)
             pos += f.len;
         }
     }
+}
+
+template <typename fnc_t>
+void lz77_sss::with_int_text(const uint32_t* input, uint64_t input_size, uint16_t p, fnc_t fnc)
+{
+    if (p == 0) p = omp_get_max_threads();
+    std::vector<uint32_t> alphabet(input, input + input_size);
+    ips4o::parallel::sort(alphabet.begin(), alphabet.end(), std::less<uint32_t>(), p);
+    alphabet.erase(std::unique(alphabet.begin(), alphabet.end()), alphabet.end());
+    alphabet.shrink_to_fit();
+    int_packed_text T(alphabet.size(), input_size);
+
+    T.pack_symbols(input_size, 0, [&](uint64_t i) {
+        return uint64_t(std::lower_bound(alphabet.begin(), alphabet.end(), input[i]) - alphabet.begin());
+    }, p);
+
+    fnc(std::move(T), alphabet);
+}
+
+template <typename output_fnc_t>
+void lz77_sss::factorize_approximate(const uint32_t* input, uint64_t input_size, output_fnc_t output, parameters params)
+{
+    with_int_text(input, input_size, params.num_threads, [&](int_packed_text T, const std::vector<uint32_t>& alphabet) {
+        factorize_approximate(std::move(T), [&](factor f) {
+            if (f.is_literal()) f.src = alphabet[f.src];
+            output(f);
+        }, params);
+    });
+}
+
+template <typename output_fnc_t>
+void lz77_sss::factorize_exact(const uint32_t* input, uint64_t input_size, output_fnc_t output, parameters params)
+{
+    with_int_text(input, input_size, params.num_threads, [&](int_packed_text T, const std::vector<uint32_t>& alphabet) {
+        factorize_exact(std::move(T), [&](factor f) {
+            if (f.is_literal()) f.src = alphabet[f.src];
+            output(f);
+        }, params);
+    });
 }
 
 template <typename text_t>

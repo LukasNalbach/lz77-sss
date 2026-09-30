@@ -129,10 +129,12 @@ public:
         return std::min<double>({avg_gap_len, avg_lpf_phr_len, 8.0 * std::pow(128, 1.0 - rel_len_gaps)});
     }
 
-    static uint64_t exact_gaps_bytes(uint64_t len_G, uint64_t num_gaps)
+    static uint64_t exact_gaps_bytes(uint64_t len_G, uint64_t num_gaps, uint64_t symbol_bytes = 1)
     {
         const uint64_t sa_bytes = len_G <= INT32_MAX ? sizeof(int32_t) : sizeof(sa_int40_t);
-        return len_G * (1 + 2 * sa_bytes) + (len_G / 8) * (1 + sizeof(factor)) + num_gaps * 3 * sizeof(uint64_t);
+        const uint64_t copy_bytes = symbol_bytes == 1 || len_G <= INT32_MAX ? 0 : sizeof(sa_int40_t);
+        return len_G * (symbol_bytes + copy_bytes + 2 * sa_bytes) + (len_G / 8) * (1 + sizeof(factor)) +
+            num_gaps * 3 * sizeof(uint64_t);
     }
 
     static double estimated_sa_peak(uint64_t n, uint64_t text_bytes)
@@ -148,6 +150,11 @@ public:
             : n * without_iv_smpl_peak_bytes_per_char + num_aprx_fact * without_iv_smpl_peak_bytes_per_fact;
     }
 
+    static double estimated_sss_peak(uint64_t n, uint64_t text_bytes, uint64_t num_aprx_fact, transform_mode transf_mode)
+    {
+        return estimated_sss_peak(n, num_aprx_fact, transf_mode) + double(text_bytes) - double(n);
+    }
+
     static uint64_t get_max_smpl_len_right(double aprx_comp_ratio)
     {
         return std::round(aprx_comp_ratio * (1.0 + 0.5 * std::exp(-aprx_comp_ratio / 1000.0)));
@@ -159,7 +166,7 @@ public:
 
         friend class lz77_sss;
 
-        static factor literal(uint8_t chr) { return factor { .src = chr, .len = 0 }; }
+        static factor literal(uint64_t chr) { return factor { .src = chr, .len = 0 }; }
 
         static factor gap(uint64_t len) { return factor { .src = len, .len = 0 }; }
 
@@ -222,8 +229,11 @@ public:
     };
 
     using direct_text = lce::text::direct_text<char>;
-    using packed_text = lce::text::packed_text;
+    using packed_text = lce::text::packed_text<>;
     using split_text = lce::text::split_text<>;
+    using int_direct_text = lce::text::direct_text<uint32_t>;
+    using int_packed_text = lce::text::packed_text<uint32_t>;
+    using int_split_text = lce::text::split_text<uint32_t>;
 
     template <typename text_t, typename output_fnc_t>
     static void factorize_approximate(text_t text, output_fnc_t output, parameters params = { })
@@ -262,6 +272,15 @@ public:
     {
         factorize_exact(direct_text(input, input_size), output, params);
     }
+
+    template <typename output_fnc_t>
+    static void factorize_approximate(const uint32_t* input, uint64_t input_size, output_fnc_t output, parameters params = { });
+
+    template <typename output_fnc_t>
+    static void factorize_exact(const uint32_t* input, uint64_t input_size, output_fnc_t output, parameters params = { });
+
+    template <typename fnc_t>
+    static void with_int_text(const uint32_t* input, uint64_t input_size, uint16_t p, fnc_t fnc);
     
     template <std::input_iterator fact_it_t, typename out_it_t>
     static void decode(fact_it_t fact_it, out_it_t out_it, uint64_t output_size);
@@ -361,6 +380,9 @@ protected:
     public:
         using lce_t = lce::ds::lce_sss<text_t, uint40_t>;
         using rh_idx_t = rolling_hash_index<num_patt_lens, text_t>;
+        using symbol_t = typename text_t::symbol_type;
+
+        static constexpr uint64_t symbol_bytes = text_t::is_byte_text ? 1 : sizeof(uint32_t);
 
         static uint64_t target_rh_idx_bytes_for(uint64_t n, double rel_len_gaps)
         {
@@ -535,7 +557,8 @@ protected:
                 aprx_sink.flush();
                 aprx_ofile.close();
                 const double peak_sa = estimated_sa_peak(n, T.size_in_bytes());
-                const double peak_sss = estimated_sss_peak(n, num_fact, transf_mode);
+                const double peak_sss = text_t::is_byte_text ? estimated_sss_peak(n, num_fact, transf_mode)
+                    : estimated_sss_peak(n, T.size_in_bytes(), num_fact, transf_mode);
 
                 if (exact_alg == auto_select && peak_sa <= max_sa_peak_ratio * peak_sss && n <= max_sa_input_size) {
                     std::filesystem::remove(aprx_file_name);
@@ -608,7 +631,7 @@ protected:
                 const uint64_t budget_bytes = std::max<uint64_t>(malloc_count_peak() - baseline_bytes,
                     cur_bytes + rh_idx_t::size_in_bytes_for(n, target_rh_idx_bytes));
                 auto exact_gaps_peak_bytes = [&](uint64_t ctx) {
-                    return cur_bytes + exact_gaps_bytes(len_gaps + num_gaps * (1 + 2 * ctx), num_gaps);
+                    return cur_bytes + exact_gaps_bytes(len_gaps + num_gaps * (1 + 2 * ctx), num_gaps, symbol_bytes);
                 };
                 factorize_gaps_exact = fact_mode == exact_gaps || exact_gaps_peak_bytes(0) <= budget_bytes;
                 gap_ctx = 0;
@@ -713,7 +736,8 @@ protected:
         template <typename lpf_beg_t, typename next_lpf_t>
         void factorize_exact_gaps(factor_sink& output, lpf_beg_t lpf_beg, next_lpf_t next_lpf);
 
-        static std::vector<uint8_t> symbols_of(const text_t& text, uint16_t p);
+        template <typename sym_t>
+        static std::vector<sym_t> symbols_of(const text_t& text, uint16_t p);
 
         void factorize_exact_sa(factor_sink& output);
 

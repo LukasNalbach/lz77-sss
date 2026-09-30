@@ -34,21 +34,27 @@ inline std::pair<typename sample_index<text_t, lce_r_t, array_t>::interval_t, bo
 sample_index<text_t, lce_r_t, array_t>::xa_interval(
     uint64_t patt_len_idx, uint64_t pos_patt, std::size_t hash) const
 {
-    if (patt_len_idx == 0) {
-        if (!occurs1(pos_patt)) [[unlikely]] {
-            return { { 0, 0 }, false };
-        } else {
-            return { xiv_s_1(pos_patt), true };
-        }
-    } else if (patt_len_idx == 1) {
-        if (!occurs2<dir>(pos_patt)) [[unlikely]] {
-            return { { 0, 0 }, false };
-        } else {
-            return { xiv_s_2<dir>(pos_patt), true };
+    if constexpr (byte_text) {
+        if (patt_len_idx == 0) {
+            if (!occurs1(pos_patt)) [[unlikely]] {
+                return { { 0, 0 }, false };
+            } else {
+                return { xiv_s_1(pos_patt), true };
+            }
+        } else if (patt_len_idx == 1) {
+            if (!occurs2<dir>(pos_patt)) [[unlikely]] {
+                return { { 0, 0 }, false };
+            } else {
+                return { xiv_s_2<dir>(pos_patt), true };
+            }
         }
     }
 
     const uint64_t patt_len = sampled_pattern_lengths<dir>()[patt_len_idx];
+
+    if constexpr (!byte_text) {
+        if (!is_pos_in_T<dir>(pos_patt, patt_len - 1)) [[unlikely]] return { { 0, 0 }, false };
+    }
 
     if (hash == std::numeric_limits<std::size_t>::max()) {
         hash = RKS.template substr_fp<dir>(pos_patt, patt_len);
@@ -104,7 +110,7 @@ bool sample_index<text_t, lce_r_t, array_t>::extend(
     }
 
     if (use_interval_samples && std::min<uint64_t>(qc_old.lce_b, qc_old.lce_e) < smpl_len) {
-        if (patt_len_idx >= 2) {
+        if (patt_len_idx >= first_hashed_len_idx) {
             fp_smpl = RKS.template substr_fp<dir>(pos_patt, smpl_len);
         }
 
@@ -144,7 +150,7 @@ bool sample_index<text_t, lce_r_t, array_t>::extend(
         uint64_t len_diff = nxt_smpl_len - smpl_len;
         std::size_t fp_nxt_smpl = std::numeric_limits<std::size_t>::max();
 
-        if (patt_len_idx >= 1) {
+        if (patt_len_idx + 1 >= first_hashed_len_idx) {
             if (fp_smpl == std::numeric_limits<std::size_t>::max()) {
                 fp_nxt_smpl = RKS.template substr_fp<dir>(pos_patt, nxt_smpl_len);
             } else if constexpr (dir == LEFT) {
