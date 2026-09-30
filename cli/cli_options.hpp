@@ -56,7 +56,8 @@ inline void help(std::string name, bool exact, std::string message)
     std::cout << "                   plain   one byte per character (fastest)" << std::endl;
     std::cout << "                   packed  fewer bits per character for small alphabets" << std::endl;
     std::cout << "                   split   fewer bits for frequent characters (slowest)" << std::endl;
-    std::cout << "                   auto    packed or split if that saves memory, else plain" << std::endl;
+    std::cout << "                   auto    packed or split " << (exact ? "for small alphabets" : "if that saves memory")
+              << ", else plain" << std::endl;
     std::cout << " -fasta <mode>     handle the header lines of FASTA files separately from" << std::endl;
     std::cout << "                   the sequences: on, off or auto (default: auto, on for" << std::endl;
     std::cout << "                   FASTA files)" << std::endl;

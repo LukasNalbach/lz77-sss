@@ -29,18 +29,19 @@
 #include <lz77_sss/lz77_sss.hpp>
 
 template <typename text_t>
-std::vector<uint8_t> lz77_sss::factorizer<text_t>::symbols_of(const text_t& text, uint16_t p)
+template <typename sym_t>
+std::vector<sym_t> lz77_sss::factorizer<text_t>::symbols_of(const text_t& text, uint16_t p)
 {
     const uint64_t size = text.size();
-    std::vector<uint8_t> bytes;
-    no_init_resize(bytes, size);
+    std::vector<sym_t> symbols;
+    no_init_resize(symbols, size);
 
     parallel_chunks(size, p, [&](uint64_t beg, uint64_t end) {
         auto cursor = text.cursor_at(beg);
-        for (uint64_t i = beg; i < end; i++) bytes[i] = cursor.next();
+        for (uint64_t i = beg; i < end; i++) symbols[i] = sym_t(cursor.next());
     });
 
-    return bytes;
+    return symbols;
 }
 
 template <typename text_t>
@@ -75,8 +76,16 @@ void lz77_sss::factorizer<text_t>::factorize_exact_sa(factor_sink& output)
 
     if constexpr (std::is_same_v<text_t, direct_text>) {
         idx.emplace(T, reinterpret_cast<const uint8_t*>(T.data()), n, p, step);
+    } else if constexpr (text_t::is_byte_text) {
+        idx.emplace(T, symbols_of<uint8_t>(T, p), n, p, step);
+    } else if constexpr (std::is_same_v<sa_t, int32_t>) {
+        if constexpr (std::is_same_v<text_t, int_direct_text>) {
+            idx.emplace(T, reinterpret_cast<int32_t*>(T.data()), n, T.sigma(), p, step);
+        } else {
+            idx.emplace(T, symbols_of<int32_t>(T, p), n, T.sigma(), p, step);
+        }
     } else {
-        idx.emplace(T, symbols_of(T, p), n, p, step);
+        idx.emplace(T, symbols_of<sa_int40_t>(T, p), n, T.sigma(), p, step);
     }
 
     auto factor_at = [&](uint64_t i) {

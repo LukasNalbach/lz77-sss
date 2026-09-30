@@ -60,6 +60,17 @@ enum text_encoding {
 
 static constexpr double max_auto_encoded_bits = 7;
 static constexpr double min_auto_split_saving = 0.2;
+static constexpr uint64_t exact_split_penalty = 8;
+
+enum factorization_kind {
+    aprx_factorization,
+    exact_factorization
+};
+
+inline uint64_t split_penalty(factorization_kind kind)
+{
+    return kind == exact_factorization ? exact_split_penalty : lce::text::split_text<>::payload_penalty;
+}
 
 template <typename error_t>
 inline text_encoding parse_text_encoding(const std::string& name, error_t error)
@@ -140,26 +151,26 @@ inline double h0_bits_per_char(const char_histogram& histogram, uint64_t size)
     return bits;
 }
 
-inline double split_bits_per_char(const char_histogram& histogram, uint64_t size)
+inline double split_bits_per_char(const char_histogram& histogram, uint64_t size, factorization_kind kind)
 {
-    return 8.0 * lce::text::split_text<>::size_in_bytes_for(histogram, size) / std::max<uint64_t>(1, size);
+    return 8.0 * lce::text::split_text<>::size_in_bytes_for(histogram, size, split_penalty(kind)) /
+        std::max<uint64_t>(1, size);
 }
 
-inline text_encoding auto_encoding_for(const char_histogram& histogram, uint64_t size)
+inline text_encoding auto_encoding_for(const char_histogram& histogram, uint64_t size, factorization_kind kind)
 {
     const double packed = packed_bits_per_char(histogram);
-    const double split = split_bits_per_char(histogram, size);
-    if (packed >= max_auto_encoded_bits && split >= max_auto_encoded_bits) return plain_encoding;
+    const double split = split_bits_per_char(histogram, size, kind);
+    const bool split_replaces_plain = kind == aprx_factorization && split < max_auto_encoded_bits;
+    if (packed >= max_auto_encoded_bits && !split_replaces_plain) return plain_encoding;
     if (packed < max_auto_encoded_bits && split > (1 - min_auto_split_saving) * packed) return packed_encoding;
     return split_encoding;
 }
 
 template <typename text_t>
-inline text_t read_encoded_file(const std::string& path, uint64_t file_size, uint64_t text_size,
-    const char_histogram& histogram, const fasta_layout* layout, uint16_t p = 1)
+inline text_t read_encoded_file(text_t text, const std::string& path, uint64_t file_size, uint64_t text_size,
+    const fasta_layout* layout, uint16_t p = 1)
 {
-    text_t text(histogram, text_size);
-
     if (layout != nullptr) {
         parallel_packer<text_t> packer(text, p);
         read_fasta_sequence(path, file_size, *layout, p,
@@ -175,7 +186,8 @@ inline text_t read_encoded_file(const std::string& path, uint64_t file_size, uin
     return text;
 }
 
-inline text_encoding estimate_auto_encoding(const std::string& path, uint64_t file_size, uint16_t p)
+inline text_encoding estimate_auto_encoding(const std::string& path, uint64_t file_size, factorization_kind kind,
+    uint16_t p)
 {
     const uint64_t probe_size = std::min<uint64_t>(file_size, 4 * 1024 * 1024);
     if (probe_size == 0) return auto_encoding;
@@ -186,14 +198,15 @@ inline text_encoding estimate_auto_encoding(const std::string& path, uint64_t fi
     read_fully(in, probe.data(), probe_size);
 
     char_histogram histogram { };
-    lce::text::packed_text::add_char_counts(histogram, probe.data(), probe_size, p);
+    lce::text::packed_text<>::add_char_counts(histogram, probe.data(), probe_size, p);
     const double scale = double(file_size) / probe_size;
     for (uint64_t& count : histogram) count = uint64_t(std::ceil(count * scale));
-    return auto_encoding_for(histogram, file_size);
+    return auto_encoding_for(histogram, file_size, kind);
 }
 
 template <typename fnc_t>
 inline void with_text_from_file(const std::string& path, uint64_t file_size, text_encoding encoding,
+    factorization_kind kind,
     fasta_mode fasta, fasta_headers& headers, uint64_t excess, uint16_t p, bool log, fnc_t use,
     char_histogram* text_histogram = nullptr)
 {
@@ -232,7 +245,7 @@ inline void with_text_from_file(const std::string& path, uint64_t file_size, tex
     }
 
     const bool scan_reads_text = !headers.active && encoding != packed_encoding && encoding != split_encoding &&
-        (encoding == plain_encoding || estimate_auto_encoding(path, file_size, p) == plain_encoding);
+        (encoding == plain_encoding || estimate_auto_encoding(path, file_size, kind, p) == plain_encoding);
 
     if (log && !headers.active && !scan_logged) {
         std::cout << (scan_reads_text ? "scanning and reading input (" : "scanning input (")
@@ -284,7 +297,7 @@ inline void with_text_from_file(const std::string& path, uint64_t file_size, tex
     }
 
     if (encoding == auto_encoding) {
-        encoding = auto_encoding_for(histogram, text_size);
+        encoding = auto_encoding_for(histogram, text_size, kind);
     }
 
     auto log_encoding = [&](double bits, uint64_t bytes) {
@@ -297,14 +310,14 @@ inline void with_text_from_file(const std::string& path, uint64_t file_size, tex
 
     if (encoding == split_encoding) {
         if (log) std::cout << "split-encoding" << std::flush;
-        auto text = read_encoded_file<lce::text::split_text<>>(path, file_size, text_size, histogram,
-            layout ? &*layout : nullptr, p);
+        auto text = read_encoded_file(lce::text::split_text<>(histogram, text_size, split_penalty(kind)),
+            path, file_size, text_size, layout ? &*layout : nullptr, p);
         log_encoding(8.0 * text.size_in_bytes() / std::max<uint64_t>(1, text_size), text.size_in_bytes());
         use(std::move(text));
     } else if (encoding == packed_encoding) {
         if (log) std::cout << "packing" << std::flush;
-        auto text = read_encoded_file<lce::text::packed_text>(path, file_size, text_size, histogram,
-            layout ? &*layout : nullptr, p);
+        auto text = read_encoded_file(lce::text::packed_text<>(histogram, text_size),
+            path, file_size, text_size, layout ? &*layout : nullptr, p);
         log_encoding(text.width(), text.size_in_bytes());
         use(std::move(text));
     } else {

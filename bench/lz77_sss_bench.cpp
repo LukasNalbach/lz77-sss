@@ -127,17 +127,26 @@ int main(int argc, char** argv)
     input_file.close();
     fasta_headers headers;
 
-    with_text_from_file(file_path, n, auto_encoding, fasta_off, headers,
-        4 * lz77_sss::default_tau, omp_get_max_threads(), true, [&](auto T) {
-        if (result_log::path != "") {
-            result_log::out.open(result_log::path, std::ofstream::app);
-            result_log::write_rows = true;
-        }
+    auto open_result_log = []() {
+        if (result_log::path == "") return;
+        result_log::out.open(result_log::path, std::ofstream::app);
+        result_log::write_rows = true;
+    };
 
+    with_text_from_file(file_path, n, auto_encoding, aprx_factorization, fasta_off, headers,
+        4 * lz77_sss::default_tau, omp_get_max_threads(), true, [&](auto T) {
+        open_result_log();
         std::cout << std::endl << "running LZ77 SSS 3-approximation:" << std::endl;
         run_sss_approximate(T, lz77_sss::auto_gaps, "fact_sss_aprx", max_threads);
         std::filesystem::remove("fact_sss_aprx");
+    });
 
+    if (result_log::out.is_open()) result_log::out.close();
+    std::cout << std::endl;
+
+    with_text_from_file(file_path, n, auto_encoding, exact_factorization, fasta_off, headers,
+        4 * lz77_sss::default_tau, omp_get_max_threads(), true, [&](auto T) {
+        open_result_log();
         std::cout << std::endl << "running LZ77 SSS exact algorithm (without interval samples):" << std::endl;
         run_sss_exact(T, lz77_sss::auto_gaps, lz77_sss::without_interval_samples,
             { .type = range_ds_type::swsg, .decomposed = true }, "fact_sss_exact", max_threads);

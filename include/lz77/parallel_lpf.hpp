@@ -35,6 +35,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <span>
 #include <vector>
 #include <string>
 #include <string_view>
@@ -56,10 +57,10 @@ private:
     static constexpr uint64_t max_size_32bit = 1ULL << 31;
     static constexpr uint64_t chunks_per_thread = 8;
 
-    template <typename sa_t>
-    static sa_t lce(const std::string_view& t, sa_t i, sa_t j)
+    template <typename sa_t, typename view_t>
+    static sa_t lce(const view_t& t, sa_t i, sa_t j)
     {
-        sa_t n = t.length();
+        sa_t n = t.size();
         sa_t l = 0;
         while (i + l < n && j + l < n && t[i + l] == t[j + l]) ++l;
         return l;
@@ -67,9 +68,9 @@ private:
 
     uint64_t min_ref_len;
 
-    template <typename sa_t>
+    template <typename sa_t, typename view_t>
     void factorize_range(
-        const std::string_view& t, const sa_t* sa, const sa_t* isa,
+        const view_t& t, const sa_t* sa, const sa_t* isa,
         sa_t beg, sa_t end,
         emit_function emit_literal, emit_function emit_reference)
     {
@@ -97,15 +98,20 @@ private:
                 emit_reference(factor(sa[src_rank], max_lcp));
                 i += max_lcp;
             } else {
-                emit_literal(factor(t[i]));
+                if constexpr (sizeof(typename view_t::value_type) == 1) {
+                    emit_literal(factor(t[i]));
+                } else {
+                    emit_literal(factor(uintmax_t(t[i]), 0));
+                }
+
                 i++;
             }
         }
     }
 
-    template <typename sa_t>
+    template <typename sa_t, typename view_t>
     void factorize(
-        const std::string_view& t,
+        const view_t& t,
         emit_function emit_literal, emit_function emit_reference,
         uint16_t p, const std::string& tmp_file_prefix)
     {
@@ -113,7 +119,32 @@ private:
         std::vector<sa_t> sa(n);
         std::vector<sa_t> isa(n);
 
-        if constexpr (std::is_same_v<sa_t, uint64_t>) {
+        if constexpr (sizeof(typename view_t::value_type) != 1) {
+            using value_t = typename view_t::value_type;
+            std::vector<value_t> alphabet(t.begin(), t.end());
+            std::sort(alphabet.begin(), alphabet.end());
+            alphabet.erase(std::unique(alphabet.begin(), alphabet.end()), alphabet.end());
+            const int64_t k = std::max<int64_t>(1, alphabet.size());
+            auto rank_of = [&](value_t c) { return std::lower_bound(alphabet.begin(), alphabet.end(), c) - alphabet.begin(); };
+
+            if constexpr (std::is_same_v<sa_t, uint64_t>) {
+                std::vector<int64_t> tmp(n);
+                for (uint64_t i = 0; i < n; i++) tmp[i] = rank_of(t[i]);
+                #ifdef LIBSAIS_OPENMP
+                libsais64_long_omp(tmp.data(), (int64_t*) sa.data(), n, k, 0, p);
+                #else
+                libsais64_long(tmp.data(), (int64_t*) sa.data(), n, k, 0);
+                #endif
+            } else {
+                std::vector<int32_t> tmp(n);
+                for (uint64_t i = 0; i < n; i++) tmp[i] = int32_t(rank_of(t[i]));
+                #ifdef LIBSAIS_OPENMP
+                libsais_int_omp(tmp.data(), (int32_t*) sa.data(), n, int32_t(k), 0, p);
+                #else
+                libsais_int(tmp.data(), (int32_t*) sa.data(), n, int32_t(k), 0);
+                #endif
+            }
+        } else if constexpr (std::is_same_v<sa_t, uint64_t>) {
             #ifdef LIBSAIS_OPENMP
             libsais64_omp((const uint8_t*) t.data(), (int64_t*) sa.data(), n, 0, nullptr, p);
             #else
@@ -131,7 +162,7 @@ private:
         for (sa_t i = 0; i < n; i++) isa[sa[i]] = i;
 
         if (p <= 1) {
-            factorize_range<sa_t>(t, sa.data(), isa.data(), sa_t(0), n, emit_literal, emit_reference);
+            factorize_range<sa_t, view_t>(t, sa.data(), isa.data(), sa_t(0), n, emit_literal, emit_reference);
             return;
         }
 
@@ -143,7 +174,7 @@ private:
             sa_t end = uint64_t(n) * (k + 1) / num_ranges;
             std::ofstream out(tmp_file_prefix + "_" + std::to_string(k), std::ios::binary);
             auto emit = [&](factor f) { out.write((char*) &f, sizeof(factor)); };
-            factorize_range<sa_t>(t, sa.data(), isa.data(), beg, end, emit, emit);
+            factorize_range<sa_t, view_t>(t, sa.data(), isa.data(), beg, end, emit, emit);
         }
 
         for (uint64_t k = 0; k < num_ranges; k++) {
@@ -170,6 +201,29 @@ public:
         uint16_t p = 0, const std::string& tmp_file_prefix = "lz77_lpf_tmp")
     {
         std::string_view t(begin, end);
+        uint64_t n = t.size();
+
+        #ifdef LIBSAIS_OPENMP
+        if (p == 0) p = omp_get_max_threads();
+        #else
+        p = 1;
+        #endif
+
+        if (n < max_size_32bit) {
+            factorize<uint32_t>(t, emit_literal, emit_reference, p, tmp_file_prefix);
+        } else {
+            factorize<uint64_t>(t, emit_literal, emit_reference, p, tmp_file_prefix);
+        }
+    }
+
+    template <std::contiguous_iterator input_t>
+    requires (sizeof(std::iter_value_t<input_t>) == 2 || sizeof(std::iter_value_t<input_t>) == 4)
+    void factorize(
+        input_t begin, const input_t& end,
+        emit_function emit_literal, emit_function emit_reference,
+        uint16_t p = 0, const std::string& tmp_file_prefix = "lz77_lpf_tmp")
+    {
+        std::span<const std::iter_value_t<input_t>> t(std::to_address(begin), uint64_t(end - begin));
         uint64_t n = t.size();
 
         #ifdef LIBSAIS_OPENMP

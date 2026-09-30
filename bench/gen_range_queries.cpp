@@ -53,7 +53,7 @@ int main(int argc, char** argv)
     input_file.close();
     fasta_headers headers;
 
-    with_text_from_file(argv[1], n, auto_encoding, fasta_off, headers,
+    with_text_from_file(argv[1], n, auto_encoding, exact_factorization, fasta_off, headers,
         4 * lz77_sss::default_tau, omp_get_max_threads(), true, [&](auto T) {
         std::cout << "generating queries" << std::flush;
         std::ofstream fact_sss_file("fact_sss_exact");

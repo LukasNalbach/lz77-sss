@@ -53,7 +53,7 @@ int main(int argc, char** argv)
     fasta_headers headers;
     input_file.close();
 
-    with_text_from_file(options.input_file_path, n, options.encoding, options.fasta, headers,
+    with_text_from_file(options.input_file_path, n, options.encoding, aprx_factorization, options.fasta, headers,
         4 * lz77_sss::default_tau, options.num_threads, true, [&](auto T) {
         std::cout << "running LZ77 SSS 3-approximation:" << std::endl;
         huff_factor_writer writer(output_file, n);

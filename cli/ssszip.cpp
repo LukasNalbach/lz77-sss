@@ -1075,7 +1075,7 @@ void compress()
     char_histogram histogram { };
     uint64_t time_read = 0;
 
-    with_text_from_file(input_file_path, bytes_input, encoding, fasta, headers,
+    with_text_from_file(input_file_path, bytes_input, encoding, aprx_factorization, fasta, headers,
         4 * lz77_sss::default_tau, num_threads, !quiet, [&](auto T) {
         time_read = time_diff_ns(time_start, now());
 

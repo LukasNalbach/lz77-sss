@@ -37,8 +37,10 @@ template <uint8_t mers_exp = 61, typename text_t = lce::text::direct_text<char>>
 class rabin_karp_substring {
 protected:
     static_assert(mers_exp == 31 || mers_exp == 61);
+    static_assert(mers_exp == 61 || text_t::is_byte_text);
 
     using fp_t = std::conditional_t<mers_exp == 31, uint32_t, uint64_t>;
+    using symbol_t = typename text_t::symbol_type;
     using fp_wide_t = std::conditional_t<mers_exp == 31, uint64_t, uint128_t>;
 
     static constexpr fp_t mersenne_prime = (fp_t(1) << mers_exp) - 1;
@@ -51,6 +53,7 @@ protected:
     uint64_t sample_rate;
     uint64_t w;
     fp_wide_t pop_prec[256] = { };
+    fp_wide_t pop_mul = 0;
     std::vector<fp_t> prefix_fps;
     std::vector<fp_t> base_pow_leq_sqrt_n;
     std::vector<fp_t> base_pow_step_sqrt_n;
@@ -80,7 +83,7 @@ public:
         const uint64_t sample_rate = 16,
         const uint64_t w = 0,
         const uint16_t p = 1)
-        requires(lce::text::is_direct_text_v<text_t>)
+        requires(lce::text::is_direct_text_v<text_t> && text_t::is_byte_text)
         : rabin_karp_substring(text_t(const_cast<char*>(T), n), n, sample_rate, w, p) { }
 
     rabin_karp_substring(
@@ -115,6 +118,7 @@ public:
 
         if (w != 0) {
             const fp_wide_t max_exp_excl = base_pow(w);
+            pop_mul = max_exp_excl;
 
             for (fp_wide_t c = 0; c < 256; c++) {
                 pop_prec[c] = mersenne_prime_sq - max_exp_excl * c;
@@ -162,13 +166,13 @@ public:
             const uint64_t blk_beg = i_p * blks_per_thr;
             const uint64_t blk_end = i_p == p - 1 ? num_blks : (blk_beg + blks_per_thr);
             fp_t fp = blk_fps[i_p];
+            auto cursor = T.cursor_at(blk_beg * sample_rate);
 
             for (uint64_t blk = blk_beg; blk < blk_end;) {
                 uint64_t beg = blk * sample_rate;
                 uint64_t end = beg + sample_rate;
                 if (blk + 1 == num_blks) [[unlikely]] end = n;
-                uint64_t len = end - beg;
-                fp = concat(fp, substr_fp_naive<RIGHT>(beg, len), len);
+                for (uint64_t i = beg; i < end; i++) fp = push(fp, cursor.next());
                 prefix_fps[++blk] = fp;
             }
         }
@@ -185,14 +189,18 @@ public:
         return size;
     }
 
-    inline fp_t push(const fp_t fp, const uint8_t chr) const
+    inline fp_t push(const fp_t fp, const symbol_t chr) const
     {
         return mod(((base * fp_wide_t(fp)) + mersenne_prime_sq) + fp_wide_t(chr));
     }
 
-    inline fp_t roll(const fp_t fp, const uint8_t pop, const uint8_t chr) const
+    inline fp_t roll(const fp_t fp, const symbol_t pop, const symbol_t chr) const
     {
-        return mod(((base * fp_wide_t(fp)) + pop_prec[pop]) + fp_wide_t(chr));
+        if constexpr (text_t::is_byte_text) {
+            return mod(((base * fp_wide_t(fp)) + pop_prec[pop]) + fp_wide_t(chr));
+        } else {
+            return mod(((base * fp_wide_t(fp)) + (mersenne_prime_sq - pop_mul * fp_wide_t(pop))) + fp_wide_t(chr));
+        }
     }
 
     inline fp_t concat(const fp_t fp_left, const fp_t fp_right, const uint64_t len_right) const
@@ -205,9 +213,10 @@ public:
     {
         if constexpr (dir == LEFT) pos -= len - 1;
         fp_t fp = 0;
+        auto cursor = T.cursor_at(pos);
 
-        for (uint64_t i = pos; i < pos + len; i++) {
-            fp = push(fp, T[i]);
+        for (uint64_t i = 0; i < len; i++) {
+            fp = push(fp, cursor.next());
         }
 
         return fp;

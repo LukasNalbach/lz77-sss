@@ -25,6 +25,7 @@
  */
 
 #include <gtest/gtest.h>
+#include <map>
 #include <ips4o.hpp>
 #include <lz77_sss/data_structures/range/range.hpp>
 #include <lz77_sss/data_structures/sample_index/sample_index.hpp>
@@ -33,28 +34,44 @@
 #include "test-progress.hpp"
 
 using point_t = range_ds::point_t;
-using lce_r_t = lce::ds::lce_naive_wordwise_xor<char>;
 
 thread_local std::mt19937 gen(std::random_device{}());
 thread_local std::uniform_int_distribution<uint32_t> avg_sample_rate_distrib(1, 10);
 
 struct query {
-    char chr;
+    uint64_t chr;
     uint32_t x1, x2;
     uint32_t y1, y2;
     uint32_t weight;
     bool result;
 };
 
+template <typename input_t>
 void test(const range_ds_kind& kind)
 {
+    using sym_t = typename input_t::value_type;
+    static constexpr bool byte_input = sizeof(sym_t) == 1;
+    using text_t = lce::text::direct_text<sym_t>;
+    using lce_r_t = lce::ds::lce_naive_wordwise_xor<sym_t>;
     uint16_t num_threads = std::uniform_int_distribution<uint16_t>(1, omp_get_max_threads())(gen);
 
     // choose a random input length
     uint32_t input_size = random_log_uniform_size(1, 10000, gen);
 
     // generate a random string
-    std::string input = random_repetitive_input<std::string>(input_size, input_size);
+    input_t input;
+
+    if constexpr (byte_input) {
+        input = random_repetitive_input<input_t>(input_size, input_size);
+    } else {
+        const uint32_t sigma = random_log_uniform_size(1, uint64_t { 1 } << 16, gen);
+        input = random_repetitive_input<input_t>(input_size, input_size, sym_t(0), sym_t(sigma - 1));
+    }
+
+    auto symbol_at = [&](uint64_t i) -> uint64_t {
+        if constexpr (byte_input) return char_to_uchar(input[i]);
+        else return input[i];
+    };
 
     // choose a random average sample rate
     uint32_t avg_sample_rate = avg_sample_rate_distrib(gen);
@@ -69,8 +86,17 @@ void test(const range_ds_kind& kind)
     uint32_t num_samples = sampling.size();
 
     // build a sample index (SA_S and PA_S)
-    sample_index<> index;
-    index.build(lce::text::direct_text<char>(input.data(), input_size), input_size, sampling, lce_r_t(input), interval_samples::skip, 32, num_threads);
+    text_t text;
+
+    if constexpr (byte_input) {
+        text = text_t(input.data(), input_size);
+    } else {
+        text = text_t(input.data(), input_size, *std::max_element(input.begin(), input.end()) + uint64_t(1));
+    }
+
+    sample_index<text_t, lce_r_t> index;
+    const lce_r_t lce_r(input);
+    index.build(text, input_size, sampling, lce_r, interval_samples::skip, 32, num_threads);
 
     // build the points-array
     std::vector<point_t> points;
@@ -91,43 +117,30 @@ void test(const range_ds_kind& kind)
 
     // generate random queries
     std::vector<query> queries;
-    std::array<std::uniform_int_distribution<uint32_t>, 256> query_range_distrib;
-    std::array<uint32_t, 257> c_array = { 0 };
-    std::vector<uint8_t> used_uchars;
+    std::map<uint64_t, uint32_t> block_beg;
+    std::map<uint64_t, uint32_t> block_len;
+    for (uint32_t sample : sampling) block_len[symbol_at(sample)]++;
+    std::vector<uint64_t> used_symbols;
+    uint32_t sum = 0;
 
-    for (uint32_t sample : sampling) {
-        c_array[char_to_uchar(input[sample])]++;
+    for (auto [c, len] : block_len) {
+        block_beg[c] = sum;
+        sum += len;
+        used_symbols.emplace_back(c);
     }
 
-    for (uint16_t c = 1; c < 256; c++) c_array[c] += c_array[c - 1];
-    for (uint16_t c = 256; c > 0; c--) c_array[c] = c_array[c - 1];
-    c_array[0] = 0;
-
-    for (uint16_t c = 0; c < 256; c++) {
-        if (c_array[c] != c_array[c + 1]) {
-            used_uchars.emplace_back(c);
-        }
-    }
-
-    std::uniform_int_distribution<unsigned int>
-        uchar_idx_distrib(0, used_uchars.size() - 1);
-
-    for (uint16_t c = 0; c < 256; c++) {
-        if (c_array[c] != c_array[c + 1]) {
-            query_range_distrib[c] = std::uniform_int_distribution<uint32_t>(
-                c_array[c], c_array[c + 1] - 1);
-        }
-    }
+    std::uniform_int_distribution<uint64_t> symbol_idx_distrib(0, used_symbols.size() - 1);
 
     for (uint32_t i = 0; i < num_samples; i++) {
-        uint8_t uchar = used_uchars[uchar_idx_distrib(gen)];
+        const uint64_t c = used_symbols[symbol_idx_distrib(gen)];
+        std::uniform_int_distribution<uint32_t> query_range_distrib(block_beg[c], block_beg[c] + block_len[c] - 1);
 
         query q {
-            .chr = uchar_to_char<char>(uchar),
-            .x1 = query_range_distrib[uchar](gen),
-            .x2 = query_range_distrib[uchar](gen),
-            .y1 = query_range_distrib[uchar](gen),
-            .y2 = query_range_distrib[uchar](gen),
+            .chr = c,
+            .x1 = query_range_distrib(gen),
+            .x2 = query_range_distrib(gen),
+            .y1 = query_range_distrib(gen),
+            .y2 = query_range_distrib(gen),
             .weight = i,
             .result = false
         };
@@ -163,7 +176,7 @@ void test(const range_ds_kind& kind)
         } else {
             std::tie(p, result) = ds->point_in_range(
                 q.chr, q.x1, q.x2, q.y1, q.y2);
-            ds->insert(input[sampling[i]], points[i]);
+            ds->insert(symbol_at(sampling[i]), points[i]);
         }
 
         EXPECT_EQ(result, q.result);
@@ -185,20 +198,41 @@ void test(const range_ds_kind& kind)
 TEST(test_decomposed_range, decomposed_static_weighted_kd_tree)
 {
     run_fuzz("decomposed-range", {
-        { "decomposed-static-weighted-kd-tree", [](uint64_t) { test(range_ds_kind { .type = range_ds_type::swkdt, .decomposed = true }); }, false },
+        { "decomposed-static-weighted-kd-tree", [](uint64_t) { test<std::string>(range_ds_kind { .type = range_ds_type::swkdt, .decomposed = true }); }, false },
     }, fuzz_iterations(3000));
 }
 
 TEST(test_decomposed_range, decomposed_static_weighted_square_grid)
 {
     run_fuzz("decomposed-range", {
-        { "decomposed-static-weighted-square-grid", [](uint64_t) { test(range_ds_kind { .type = range_ds_type::swsg, .decomposed = true }); }, false },
+        { "decomposed-static-weighted-square-grid", [](uint64_t) { test<std::string>(range_ds_kind { .type = range_ds_type::swsg, .decomposed = true }); }, false },
     }, fuzz_iterations(3000));
 }
 
 TEST(test_decomposed_range, decomposed_semi_dynamic_square_grid)
 {
     run_fuzz("decomposed-range", {
-        { "decomposed-semi-dynamic-square-grid", [](uint64_t) { test(range_ds_kind { .type = range_ds_type::sdsg, .decomposed = true }); }, false },
+        { "decomposed-semi-dynamic-square-grid", [](uint64_t) { test<std::string>(range_ds_kind { .type = range_ds_type::sdsg, .decomposed = true }); }, false },
+    }, fuzz_iterations(3000));
+}
+
+TEST(test_decomposed_range, grouped_static_weighted_kd_tree)
+{
+    run_fuzz("decomposed-range", {
+        { "grouped-static-weighted-kd-tree", [](uint64_t) { test<std::vector<uint32_t>>(range_ds_kind { .type = range_ds_type::swkdt, .decomposed = true }); }, false },
+    }, fuzz_iterations(3000));
+}
+
+TEST(test_decomposed_range, grouped_static_weighted_square_grid)
+{
+    run_fuzz("decomposed-range", {
+        { "grouped-static-weighted-square-grid", [](uint64_t) { test<std::vector<uint32_t>>(range_ds_kind { .type = range_ds_type::swsg, .decomposed = true }); }, false },
+    }, fuzz_iterations(3000));
+}
+
+TEST(test_decomposed_range, grouped_semi_dynamic_square_grid)
+{
+    run_fuzz("decomposed-range", {
+        { "grouped-semi-dynamic-square-grid", [](uint64_t) { test<std::vector<uint32_t>>(range_ds_kind { .type = range_ds_type::sdsg, .decomposed = true }); }, false },
     }, fuzz_iterations(3000));
 }

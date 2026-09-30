@@ -133,7 +133,7 @@ void test_fasta_roundtrip(const std::string& input) {
         else lz77_sss::factorize_approximate(text, out, params);
     };
 
-    with_text_from_file(path, input.size(), encoding, mode, headers,
+    with_text_from_file(path, input.size(), encoding, exact ? exact_factorization : aprx_factorization, mode, headers,
         4 * lz77_sss::default_tau, num_threads, false, [&](auto T) {
         fasta_interleaver interleaver(std::move(headers), sink, [&](char* text, uint64_t size, auto out) {
             factorize(lz77_sss::direct_text(text, size), out);
@@ -185,6 +185,89 @@ void test_file_decoder(const std::string& input) {
     EXPECT_EQ(std::filesystem::file_size(path), input.size());
     std::filesystem::remove(path);
     EXPECT_EQ(input, output) << "n=" << input.size() << " in_ram=" << in_ram << " buffer_bits=" << buffer_bits;
+}
+
+std::vector<uint32_t> random_int_input(uint64_t max_size) {
+    const uint64_t n = random_log_uniform_size(1, max_size, gen);
+    const uint64_t sigma = random_log_uniform_size(1, std::clamp<uint64_t>(n / 4, 1, uint64_t { 1 } << 20), gen);
+    std::vector<uint32_t> input = random_repetitive_input<std::vector<uint32_t>>(
+        n, n, uint32_t(0), uint32_t(sigma - 1));
+    std::uniform_real_distribution<double> prob(0.0, 1.0);
+
+    if (prob(gen) < 0.5) {
+        const double frequent_share = prob(gen);
+        std::uniform_int_distribution<uint32_t> frequent(0, uint32_t(std::min<uint64_t>(sigma, random_log_uniform_size(1, 64, gen)) - 1));
+
+        for (uint32_t& c : input) {
+            if (prob(gen) < frequent_share) c = frequent(gen);
+        }
+    }
+
+    std::vector<uint32_t> values(sigma);
+    std::uniform_int_distribution<uint32_t> value_distrib;
+    for (uint32_t& v : values) v = value_distrib(gen);
+    for (uint32_t& c : input) c = values[c];
+    return input;
+}
+
+std::vector<uint64_t> reference_phrase_lengths(const std::vector<uint32_t>& input) {
+    std::vector<uint64_t> lengths;
+    lz77::emit_function emit = [&](lz77::factor f) { lengths.push_back(f.text_len()); };
+    lz77::parallel_lpf_factorizer().factorize(input.begin(), input.end(), emit, emit, 1);
+    return lengths;
+}
+
+void test_int_roundtrip(std::vector<uint32_t> input, lz77_sss::parameters params, bool exact) {
+    const uint64_t n = input.size();
+    params.num_threads = std::uniform_int_distribution<uint16_t>(1, omp_get_max_threads())(gen);
+    std::vector<lz77_sss::factor> factorization;
+    auto out = [&](lz77_sss::factor f) { factorization.emplace_back(f); };
+    const int kind = std::uniform_int_distribution<int>(0, 3)(gen);
+
+    if (kind == 0) {
+        if (exact) lz77_sss::factorize_exact(input.data(), n, out, params);
+        else lz77_sss::factorize_approximate(input.data(), n, out, params);
+    } else {
+        std::vector<uint32_t> alphabet = input;
+        std::sort(alphabet.begin(), alphabet.end());
+        alphabet.erase(std::unique(alphabet.begin(), alphabet.end()), alphabet.end());
+        std::vector<uint32_t> ranks(n);
+
+        for (uint64_t i = 0; i < n; i++) {
+            ranks[i] = uint32_t(std::lower_bound(alphabet.begin(), alphabet.end(), input[i]) - alphabet.begin());
+        }
+
+        auto run = [&](auto T) {
+            auto mapped = [&](lz77_sss::factor f) {
+                if (f.is_literal()) f.src = alphabet[f.src];
+                out(f);
+            };
+
+            if (exact) lz77_sss::factorize_exact(T, mapped, params);
+            else lz77_sss::factorize_approximate(T, mapped, params);
+        };
+
+        const uint64_t sigma = alphabet.size();
+        if (kind == 1) run(lz77_sss::int_direct_text(ranks.data(), n, sigma));
+        else if (kind == 2) run(lz77_sss::int_packed_text(ranks.data(), n, sigma, params.num_threads));
+        else run(lz77_sss::int_split_text(ranks.data(), n, sigma, params.num_threads));
+    }
+
+    std::vector<uint32_t> decoded(n);
+    lz77_sss::decode(factorization.begin(), decoded.data(), n);
+    EXPECT_EQ(input, decoded) << "n=" << n << " kind=" << kind;
+
+    if (exact) {
+        std::vector<uint64_t> lengths;
+        for (const lz77_sss::factor& f : factorization) lengths.push_back(f.text_len());
+        EXPECT_EQ(lengths, reference_phrase_lengths(input)) << "n=" << n << " kind=" << kind << " threads=" << params.num_threads;
+    }
+}
+
+lz77_sss::parameters random_exact_params(lz77_sss::transform_mode transf_mode) {
+    const range_ds_type type = std::uniform_int_distribution<int>(0, 1)(gen) == 0 ? range_ds_type::sdsg : range_ds_type::swkdt;
+    return { .fact_mode = lz77_sss::auto_gaps, .transf_mode = transf_mode,
+        .range_ds = { .type = type, .decomposed = true }, .exact_alg = lz77_sss::sss_based };
 }
 
 TEST(test_lz77_sss, approximate) {
@@ -260,8 +343,8 @@ void test_fasta_reader(const std::string& input) {
     if (!expected.empty()) {
         char_histogram histogram { };
         for (char c : expected) histogram[uint8_t(c)]++;
-        lce::text::packed_text text(histogram, expected.size());
-        parallel_packer<lce::text::packed_text> packer(text, num_threads);
+        lce::text::packed_text<> text(histogram, expected.size());
+        parallel_packer<lce::text::packed_text<>> packer(text, num_threads);
         read_fasta_sequence(path, input.size(), *layout, num_threads,
             [&](const char* data, uint64_t len, uint64_t at, uint16_t t) { packer.pack(data, len, at, t); });
         packer.finish();
@@ -282,5 +365,41 @@ TEST(test_lz77_sss, fasta_reader) {
 TEST(test_lz77_sss, fasta) {
     run_fuzz("lz77-sss", {
         { "fasta", [](uint64_t) { test_fasta_roundtrip(random_fasta_input(50000)); }, false },
+    }, fuzz_iterations(1000));
+}
+
+TEST(test_lz77_sss, approximate_int) {
+    run_fuzz("lz77-sss", {
+        { "approximate-int", [](uint64_t) { test_int_roundtrip(random_int_input(200000), { .fact_mode = lz77_sss::auto_gaps }, false); }, false },
+    }, fuzz_iterations(1500));
+}
+
+TEST(test_lz77_sss, approximate_exact_gaps_int) {
+    run_fuzz("lz77-sss", {
+        { "approximate-exact-gaps-int", [](uint64_t) { test_int_roundtrip(random_int_input(200000), { .fact_mode = lz77_sss::exact_gaps }, false); }, false },
+    }, fuzz_iterations(1500));
+}
+
+TEST(test_lz77_sss, exact_with_interval_samples_int) {
+    run_fuzz("lz77-sss", {
+        { "exact-with-interval-samples-int", [](uint64_t) { test_int_roundtrip(random_int_input(50000), random_exact_params(lz77_sss::with_interval_samples), true); }, false },
+    }, fuzz_iterations(1000));
+}
+
+TEST(test_lz77_sss, exact_without_interval_samples_int) {
+    run_fuzz("lz77-sss", {
+        { "exact-without-interval-samples-int", [](uint64_t) { test_int_roundtrip(random_int_input(50000), random_exact_params(lz77_sss::without_interval_samples), true); }, false },
+    }, fuzz_iterations(1000));
+}
+
+TEST(test_lz77_sss, exact_sa_int) {
+    run_fuzz("lz77-sss", {
+        { "exact-sa-int", [](uint64_t) { test_int_roundtrip(random_int_input(50000), { .exact_alg = lz77_sss::sa_based }, true); }, false },
+    }, fuzz_iterations(1500));
+}
+
+TEST(test_lz77_sss, exact_auto_int) {
+    run_fuzz("lz77-sss", {
+        { "exact-auto-int", [](uint64_t) { test_int_roundtrip(random_int_input(50000), { .exact_alg = lz77_sss::auto_select }, true); }, false },
     }, fuzz_iterations(1000));
 }

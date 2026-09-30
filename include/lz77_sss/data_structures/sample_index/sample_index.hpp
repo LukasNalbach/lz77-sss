@@ -74,6 +74,10 @@ public:
 
 protected:
     static constexpr uint64_t no_occ = largest_value<uint40_t>();
+    static constexpr bool byte_text = text_t::is_byte_text;
+    static constexpr uint64_t first_hashed_len_idx = byte_text ? 2 : 0;
+
+    using rks_t = rabin_karp_substring<byte_text ? 31 : 61, text_t>;
 
     uint64_t n = 0;
     uint64_t s = 0;
@@ -83,7 +87,7 @@ protected:
     text_t T;
     array_view_t<array_t> S;
     const lce_r_t* LCE_R = nullptr;
-    rabin_karp_substring<31, text_t> RKS;
+    rks_t RKS;
 
     bit_aligned_vector PA_S;
     bit_aligned_vector SA_S;
@@ -206,7 +210,7 @@ public:
         uint64_t max_patt_len_left = std::numeric_limits<uint64_t>::max(),
         uint64_t max_smpl_len_right = std::numeric_limits<uint64_t>::max());
 
-    inline const rabin_karp_substring<31, text_t>& rks() const { return RKS; }
+    inline const rks_t& rks() const { return RKS; }
 
     inline uint64_t size_in_bytes() const { return byte_size; }
 

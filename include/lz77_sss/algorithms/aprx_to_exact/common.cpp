@@ -198,8 +198,7 @@ void lz77_sss::factorizer<text_t>::exact_transformer::insert_points_before(uint6
             result_log::queries_out.write((char*) &y_1, 8);
             result_log::queries_out.write((char*) &y_2, 8);
         } else {
-            R->insert(T[C[x_r]], point_t { .x = P.get<0>(x_r), .y = P.get<1>(x_r),
-                .weight = P.get<2>(x_r) });
+            R->insert(T[C[x_r]], point_t { .x = P.get<0>(x_r), .y = P.get<1>(x_r), .weight = P.get<2>(x_r) });
         }
 
         x_r++;

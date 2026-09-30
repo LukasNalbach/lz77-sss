@@ -72,7 +72,7 @@ int main(int argc, char** argv)
     input_file.close();
     fasta_headers headers;
 
-    with_text_from_file(file_path, n, auto_encoding, fasta_off, headers,
+    with_text_from_file(file_path, n, auto_encoding, aprx_factorization, fasta_off, headers,
         4 * max_tau, omp_get_max_threads(), true, [&](auto T) {
         if (result_log::path != "") {
             result_log::out.open(result_log::path, std::ofstream::app);

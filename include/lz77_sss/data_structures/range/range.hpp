@@ -54,12 +54,12 @@ public:
     virtual std::string name() const = 0;
     virtual uint64_t size() const = 0;
     virtual uint64_t size_in_bytes() const = 0;
-    virtual void insert(uint8_t c, point_t point) = 0;
+    virtual void insert(uint64_t c, point_t point) = 0;
 
-    virtual result_t lighter_point_in_range(uint8_t c, uint64_t weight,
+    virtual result_t lighter_point_in_range(uint64_t c, uint64_t weight,
         uint64_t x1, uint64_t x2, uint64_t y1, uint64_t y2) const = 0;
 
-    virtual result_t point_in_range(uint8_t c,
+    virtual result_t point_in_range(uint64_t c,
         uint64_t x1, uint64_t x2, uint64_t y1, uint64_t y2) const = 0;
 };
 
@@ -78,9 +78,9 @@ public:
     uint64_t size() const override { return impl.size(); }
     uint64_t size_in_bytes() const override { return impl.size_in_bytes(); }
 
-    void insert(uint8_t, point_t point) override { if constexpr (impl_t::is_dynamic()) impl.insert(point); }
+    void insert(uint64_t, point_t point) override { if constexpr (impl_t::is_dynamic()) impl.insert(point); }
 
-    result_t lighter_point_in_range(uint8_t, uint64_t weight,
+    result_t lighter_point_in_range(uint64_t, uint64_t weight,
         uint64_t x1, uint64_t x2, uint64_t y1, uint64_t y2) const override
     {
         if constexpr (impl_t::is_static())
@@ -89,7 +89,7 @@ public:
             return { point_t { }, false };
     }
 
-    result_t point_in_range(uint8_t,
+    result_t point_in_range(uint64_t,
         uint64_t x1, uint64_t x2, uint64_t y1, uint64_t y2) const override
     {
         if constexpr (impl_t::is_dynamic())
@@ -101,6 +101,9 @@ public:
 
 template <typename impl_t>
 class decomposed_range;
+
+template <typename impl_t>
+class grouped_range;
 
 enum class range_ds_type {
     swsg,
@@ -157,7 +160,8 @@ inline range_ds* make_range_ds(const range_ds_kind& kind,
     const text_t& T, const array_t& S,
     const points_t& points, uint16_t p)
 {
-    std::vector<uint8_t> chr;
+    constexpr bool byte_chars = sizeof(std::remove_cvref_t<decltype(T[0])>) == 1;
+    std::vector<std::conditional_t<byte_chars, uint8_t, uint32_t>> chr;
     no_init_resize(chr, S.size());
 
     #pragma omp parallel for num_threads(p) schedule(dynamic, 65536)
@@ -189,8 +193,13 @@ inline range_ds* make_range_ds(const range_ds_kind& kind,
     }
 
     return visit_range_ds_type(kind.type, [&](auto impl) -> range_ds* {
-        return new decomposed_range<typename decltype(impl)::type>(chr, *P, p);
+        if constexpr (byte_chars) {
+            return new decomposed_range<typename decltype(impl)::type>(chr, *P, p);
+        } else {
+            return new grouped_range<typename decltype(impl)::type>(chr, *P, p);
+        }
     });
 }
 
 #include <lz77_sss/data_structures/range/decomposed_range.hpp>
+#include <lz77_sss/data_structures/range/grouped_range.hpp>
