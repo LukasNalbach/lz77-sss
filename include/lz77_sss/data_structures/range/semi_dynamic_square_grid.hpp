@@ -149,7 +149,7 @@ public:
             w_idx += nxt_row_offs;
         }
 
-        return { { 0, 0 }, false };
+        return { { 0, 0, 0 }, false };
     }
 
     static constexpr std::string name() { return "sdsg"; }

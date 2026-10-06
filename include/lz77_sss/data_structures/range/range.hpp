@@ -160,8 +160,9 @@ inline range_ds* make_range_ds(const range_ds_kind& kind,
     const text_t& T, const array_t& S,
     const points_t& points, uint16_t p)
 {
-    constexpr bool byte_chars = sizeof(std::remove_cvref_t<decltype(T[0])>) == 1;
-    std::vector<std::conditional_t<byte_chars, uint8_t, uint32_t>> chr;
+    constexpr uint64_t chr_bytes = sizeof(std::remove_cvref_t<decltype(T[0])>);
+    constexpr bool byte_chars = chr_bytes == 1;
+    std::vector<std::conditional_t<byte_chars, uint8_t, std::conditional_t<chr_bytes <= 4, uint32_t, uint64_t>>> chr;
     no_init_resize(chr, S.size());
 
     #pragma omp parallel for num_threads(p) schedule(dynamic, 65536)

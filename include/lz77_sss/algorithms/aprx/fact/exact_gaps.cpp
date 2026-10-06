@@ -77,63 +77,6 @@ void lz77_sss::factorizer<text_t>::factorize_exact_gaps(
     }
 
     const uint64_t len_G = reg_off[num_regs];
-    std::conditional_t<text_t::is_byte_text, std::string, std::vector<uint32_t>> G;
-    no_init_resize(G, len_G);
-
-    if constexpr (!text_t::is_byte_text) {
-        const uint32_t sep = uint32_t(T.sigma());
-
-        #pragma omp parallel for num_threads(p) schedule(dynamic, 256)
-        for (uint64_t r = 0; r < num_regs; r++) {
-            auto cursor = T.cursor_at(reg_beg[r]);
-            uint32_t* dst = G.data() + reg_off[r];
-            for (uint64_t i = 0; i < reg_end[r] - reg_beg[r]; i++) dst[i] = cursor.next();
-            G[reg_off[r + 1] - 1] = sep;
-        }
-    } else {
-        std::array<uint64_t, 256> hist { };
-
-        #pragma omp parallel num_threads(p)
-        {
-            std::array<uint64_t, 256> hist_thr { };
-
-            #pragma omp for schedule(dynamic, 256)
-            for (uint64_t r = 0; r < num_regs; r++) {
-                auto cursor = T.cursor_at(reg_beg[r]);
-                char* dst = G.data() + reg_off[r];
-
-                for (uint64_t i = 0; i < reg_end[r] - reg_beg[r]; i++) {
-                    const uint8_t c = cursor.next();
-                    dst[i] = char(c);
-                    hist_thr[c]++;
-                }
-            }
-
-            #pragma omp critical
-            for (uint64_t c = 0; c < 256; c++) hist[c] += hist_thr[c];
-        }
-
-        uint8_t sep = 0;
-
-        for (uint64_t c = 256; c-- > 0;) {
-            if (hist[c] == 0) {
-                sep = uint8_t(c);
-                break;
-            }
-        }
-
-        #pragma omp parallel for num_threads(p)
-        for (uint64_t r = 0; r < num_regs; r++) {
-            G[reg_off[r + 1] - 1] = char(sep);
-        }
-    }
-
-    if (log) {
-        std::cout << " (" << num_regs << " gaps, " << format_size(len_G * symbol_bytes) << ")";
-        time = log_runtime(time);
-        std::cout << "factorizing gaps (exact)" << std::flush;
-    }
-
     const uint64_t num_blks = std::min<uint64_t>(num_regs, uint64_t { p } * par_sects_per_thr);
     std::vector<std::vector<factor>> facts(num_blks);
     std::vector<uint64_t> num_facts(num_regs);
@@ -184,7 +127,54 @@ void lz77_sss::factorizer<text_t>::factorize_exact_gaps(
         }
     };
 
+    auto log_gaps = [&](uint64_t G_bytes) {
+        if (log) {
+            std::cout << " (" << num_regs << " gaps, " << format_size(G_bytes) << ")";
+            time = log_runtime(time);
+            std::cout << "factorizing gaps (exact)" << std::flush;
+        }
+    };
+
     if constexpr (text_t::is_byte_text) {
+        std::string G;
+        no_init_resize(G, len_G);
+        std::array<uint64_t, 256> hist { };
+
+        #pragma omp parallel num_threads(p)
+        {
+            std::array<uint64_t, 256> hist_thr { };
+
+            #pragma omp for schedule(dynamic, 256)
+            for (uint64_t r = 0; r < num_regs; r++) {
+                auto cursor = T.cursor_at(reg_beg[r]);
+                char* dst = G.data() + reg_off[r];
+
+                for (uint64_t i = 0; i < reg_end[r] - reg_beg[r]; i++) {
+                    const uint8_t c = cursor.next();
+                    dst[i] = char(c);
+                    hist_thr[c]++;
+                }
+            }
+
+            #pragma omp critical
+            for (uint64_t c = 0; c < 256; c++) hist[c] += hist_thr[c];
+        }
+
+        uint8_t sep = 0;
+
+        for (uint64_t c = 256; c-- > 0;) {
+            if (hist[c] == 0) {
+                sep = uint8_t(c);
+                break;
+            }
+        }
+
+        #pragma omp parallel for num_threads(p)
+        for (uint64_t r = 0; r < num_regs; r++) {
+            G[reg_off[r + 1] - 1] = char(sep);
+        }
+
+        log_gaps(len_G);
         const direct_text G_text(G.data(), len_G);
 
         if (len_G <= INT32_MAX) {
@@ -193,24 +183,65 @@ void lz77_sss::factorizer<text_t>::factorize_exact_gaps(
             factorize_gaps(exact_gap_index<direct_text, sa_int40_t>(G_text, reinterpret_cast<const uint8_t*>(G.data()), len_G, p));
         }
     } else {
-        const uint64_t sigma_G = T.sigma() + 1;
-        const int_direct_text G_text(G.data(), len_G, sigma_G);
+        auto factorize_int_gaps = [&](auto G_chr) {
+            using G_chr_t = decltype(G_chr);
+            using G_text_t = lce::text::direct_text<G_chr_t>;
+            using sa_t = std::conditional_t<std::is_same_v<G_chr_t, uint32_t>, int32_t, sa_int40_t>;
+            std::vector<G_chr_t> G;
+            uint64_t sigma_G = T.sigma() + 1;
 
-        if (len_G <= INT32_MAX && sigma_G <= INT32_MAX) {
-            factorize_gaps(exact_gap_index<int_direct_text, int32_t>(
-                G_text, reinterpret_cast<int32_t*>(G.data()), len_G, sigma_G, p));
+            if (T.sigma() < len_G) {
+                no_init_resize(G, len_G);
+
+                #pragma omp parallel for num_threads(p) schedule(dynamic, 256)
+                for (uint64_t r = 0; r < num_regs; r++) {
+                    auto cursor = T.cursor_at(reg_beg[r]);
+                    G_chr_t* dst = G.data() + reg_off[r];
+                    for (uint64_t i = 0; i < reg_end[r] - reg_beg[r]; i++) dst[i] = G_chr_t(cursor.next());
+                    G[reg_off[r + 1] - 1] = G_chr_t(sigma_G - 1);
+                }
+            } else {
+                std::vector<symbol_t> alph;
+                no_init_resize(alph, len_G - num_regs);
+
+                #pragma omp parallel for num_threads(p) schedule(dynamic, 256)
+                for (uint64_t r = 0; r < num_regs; r++) {
+                    auto cursor = T.cursor_at(reg_beg[r]);
+                    symbol_t* dst = alph.data() + (reg_off[r] - r);
+                    for (uint64_t i = 0; i < reg_end[r] - reg_beg[r]; i++) dst[i] = cursor.next();
+                }
+
+                ips4o::parallel::sort(alph.begin(), alph.end(), std::less<symbol_t>(), p);
+                alph.erase(std::unique(alph.begin(), alph.end()), alph.end());
+                alph.shrink_to_fit();
+                sigma_G = alph.size() + 1;
+                no_init_resize(G, len_G);
+
+                #pragma omp parallel for num_threads(p) schedule(dynamic, 256)
+                for (uint64_t r = 0; r < num_regs; r++) {
+                    auto cursor = T.cursor_at(reg_beg[r]);
+                    G_chr_t* dst = G.data() + reg_off[r];
+
+                    for (uint64_t i = 0; i < reg_end[r] - reg_beg[r]; i++) {
+                        dst[i] = G_chr_t(uint64_t(std::lower_bound(alph.begin(), alph.end(), cursor.next()) - alph.begin()));
+                    }
+
+                    G[reg_off[r + 1] - 1] = G_chr_t(sigma_G - 1);
+                }
+            }
+
+            log_gaps(len_G * sizeof(G_chr_t));
+            const G_text_t G_text(G.data(), len_G, sigma_G);
+            factorize_gaps(exact_gap_index<G_text_t, sa_t>(G_text, reinterpret_cast<sa_t*>(G.data()), len_G, sigma_G, p));
+        };
+
+        if (len_G <= INT32_MAX) {
+            factorize_int_gaps(uint32_t { });
         } else {
-            std::vector<sa_int40_t> G_40;
-            no_init_resize(G_40, len_G);
-
-            #pragma omp parallel for num_threads(p) schedule(static)
-            for (uint64_t i = 0; i < len_G; i++) G_40[i] = sa_int40_t(int64_t(G[i]));
-
-            factorize_gaps(exact_gap_index<int_direct_text, sa_int40_t>(G_text, std::move(G_40), len_G, sigma_G, p));
+            factorize_int_gaps(uint40_t { });
         }
     }
 
-    G = decltype(G)();
     phrases = std::vector<lpf_phrase>();
 
     if (log) {

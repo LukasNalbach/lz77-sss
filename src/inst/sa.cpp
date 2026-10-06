@@ -29,3 +29,6 @@
 #include <lz77_sss/algorithms/exact_sa.cpp>
 
 template void lz77_sss::factorizer<lz77_sss::LZ77_SSS_INST_TEXT>::factorize_exact_sa(lz77_sss::factor_sink&);
+template bool lz77_sss::factorizer<lz77_sss::LZ77_SSS_INST_TEXT>::sa_supported() const;
+template uint64_t lz77_sss::factorizer<lz77_sss::LZ77_SSS_INST_TEXT>::sa_bytes() const;
+template uint64_t lz77_sss::factorizer<lz77_sss::LZ77_SSS_INST_TEXT>::sa_extra_bytes() const;

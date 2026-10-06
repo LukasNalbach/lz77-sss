@@ -57,9 +57,10 @@ int main(int argc, char** argv)
         4 * lz77_sss::default_tau, omp_get_max_threads(), true, [&](auto T) {
         std::cout << "generating queries" << std::flush;
         std::ofstream fact_sss_file("fact_sss_exact");
+        const uint8_t fact_bytes = lz77_sss::factor::bytes_for(std::max<uint64_t>(T.size(), 256));
 
         lz77_sss::factorize_exact(
-            T, [&](auto f){fact_sss_file << f;},
+            T, [&](auto f){f.write(fact_sss_file, fact_bytes, fact_bytes);},
             { .num_threads = 1, .log = false,
               .fact_mode = lz77_sss::auto_gaps, .transf_mode = lz77_sss::without_interval_samples,
               .range_ds = { .type = range_ds_type::swkdt, .decomposed = true },

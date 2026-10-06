@@ -86,10 +86,11 @@ class grouped_range final : public range_ds {
         return sorted;
     }
 
-    void build_groups(const std::vector<uint32_t>& chr, const bit_aligned_interleaved_vectors<3>& P, uint16_t p)
+    template <typename chr_t>
+    void build_groups(const std::vector<chr_t>& chr, const bit_aligned_interleaved_vectors<3>& P, uint16_t p)
     {
         const uint64_t n = chr.size();
-        std::vector<uint32_t> chr_by_y;
+        std::vector<chr_t> chr_by_y;
         no_init_resize(chr_by_y, n);
 
         #pragma omp parallel for num_threads(p) schedule(static)
@@ -107,7 +108,7 @@ class grouped_range final : public range_ds {
             }
         }
 
-        chr_by_y = std::vector<uint32_t>();
+        chr_by_y = std::vector<chr_t>();
         const uint64_t limit = std::max<uint64_t>(1, n / max_group_share_inv);
         G_S.assign(1, 0);
         uint64_t prev = 0;
@@ -194,7 +195,8 @@ class grouped_range final : public range_ds {
 public:
     static constexpr uint64_t max_group_share_inv = 256;
 
-    grouped_range(const std::vector<uint32_t>& chr, const bit_aligned_interleaved_vectors<3>& P, uint16_t p)
+    template <typename chr_t>
+    grouped_range(const std::vector<chr_t>& chr, const bit_aligned_interleaved_vectors<3>& P, uint16_t p)
     {
         const uint64_t n = chr.size();
         build_groups(chr, P, p);

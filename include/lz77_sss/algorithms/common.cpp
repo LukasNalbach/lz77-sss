@@ -57,43 +57,38 @@ void lz77_sss::decode(fact_it_t fact_it, out_it_t out_it, uint64_t output_size)
     }
 }
 
-template <typename fnc_t>
-void lz77_sss::with_int_text(const uint32_t* input, uint64_t input_size, uint16_t p, fnc_t fnc)
+template <typename int_t>
+lz77_sss::int_text_t<int_t> lz77_sss::int_text(int_t* input, uint64_t input_size, uint16_t p)
+    requires(is_int_input_v<int_t>)
 {
-    if (p == 0) p = omp_get_max_threads();
-    std::vector<uint32_t> alphabet(input, input + input_size);
-    ips4o::parallel::sort(alphabet.begin(), alphabet.end(), std::less<uint32_t>(), p);
-    alphabet.erase(std::unique(alphabet.begin(), alphabet.end()), alphabet.end());
-    alphabet.shrink_to_fit();
-    int_packed_text T(alphabet.size(), input_size);
+    using sym_t = int_symbol_t<int_t>;
+    sym_t* symbols = reinterpret_cast<sym_t*>(input);
 
-    T.pack_symbols(input_size, 0, [&](uint64_t i) {
-        return uint64_t(std::lower_bound(alphabet.begin(), alphabet.end(), input[i]) - alphabet.begin());
-    }, p);
+    if constexpr (sizeof(sym_t) == 1) {
+        return int_text_t<int_t>(symbols, input_size);
+    } else {
+        if (p == 0) p = omp_get_max_threads();
+        uint64_t max_value = 0;
 
-    fnc(std::move(T), alphabet);
+        #pragma omp parallel for num_threads(p) reduction(max : max_value)
+        for (uint64_t i = 0; i < input_size; i++) max_value = std::max<uint64_t>(max_value, symbols[i]);
+
+        return int_text_t<int_t>(symbols, input_size, max_value == UINT64_MAX ? max_value : max_value + 1);
+    }
 }
 
-template <typename output_fnc_t>
-void lz77_sss::factorize_approximate(const uint32_t* input, uint64_t input_size, output_fnc_t output, parameters params)
+template <typename int_t, typename output_fnc_t>
+void lz77_sss::factorize_approximate(int_t* input, uint64_t input_size, output_fnc_t output, parameters params)
+    requires(is_int_input_v<int_t>)
 {
-    with_int_text(input, input_size, params.num_threads, [&](int_packed_text T, const std::vector<uint32_t>& alphabet) {
-        factorize_approximate(std::move(T), [&](factor f) {
-            if (f.is_literal()) f.src = alphabet[f.src];
-            output(f);
-        }, params);
-    });
+    factorize_approximate(int_text(input, input_size, params.num_threads), output, params);
 }
 
-template <typename output_fnc_t>
-void lz77_sss::factorize_exact(const uint32_t* input, uint64_t input_size, output_fnc_t output, parameters params)
+template <typename int_t, typename output_fnc_t>
+void lz77_sss::factorize_exact(int_t* input, uint64_t input_size, output_fnc_t output, parameters params)
+    requires(is_int_input_v<int_t>)
 {
-    with_int_text(input, input_size, params.num_threads, [&](int_packed_text T, const std::vector<uint32_t>& alphabet) {
-        factorize_exact(std::move(T), [&](factor f) {
-            if (f.is_literal()) f.src = alphabet[f.src];
-            output(f);
-        }, params);
-    });
+    factorize_exact(int_text(input, input_size, params.num_threads), output, params);
 }
 
 template <typename text_t>
