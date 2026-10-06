@@ -52,7 +52,7 @@ usage: ssszip [...] <input_file>
  -o <output_file>  output file path (default: <input_file>.ssszip.<encoder>)
  -t <threads>      number of threads to use (default: all)
  -e <encoder>      name of the encoder binary (default: zstd)
- -0/-1/-2/...      encoding quality (default: 4)
+ -0/-1/-2/...      encoding quality (default: 4, for bsc: block size in MB, default: 2047)
  -k                keep (don't delete) <input file>
  -q                quiet mode (disables all logs)
  -v                shows verbose information

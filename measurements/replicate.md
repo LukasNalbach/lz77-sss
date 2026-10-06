@@ -87,11 +87,11 @@ runs three tools that append their own `RESULT` lines:
 | ---------------- | ----------------------------------------------------- | ------------------------------- |
 | `lz77-sss-bench` | `<text> <max_threads> <result_file>`                   | the factorization runs (Figure 3) |
 | `zip-bench`      | `<text> 1 <max_threads> <result_file>`                 | `lz4`, `7z`, `gzip`, `bzip2`, `xz`, `zstd`, `bsc_2047`, `alz_6`, `alz_8` (Figure 4) |
-| `ssszip`         | `-t <p> -e <encoder> -r <result_file> -k <text>`       | `ssszip_bsc` and `ssszip_zstd` (Figure 4) |
+| `ssszip`         | `-t <p> -e bsc -r <result_file> -k <text>`             | `ssszip_bsc` (Figure 4) |
 
 `ssszip` writes its own `RESULT` lines, which is why it is run separately from `zip-bench`.
-`measure-all.sh` runs it with both encoders, at one thread and at `-p` threads, and
-decompresses each result again.
+`measure-all.sh` runs it with bsc (block size 2047 MB), at one thread and at `-p` threads,
+and decompresses each result again.
 
 Options:
 

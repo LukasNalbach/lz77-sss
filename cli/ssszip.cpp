@@ -49,6 +49,7 @@ std::string log_file_path;
 std::ifstream input_file;
 std::string encoder = "zstd";
 uint32_t encoding_quality = 4;
+bool encoding_quality_given = false;
 uint64_t bytes_compressed;
 uint16_t num_threads;
 uint8_t logs = 1;
@@ -64,7 +65,7 @@ void help(std::string message)
         std::cout << " -o <output_file>  output file path (default: <input_file>.ssszip.<encoder>)" << std::endl;
         std::cout << " -t <threads>      number of threads to use (default: all)" << std::endl;
         std::cout << " -e <encoder>      name of the encoder binary (default: bsc)" << std::endl;
-        std::cout << " -0/-1/-2/...      encoding quality (default: 4)" << std::endl;
+        std::cout << " -0/-1/-2/...      encoding quality (default: 4, for bsc: block size in MB, default: 2047)" << std::endl;
         std::cout << " -k                keep (don't delete) <input file>" << std::endl;
         std::cout << " -q                quiet mode (disables all logs)" << std::endl;
         std::cout << " -v                shows verbose information" << std::endl;
@@ -112,6 +113,7 @@ void parse_args(char** argv, int argc)
         }
 
         encoding_quality = std::stoi(arg.substr(1));
+        encoding_quality_given = true;
     } else {
         help("error: unrecognized '" + arg + "' option");
     }
@@ -248,6 +250,7 @@ void encode()
     }
 
     cpu_list.resize(cpu_list.length() - 1);
+    if (encoder == "bsc" && !encoding_quality_given) encoding_quality = 2047;
     std::string cmd = "(/usr/bin/time -v taskset -c " + cpu_list + " " + encoder +
         (encoder == "bsc" ? (
             " e " + tmp_file_path + " " + output_file_path + " -b" +
