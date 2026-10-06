@@ -37,8 +37,8 @@ void lz77_sss::factorizer<text_t>::exact_transformer::build_C()
     }
 
     direct_ifstream aprx_ifile(aprx_file_name);
-    std::istream_iterator<factor> aprx_it(aprx_ifile);
-    aprx_it++;
+    factor f;
+    f.read(aprx_ifile, src_bytes, len_bytes);
 
     C.reset(num_aprx_fact + n / delta, n);
     C.push_back(0);
@@ -56,7 +56,7 @@ void lz77_sss::factorizer<text_t>::exact_transformer::build_C()
 
     for (uint64_t k = 1; k < num_aprx_fact; k++) {
         prev_smpl = cur_end;
-        factor f = *aprx_it++;
+        f.read(aprx_ifile, src_bytes, len_bytes);
         cur_end += f.text_len();
 
         while (cur_end - prev_smpl > delta) {
@@ -321,13 +321,13 @@ lz77_sss::factor lz77_sss::factorizer<text_t>::exact_transformer::aprx_factor_at
         i, 0, num_par_sect - 1, [&](uint64_t x) { return par_sect[x].beg; });
     uint64_t pos = par_sect[sect].beg;
     direct_ifstream aprx_ifile(aprx_file_name, 64 * 1024);
-    aprx_ifile.seekg(par_sect[sect].first_aprx * factor::size_of(), std::ios::beg);
-    std::istream_iterator<factor> aprx_it(aprx_ifile);
-    factor f = *aprx_it++;
+    aprx_ifile.seekg(par_sect[sect].first_aprx * (src_bytes + len_bytes), std::ios::beg);
+    factor f;
+    f.read(aprx_ifile, src_bytes, len_bytes);
 
     while (pos + f.text_len() <= i) {
         pos += f.text_len();
-        f = *aprx_it++;
+        f.read(aprx_ifile, src_bytes, len_bytes);
     }
 
     if (!f.is_literal()) {
@@ -361,10 +361,9 @@ void lz77_sss::factorizer<text_t>::exact_transformer::
 
         {
             direct_ifstream fact_ifile(fact_file_name_sect);
-            std::istream_iterator<factor> fact_it(fact_ifile);
+            factor f;
 
-            while (fact_it != std::istream_iterator<factor>()) {
-                factor f = *fact_it++;
+            while (f.read(fact_ifile, src_bytes, len_bytes)) {
                 const uint64_t beg = q;
                 q += f.text_len();
 

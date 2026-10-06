@@ -199,7 +199,8 @@ public:
         if constexpr (text_t::is_byte_text) {
             return mod(((base * fp_wide_t(fp)) + pop_prec[pop]) + fp_wide_t(chr));
         } else {
-            return mod(((base * fp_wide_t(fp)) + (mersenne_prime_sq - pop_mul * fp_wide_t(pop))) + fp_wide_t(chr));
+            const fp_wide_t pop_red = sizeof(symbol_t) < 8 ? fp_wide_t(pop) : fp_wide_t(mod(fp_wide_t(pop)));
+            return mod(((base * fp_wide_t(fp)) + (mersenne_prime_sq - pop_mul * pop_red)) + fp_wide_t(chr));
         }
     }
 

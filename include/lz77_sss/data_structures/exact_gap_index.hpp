@@ -34,6 +34,7 @@
 #include <vector>
 
 #include <libsais.h>
+#include <libsais16.h>
 #include <libsais40.h>
 #include <util/threads.hpp>
 
@@ -57,6 +58,18 @@ public:
         : text(&text)
         , size(size)
         , sa(build_sa(bytes, size, p))
+        , isa((step(sa.size() * sizeof(sa_t)), build_isa(sa, p)))
+        , smaller(sa, size, p)
+    {
+        step(size_in_bytes() - sa.size() * sizeof(sa_t));
+    }
+
+    template <typename step_t = no_step>
+        requires(std::is_same_v<sa_t, int32_t>)
+    exact_gap_index(const text_t& text, const uint16_t* symbols, uint64_t size, uint16_t p, step_t step = { })
+        : text(&text)
+        , size(size)
+        , sa(build_sa(symbols, size, p))
         , isa((step(sa.size() * sizeof(sa_t)), build_isa(sa, p)))
         , smaller(sa, size, p)
     {
@@ -132,6 +145,18 @@ private:
             if (libsais40_impl::libsais40_omp(bytes, sa.data(), int64_t(size), 0, nullptr, threads) != 0) {
                 throw std::runtime_error("libsais40_omp failed");
             }
+        }
+
+        return sa;
+    }
+
+    static std::vector<sa_t> build_sa(const uint16_t* symbols, uint64_t size, uint16_t p)
+    {
+        std::vector<sa_t> sa;
+        no_init_resize(sa, size);
+
+        if (libsais16_omp(symbols, sa.data(), int32_t(size), 0, nullptr, lce::util::sais_threads(p)) != 0) {
+            throw std::runtime_error("libsais16_omp failed");
         }
 
         return sa;

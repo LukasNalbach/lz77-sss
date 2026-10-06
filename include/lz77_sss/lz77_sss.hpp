@@ -132,15 +132,14 @@ public:
     static uint64_t exact_gaps_bytes(uint64_t len_G, uint64_t num_gaps, uint64_t symbol_bytes = 1)
     {
         const uint64_t sa_bytes = len_G <= INT32_MAX ? sizeof(int32_t) : sizeof(sa_int40_t);
-        const uint64_t copy_bytes = symbol_bytes == 1 || len_G <= INT32_MAX ? 0 : sizeof(sa_int40_t);
-        return len_G * (symbol_bytes + copy_bytes + 2 * sa_bytes) + (len_G / 8) * (1 + sizeof(factor)) +
+        const uint64_t gap_bytes = symbol_bytes == 1 ? 1 : sa_bytes;
+        return len_G * (gap_bytes + 2 * sa_bytes) + (len_G / 8) * (1 + sizeof(factor)) +
             num_gaps * 3 * sizeof(uint64_t);
     }
 
-    static double estimated_sa_peak(uint64_t n, uint64_t text_bytes)
+    static double estimated_sa_peak(uint64_t n, uint64_t sa_bytes, uint64_t other_bytes)
     {
-        const uint64_t sa_bytes = n <= INT32_MAX ? sizeof(int32_t) : sizeof(sa_int40_t);
-        return text_bytes + n * (2.0 * sa_bytes + sa_extra_bytes_per_char);
+        return other_bytes + n * (2.0 * sa_bytes + sa_extra_bytes_per_char);
     }
 
     static double estimated_sss_peak(uint64_t n, uint64_t num_aprx_fact, transform_mode transf_mode)
@@ -161,8 +160,8 @@ public:
     }
 
     struct factor {
-        uint40_t src;
-        uint40_t len;
+        uint64_t src;
+        uint64_t len;
 
         friend class lz77_sss;
 
@@ -176,20 +175,20 @@ public:
 
         uint64_t text_len() const { return std::max<uint64_t>(1, len); }
 
-        static constexpr uint64_t size_of() { return 10; }
+        static uint8_t bytes_for(uint64_t max_value) { return std::max<uint8_t>(1, (std::bit_width(max_value) + 7) / 8); }
 
-        friend std::istream& operator>>(std::istream& in, factor& f)
+        std::ostream& write(std::ostream& out, uint8_t src_bytes, uint8_t len_bytes) const
         {
-            in.read((char*) &f.src, 5);
-            in.read((char*) &f.len, 5);
-            return in;
+            out.write((const char*) &src, src_bytes);
+            return out.write((const char*) &len, len_bytes);
         }
 
-        friend std::ostream& operator<<(std::ostream& out, const factor& f)
+        std::istream& read(std::istream& in, uint8_t src_bytes, uint8_t len_bytes)
         {
-            out.write((char*) &f.src, 5);
-            out.write((char*) &f.len, 5);
-            return out;
+            src = 0;
+            len = 0;
+            in.read((char*) &src, src_bytes);
+            return in.read((char*) &len, len_bytes);
         }
     };
 
@@ -231,7 +230,10 @@ public:
     using direct_text = lce::text::direct_text<char>;
     using packed_text = lce::text::packed_text<>;
     using split_text = lce::text::split_text<>;
+    using int16_direct_text = lce::text::direct_text<uint16_t>;
     using int_direct_text = lce::text::direct_text<uint32_t>;
+    using int40_direct_text = lce::text::direct_text<uint40_t>;
+    using int64_direct_text = lce::text::direct_text<uint64_t>;
     using int_packed_text = lce::text::packed_text<uint32_t>;
     using int_split_text = lce::text::split_text<uint32_t>;
 
@@ -273,14 +275,29 @@ public:
         factorize_exact(direct_text(input, input_size), output, params);
     }
 
-    template <typename output_fnc_t>
-    static void factorize_approximate(const uint32_t* input, uint64_t input_size, output_fnc_t output, parameters params = { });
+    template <typename int_t>
+    static constexpr bool is_int_input_v = std::is_same_v<int_t, uint40_t> || (std::is_integral_v<int_t> &&
+        !std::is_const_v<int_t> && !std::is_same_v<int_t, bool> &&
+        (sizeof(int_t) == 1 || sizeof(int_t) == 2 || sizeof(int_t) == 4 || sizeof(int_t) == 8));
 
-    template <typename output_fnc_t>
-    static void factorize_exact(const uint32_t* input, uint64_t input_size, output_fnc_t output, parameters params = { });
+    template <typename int_t>
+    using int_symbol_t = typename std::conditional_t<std::is_same_v<int_t, uint40_t>, std::type_identity<uint40_t>,
+        std::conditional_t<sizeof(int_t) == 1, std::type_identity<char>, std::make_unsigned<int_t>>>::type;
 
-    template <typename fnc_t>
-    static void with_int_text(const uint32_t* input, uint64_t input_size, uint16_t p, fnc_t fnc);
+    template <typename int_t>
+    using int_text_t = lce::text::direct_text<int_symbol_t<int_t>>;
+
+    template <typename int_t, typename output_fnc_t>
+    static void factorize_approximate(int_t* input, uint64_t input_size, output_fnc_t output, parameters params = { })
+        requires(is_int_input_v<int_t>);
+
+    template <typename int_t, typename output_fnc_t>
+    static void factorize_exact(int_t* input, uint64_t input_size, output_fnc_t output, parameters params = { })
+        requires(is_int_input_v<int_t>);
+
+    template <typename int_t>
+    static int_text_t<int_t> int_text(int_t* input, uint64_t input_size, uint16_t p = 0)
+        requires(is_int_input_v<int_t>);
     
     template <std::input_iterator fact_it_t, typename out_it_t>
     static void decode(fact_it_t fact_it, out_it_t out_it, uint64_t output_size);
@@ -383,6 +400,13 @@ protected:
         using symbol_t = typename text_t::symbol_type;
 
         static constexpr uint64_t symbol_bytes = text_t::is_byte_text ? 1 : sizeof(uint32_t);
+
+        static uint8_t src_bytes_of(const text_t& T)
+        {
+            return factor::bytes_for(std::max<uint64_t>(T.size(), text_t::is_byte_text ? 256 : T.sigma()) - 1);
+        }
+
+        static uint8_t len_bytes_of(const text_t& T) { return factor::bytes_for(T.size()); }
 
         static uint64_t target_rh_idx_bytes_for(uint64_t n, double rel_len_gaps)
         {
@@ -544,23 +568,24 @@ protected:
                 if (time_start.time_since_epoch().count() == 0) time_start = time;
             }
 
-            if (qual_mode == exact && (exact_alg == sa_based && n <= max_sa_input_size)) {
+            if (qual_mode == exact && (exact_alg == sa_based && sa_supported())) {
                 factorize_exact_sa(output);
             } else if (qual_mode == exact) {
                 std::string aprx_file_name = std::filesystem::temp_directory_path().string()
                     + "/aprx_" + random_alphanumeric_string(10);
                 direct_ofstream aprx_ofile(aprx_file_name);
-                std::ostream_iterator<factor> aprx_ofile_it(aprx_ofile, "");
-                auto write_aprx = [&](factor f) { *aprx_ofile_it++ = f; };
+                const uint8_t src_bytes = src_bytes_of(T);
+                const uint8_t len_bytes = len_bytes_of(T);
+                auto write_aprx = [&](factor f) { f.write(aprx_ofile, src_bytes, len_bytes); };
                 factor_sink aprx_sink(write_aprx);
                 compute_approximation(aprx_sink);
                 aprx_sink.flush();
                 aprx_ofile.close();
-                const double peak_sa = estimated_sa_peak(n, T.size_in_bytes());
+                const double peak_sa = estimated_sa_peak(n, sa_bytes(), T.size_in_bytes() + sa_extra_bytes());
                 const double peak_sss = text_t::is_byte_text ? estimated_sss_peak(n, num_fact, transf_mode)
                     : estimated_sss_peak(n, T.size_in_bytes(), num_fact, transf_mode);
 
-                if (exact_alg == auto_select && peak_sa <= max_sa_peak_ratio * peak_sss && n <= max_sa_input_size) {
+                if (exact_alg == auto_select && peak_sa <= max_sa_peak_ratio * peak_sss && sa_supported()) {
                     std::filesystem::remove(aprx_file_name);
                     LCE = lce_t();
                     release_free_memory();
@@ -739,6 +764,12 @@ protected:
         template <typename sym_t>
         static std::vector<sym_t> symbols_of(const text_t& text, uint16_t p);
 
+        bool sa_supported() const;
+
+        uint64_t sa_bytes() const;
+
+        uint64_t sa_extra_bytes() const;
+
         void factorize_exact_sa(factor_sink& output);
 
         template <typename sa_t>
@@ -769,6 +800,8 @@ protected:
             uint64_t num_aprx_fact = 0;
             uint64_t& num_fact;
             uint64_t num_par_sect;
+            uint8_t src_bytes = 0;
+            uint8_t len_bytes = 0;
 
             struct sect_info_t {
                 uint64_t beg;
@@ -792,7 +825,8 @@ protected:
                 range_ds_kind kind
             ) : aprx_file_name(aprx_file_name), log(log), p(p), transf_mode(transf_mode),
                 kind(kind),
-                T(T), LCE(LCE), n(n), delta(delta), num_aprx_fact(num_fact), num_fact(num_fact) { }
+                T(T), LCE(LCE), n(n), delta(delta), num_aprx_fact(num_fact), num_fact(num_fact),
+                src_bytes(src_bytes_of(T)), len_bytes(len_bytes_of(T)) { }
 
             exact_transformer(const exact_transformer&) = delete;
             exact_transformer& operator=(const exact_transformer&) = delete;

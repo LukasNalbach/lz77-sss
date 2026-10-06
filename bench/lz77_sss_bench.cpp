@@ -48,9 +48,10 @@ void run_sss_approximate(const text_t& T, lz77_sss::factorize_mode fact_mode,
 {
     for (uint16_t num_threads = 1; num_threads <= max_threads; num_threads *= 2) {
         std::ofstream fact_sss_file(file_name);
+        const uint8_t fact_bytes = lz77_sss::factor::bytes_for(std::max<uint64_t>(T.size(), 256));
 
         lz77_sss::factorize_approximate(T,
-                [&](auto f){fact_sss_file << f;},
+                [&](auto f){f.write(fact_sss_file, fact_bytes, fact_bytes);},
                 { .num_threads = num_threads, .log = true,
                   .fact_mode = fact_mode });
     }
@@ -63,9 +64,10 @@ void run_sss_exact(const text_t& T, lz77_sss::factorize_mode fact_mode,
 {
     for (uint16_t num_threads = 1; num_threads <= max_threads; num_threads *= 2) {
         std::ofstream fact_sss_file(file_name);
+        const uint8_t fact_bytes = lz77_sss::factor::bytes_for(std::max<uint64_t>(T.size(), 256));
 
         lz77_sss::factorize_exact(
-            T, [&](auto f){fact_sss_file << f;},
+            T, [&](auto f){f.write(fact_sss_file, fact_bytes, fact_bytes);},
             { .num_threads = num_threads, .log = true,
               .fact_mode = fact_mode, .transf_mode = transf_mode,
               .range_ds = range_ds, .exact_alg = lz77_sss::sss_based });

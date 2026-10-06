@@ -172,7 +172,7 @@ if(LZ77_SSS_EXTERN_TEMPLATES)
   add_library(lz77_sss_inst STATIC)
   target_link_libraries(lz77_sss_inst PUBLIC lz77_sss_core)
 
-  foreach(text direct_text packed_text split_text int_direct_text int_packed_text int_split_text)
+  foreach(text direct_text packed_text split_text int16_direct_text int_direct_text int40_direct_text int64_direct_text int_packed_text int_split_text)
     foreach(part factorizer lce lpf fact sa aprx_to_exact)
       set(obj lz77_sss_${text}_${part})
       add_library(${obj} OBJECT "${CMAKE_CURRENT_SOURCE_DIR}/src/inst/${part}.cpp")

@@ -84,9 +84,10 @@ int main(int argc, char** argv)
                 "running LZ77 SSS 3-approximation with tau = "
                 << tau << ":" << std::endl;
             std::ofstream fact_sss_file("fact_sss_aprx");
+            const uint8_t fact_bytes = lz77_sss::factor::bytes_for(std::max<uint64_t>(T.size(), 256));
 
             lz77_sss::factorize_approximate(T,
-                    [&](auto f){fact_sss_file << f;},
+                    [&](auto f){f.write(fact_sss_file, fact_bytes, fact_bytes);},
                     { .num_threads = 1, .log = true, .tau = tau,
                       .fact_mode = lz77_sss::auto_gaps });
 

@@ -202,23 +202,27 @@ int main()
 ```
 
 ### Integer Alphabets
-`factorize_approximate` and `factorize_exact` also accept a `const uint32_t*` input. They replace
-each value by its rank in the sorted alphabet, keep the ranks bit-packed and report literal factors
-with the original values. A text that already consists of ranks in `[0, sigma)` can be passed as one
-of these text types:
+`factorize_approximate` and `factorize_exact` also accept a pointer to a signed or unsigned
+integer type of 1, 2, 4 or 8 bytes, or to `uint40_t`. The suffix array path for exact factorizations
+may change the input while it runs, but restores it before it returns. A text can also be passed as
+one of these text types:
 
-| type                        | space per symbol                  |
-|-----------------------------|-----------------------------------|
-| `lz77_sss::int_direct_text` | 4 bytes (the text is not copied)  |
-| `lz77_sss::int_packed_text` | ⌈log2 sigma⌉ bits                 |
-| `lz77_sss::int_split_text`  | fewer bits for frequent symbols   |
+| type                          | space per symbol                  |
+|-------------------------------|-----------------------------------|
+| `lz77_sss::int16_direct_text` | 2 bytes                           |
+| `lz77_sss::int_direct_text`   | 4 bytes                           |
+| `lz77_sss::int40_direct_text` | 5 bytes                           |
+| `lz77_sss::int64_direct_text` | 8 bytes                           |
+| `lz77_sss::int_packed_text`   | ⌈log2 sigma⌉ bits                 |
+| `lz77_sss::int_split_text`    | fewer bits for frequent symbols   |
+
+All values in the input must be smaller than `sigma`, if `sigma` is provided.
 
 ```c++
-std::vector<uint32_t> ranks = ...; // all values < sigma
+std::vector<uint32_t> input = ...;
 std::vector<lz77_sss::factor> factorization;
-lz77_sss::factorize_exact(lz77_sss::int_packed_text(ranks.data(), ranks.size(), sigma),
-    [&](auto f){factorization.emplace_back(f);});
-std::vector<uint32_t> decoded(ranks.size());
+lz77_sss::factorize_exact(input.data(), input.size(), [&](auto f){factorization.emplace_back(f);});
+std::vector<uint32_t> decoded(input.size());
 lz77_sss::decode(factorization.begin(), decoded.data(), decoded.size());
 ```
 

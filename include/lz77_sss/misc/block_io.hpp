@@ -87,7 +87,7 @@ private:
 
 class positional_reader {
 public:
-    positional_reader(const std::string& file_path, uint16_t p)
+    positional_reader(const std::string& file_path, [[maybe_unused]] uint16_t p)
     {
         #ifdef _WIN32
         path = file_path;
@@ -113,7 +113,7 @@ public:
 
     bool good() const { return ok; }
 
-    bool read(char* buf, uint64_t len, uint64_t off, uint16_t t)
+    bool read(char* buf, uint64_t len, uint64_t off, [[maybe_unused]] uint16_t t)
     {
         #ifdef _WIN32
         std::ifstream& in = streams[t];
@@ -163,7 +163,7 @@ private:
 
 class positional_writer {
 public:
-    positional_writer(const std::string& file_path, uint16_t p)
+    positional_writer(const std::string& file_path, [[maybe_unused]] uint16_t p)
     {
         #ifdef _WIN32
         path = file_path;
@@ -187,7 +187,7 @@ public:
 
     bool good() const { return ok; }
 
-    bool write(const char* data, uint64_t len, uint64_t off, uint16_t t)
+    bool write(const char* data, uint64_t len, uint64_t off, [[maybe_unused]] uint16_t t)
     {
         #ifdef _WIN32
         std::fstream& out = streams[t];
