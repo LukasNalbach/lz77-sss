@@ -87,21 +87,18 @@ for text in "${TEXT_LIST[@]}"; do
             || echo "warning: zip-bench failed on $text" >&2
 
         # ssszip writes its own RESULT lines, so it is run separately from zip-bench.
-        # Figure 4 uses ssszip_bsc; ssszip_zstd is measured as well because the paper's
-        # results-zip.txt contains it.
-        for enc in bsc zstd; do
-            for p in 1 "$MAX_THREADS"; do
-                echo ">>> [$text] ssszip -e $enc, $p threads" >&2
-                "$SSSZIP" -t "$p" -e "$enc" -r "$RESULTS/results-zip.txt" -k "$file" \
-                    || { echo "warning: ssszip -e $enc failed on $text" >&2; continue; }
+        # Figure 4 uses ssszip_bsc.
+        for p in 1 "$MAX_THREADS"; do
+            echo ">>> [$text] ssszip -e bsc, $p threads" >&2
+            "$SSSZIP" -t "$p" -e bsc -r "$RESULTS/results-zip.txt" -k "$file" \
+                || { echo "warning: ssszip -e bsc failed on $text" >&2; continue; }
 
-                # decompression is single-threaded; the output name carries the
-                # .decompressed suffix the charts' LIKE 'text%' queries expect
-                "$SSSZIP" -d -o "$file.decompressed" -r "$RESULTS/results-zip.txt" \
-                    "$file.ssszip.$enc" \
-                    || echo "warning: ssszip -d -e $enc failed on $text" >&2
-                rm -f "$file.ssszip.$enc" "$file.decompressed"
-            done
+            # decompression is single-threaded; the output name carries the
+            # .decompressed suffix the charts' LIKE 'text%' queries expect
+            "$SSSZIP" -d -o "$file.decompressed" -r "$RESULTS/results-zip.txt" \
+                "$file.ssszip.bsc" \
+                || echo "warning: ssszip -d -e bsc failed on $text" >&2
+            rm -f "$file.ssszip.bsc" "$file.decompressed"
         done
     fi
 done
