@@ -40,6 +40,8 @@
 using time_point_t = std::chrono::steady_clock::time_point;
 static constexpr uint64_t min_lpf_len = 128;
 static constexpr double min_two_bit_share = 0.9;
+static constexpr double min_two_bit_bwt_blocks = 2.25;
+static constexpr double min_two_bit_lz_windows = 6;
 static constexpr uint8_t gapped_fasta_flag = 2;
 static constexpr uint8_t gapped_two_bit_flag = 4;
 static constexpr uint8_t gapped_streams_flag = 8;
@@ -518,7 +520,7 @@ public:
 
     bool uses_two_bit() const { return two_bit; }
 
-    void encode(const lz77_sss::gapped_factorization* view)
+    void encode(const lz77_sss::gapped_factorization* view, uint64_t min_two_bit_bytes)
     {
         gapped = view;
         sections = std::vector<gapped_section>(view == nullptr ? 0 : view->num_sections());
@@ -527,7 +529,7 @@ public:
         #pragma omp parallel for num_threads(num_threads) schedule(dynamic, 1)
         for (uint64_t s = 0; s < num_sections; s++) encode_section<false>(s, 0);
 
-        arrange();
+        arrange(min_two_bit_bytes);
         const char flags = char(1 | (fasta_active ? gapped_fasta_flag : 0) | (two_bit ? gapped_two_bit_flag : 0) | gapped_streams_flag);
         writer.write(&flags, 1, 0, 0);
         writer.write(header.data(), header.size(), base, 0);
@@ -763,7 +765,7 @@ private:
         }
     }
 
-    void arrange()
+    void arrange(uint64_t min_two_bit_bytes)
     {
         uint64_t lits = 0;
         uint64_t regular_lits = 0;
@@ -800,7 +802,9 @@ private:
             }
         }
 
-        two_bit = scan && lits > 0 && regular_lits >= min_two_bit_share * lits;
+        const uint64_t bytes_plain = base + lits + lit_len_bytes + vbyte_size(carry) + copy_len_bytes + copies
+            + div_ceil<uint64_t>(mantissa_bits, 8);
+        two_bit = scan && lits > 0 && regular_lits >= min_two_bit_share * lits && bytes_plain > min_two_bit_bytes;
         uint64_t exc_bytes = 0;
 
         if (two_bit) {
@@ -854,6 +858,51 @@ private:
     uint64_t final_lit_len_off = 0;
 };
 
+uint64_t bsc_block_size()
+{
+    if (post_compression_quality_given) return uint64_t { post_compression_quality } << 20;
+    return std::clamp<uint64_t>(uint64_t(malloc_count_peak() / bsc_bytes_per_block_byte), bsc_min_block, bsc_max_block);
+}
+
+uint64_t postcompressor_window(uint64_t bsc_block)
+{
+    static constexpr std::array<uint8_t, 23> zstd_window_logs { 0, 19, 20, 21, 21, 21, 21, 21, 21, 22, 22, 22, 22, 22, 22, 22, 22, 23, 23, 23, 25, 26, 27 };
+    static constexpr std::array<uint64_t, 10> xz_dict_kib { 256, 1024, 2048, 4096, 4096, 8192, 8192, 16384, 32768, 65536 };
+    static constexpr std::array<uint64_t, 10> lzip_dict_kib { 64, 1024, 1536, 2048, 3072, 4096, 8192, 16384, 24576, 32768 };
+    static constexpr std::array<uint8_t, 10> sevenzip_dict_logs { 0, 18, 20, 22, 23, 24, 25, 25, 26, 26 };
+    const uint32_t q = post_compression_quality;
+    using enum postcompressor_kind;
+
+    switch (spec->kind) {
+        case zstd: return uint64_t { 1 } << zstd_window_logs[q];
+        case xz: return xz_dict_kib[q] << 10;
+        case lzma: return xz_dict_kib[q] << 10;
+        case gzip: return uint64_t { 1 } << 15;
+        case pigz: return uint64_t { 1 } << 15;
+        case bzip2: return uint64_t { q } * 100000;
+        case pbzip2: return uint64_t { q } * 100000;
+        case lbzip2: return uint64_t { q } * 100000;
+        case brotli: return uint64_t { 1 } << 24;
+        case lz4: return uint64_t { 1 } << 16;
+        case lzop: return uint64_t { 1 } << 16;
+        case lzip: return lzip_dict_kib[q] << 10;
+        case plzip: return lzip_dict_kib[q] << 10;
+        case bzip3: return uint64_t { q } << 20;
+        case sevenzip: return uint64_t { 1 } << sevenzip_dict_logs[q];
+        case bsc: return bsc_block;
+    }
+
+    return 0;
+}
+
+uint64_t min_two_bit_bytes()
+{
+    using enum postcompressor_kind;
+    const postcompressor_kind k = spec->kind;
+    const bool bwt = k == bsc || k == bzip2 || k == pbzip2 || k == lbzip2 || k == bzip3;
+    return uint64_t((bwt ? min_two_bit_bwt_blocks : min_two_bit_lz_windows) * postcompressor_window(bsc_block_size()));
+}
+
 template <typename text_t>
 void encode_gapped(const text_t& T, const fasta_headers& headers, const char_histogram& histogram)
 {
@@ -886,11 +935,11 @@ void encode_gapped(const text_t& T, const fasta_headers& headers, const char_his
     bool encoded = false;
 
     lz77_sss::factorize_gapped(T, [&](const lz77_sss::gapped_factorization& gapped) {
-        encoder.encode(&gapped);
+        encoder.encode(&gapped, min_two_bit_bytes());
         encoded = true;
     }, { .num_threads = num_threads, .log = !quiet });
 
-    if (!encoded) encoder.encode(nullptr);
+    if (!encoded) encoder.encode(nullptr, min_two_bit_bytes());
     gaps_length = encoder.num_literals();
     two_bit_literals = encoder.uses_two_bit();
 }
@@ -1107,13 +1156,7 @@ void compress()
     }
 
     const time_point_t time_factorized = now();
-    uint64_t bsc_block = uint64_t { post_compression_quality } << 20;
-
-    if (spec->kind == postcompressor_kind::bsc && !post_compression_quality_given) {
-        bsc_block = std::clamp<uint64_t>(uint64_t(malloc_count_peak() / bsc_bytes_per_block_byte),
-            bsc_min_block, bsc_max_block);
-    }
-
+    const uint64_t bsc_block = bsc_block_size();
     const std::string setting = spec->kind == postcompressor_kind::bsc ? "block size " + format_size(bsc_block)
         : spec->kind == postcompressor_kind::bzip3 ? "block size " + std::to_string(post_compression_quality) + " MB"
         : "level " + std::to_string(post_compression_quality);
