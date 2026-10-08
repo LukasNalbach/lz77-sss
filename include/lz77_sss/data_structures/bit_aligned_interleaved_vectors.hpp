@@ -108,6 +108,8 @@ public:
         return (lo >> shift) | (hi << (63 - shift) << 1);
     }
 
+    inline void prefetch(uint64_t i) const { __builtin_prefetch(words.data() + ((i * bits_per_entry) >> 6), 1); }
+
     template <uint8_t field_idx>
     inline uint64_t field(uint64_t entry) const
     {

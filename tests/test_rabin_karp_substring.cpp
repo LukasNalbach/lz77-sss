@@ -98,6 +98,49 @@ void test_substring()
     }
 }
 
+template <direction dir, typename rks_t>
+void check_substr_fps(const rks_t& rks, uint64_t n)
+{
+    std::uniform_int_distribution<uint64_t> substr_pos_distrib(0, n - 1);
+    std::uniform_int_distribution<uint64_t> num_lens_distrib(0, 30);
+
+    for (uint64_t i = 0; i < 25; i++) {
+        uint64_t pos = substr_pos_distrib(gen);
+        uint64_t len_lim = dir == LEFT ? pos + 1 : n - pos;
+        std::vector<uint64_t> lens(num_lens_distrib(gen));
+        for (uint64_t& len : lens) len = random_log_uniform_size(1, len_lim, gen);
+        std::sort(lens.begin(), lens.end());
+        lens.erase(std::unique(lens.begin(), lens.end()), lens.end());
+        std::vector<uint64_t> fps(lens.size());
+        rks.template substr_fps<dir>(pos, lens.data(), lens.size(), fps.data());
+
+        for (uint64_t k = 0; k < lens.size(); k++) {
+            EXPECT_EQ(fps[k], uint64_t(rks.template substr_fp<dir>(pos, lens[k])));
+        }
+    }
+}
+
+template <uint8_t mers_exp>
+void test_substrings()
+{
+    std::string input = random_repetitive_input<std::string>(1, 30000);
+    uint16_t num_threads = std::uniform_int_distribution<uint16_t>(1, omp_get_max_threads())(gen);
+    uint64_t sample_rate = random_log_uniform_size(1, 10000, gen);
+
+    auto check = [&](const auto& text) {
+        using text_t = std::decay_t<decltype(text)>;
+        rabin_karp_substring<mers_exp, text_t> rks(text, input.size(), sample_rate, 0, num_threads);
+        check_substr_fps<LEFT>(rks, input.size());
+        check_substr_fps<RIGHT>(rks, input.size());
+    };
+
+    switch (std::uniform_int_distribution<int>(0, 2)(gen)) {
+        case 0: check(lce::text::direct_text<char>(input.data(), input.size())); break;
+        case 1: check(lce::text::packed_text<>(input.data(), input.size(), num_threads)); break;
+        default: check(lce::text::split_text<>(input.data(), input.size(), num_threads)); break;
+    }
+}
+
 template <typename fnc_t>
 void with_random_int_text(fnc_t fnc)
 {
@@ -153,6 +196,17 @@ void test_concat_int()
             uint64_t fp_full = rks.substr_fp_naive(pos, len);
             EXPECT_EQ(fp_full, concat);
         }
+    });
+}
+
+void test_substrings_int()
+{
+    with_random_int_text([](const auto& text, uint16_t num_threads) {
+        using text_t = std::decay_t<decltype(text)>;
+        const uint64_t n = text.size();
+        rabin_karp_substring<61, text_t> rks(text, n, random_log_uniform_size(1, 10000, gen), 0, num_threads);
+        check_substr_fps<LEFT>(rks, n);
+        check_substr_fps<RIGHT>(rks, n);
     });
 }
 
@@ -225,6 +279,20 @@ TEST(test_rabin_karp_substring, substring_mersenne_61)
     }, fuzz_iterations(2500));
 }
 
+TEST(test_rabin_karp_substring, substrings_mersenne_31)
+{
+    run_fuzz("rabin-karp-substring", {
+        { "substrings-mersenne-31", [](uint64_t) { test_substrings<31>(); }, false },
+    }, fuzz_iterations(2500));
+}
+
+TEST(test_rabin_karp_substring, substrings_mersenne_61)
+{
+    run_fuzz("rabin-karp-substring", {
+        { "substrings-mersenne-61", [](uint64_t) { test_substrings<61>(); }, false },
+    }, fuzz_iterations(2500));
+}
+
 TEST(test_rabin_karp_substring, roll_int)
 {
     run_fuzz("rabin-karp-substring", {
@@ -243,5 +311,12 @@ TEST(test_rabin_karp_substring, substring_int)
 {
     run_fuzz("rabin-karp-substring", {
         { "substring-int", [](uint64_t) { test_substring_int(); }, false },
+    }, fuzz_iterations(1500));
+}
+
+TEST(test_rabin_karp_substring, substrings_int)
+{
+    run_fuzz("rabin-karp-substring", {
+        { "substrings-int", [](uint64_t) { test_substrings_int(); }, false },
     }, fuzz_iterations(1500));
 }
