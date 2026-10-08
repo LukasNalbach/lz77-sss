@@ -55,9 +55,14 @@ public:
             if (++i == capacity) [[unlikely]] i = 0;
         }
 
-        slots.template set_parallel<0>(i, b + 1);
-        slots.template set_parallel<1>(i, e - b);
-        slots.template set_parallel<2>(i, mix & tag_mask);
+        slots.init_parallel(i, { b + 1, e - b, mix & tag_mask });
+    }
+
+    inline void prefetch(uint64_t hash) const
+    {
+        const uint64_t i = slot_of(mix_of(hash));
+        slots.prefetch(i);
+        __builtin_prefetch(claimed.data() + (i >> 6), 1);
     }
 
     void finish()

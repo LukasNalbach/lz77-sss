@@ -232,12 +232,54 @@ public:
         return concat(prefix_fps[blk], substr_fp_naive<RIGHT>(blk_beg, offs), offs);
     }
 
+    inline fp_t substr_fp_of_prefixes(const fp_t fp_beg, const fp_t fp_end, const uint64_t len) const
+    {
+        const fp_t fp_beg_shft = mod(fp_wide_t(fp_beg) * fp_wide_t(base_pow(len)));
+        return fp_end >= fp_beg_shft ? fp_end - fp_beg_shft : mersenne_prime - (fp_beg_shft - fp_end);
+    }
+
     template <direction dir = RIGHT>
     inline fp_t substr_fp(uint64_t pos, const uint64_t len) const
     {
         if constexpr (dir == LEFT) pos -= len - 1;
-        fp_t fp_beg_shft = mod(fp_wide_t(prefix_fp(pos)) * fp_wide_t(base_pow(len)));
-        fp_t fp_end = prefix_fp(pos + len);
-        return fp_end >= fp_beg_shft ? fp_end - fp_beg_shft : mersenne_prime - (fp_beg_shft - fp_end);
+        return substr_fp_of_prefixes(prefix_fp(pos), prefix_fp(pos + len), len);
+    }
+
+    template <direction dir = RIGHT>
+    inline void substr_fps(const uint64_t pos, const uint64_t* lens, const uint64_t num, uint64_t* fps) const
+    {
+        if (num == 0) return;
+        const uint64_t first = dir == RIGHT ? pos : pos + 1 - lens[num - 1];
+        uint64_t cur = first - first % sample_rate;
+        fp_t fp = prefix_fps[cur / sample_rate];
+        auto cursor = T.cursor_at(cur);
+
+        auto prefix_fp_at = [&](const uint64_t target) {
+            const uint64_t blk_beg = target - target % sample_rate;
+
+            if (cur + sample_rate < blk_beg) {
+                cur = blk_beg;
+                fp = prefix_fps[blk_beg / sample_rate];
+                cursor = T.cursor_at(std::min<uint64_t>(blk_beg, n - 1));
+            }
+
+            for (; cur < target; cur++) fp = push(fp, cursor.next());
+            return fp;
+        };
+
+        if constexpr (dir == RIGHT) {
+            const fp_t fp_beg = prefix_fp_at(pos);
+
+            for (uint64_t k = 0; k < num; k++) {
+                fps[k] = substr_fp_of_prefixes(fp_beg, prefix_fp_at(pos + lens[k]), lens[k]);
+            }
+        } else {
+            for (uint64_t k = num; k-- > 0;) fps[k] = prefix_fp_at(pos + 1 - lens[k]);
+            const fp_t fp_end = prefix_fp_at(pos + 1);
+
+            for (uint64_t k = 0; k < num; k++) {
+                fps[k] = substr_fp_of_prefixes(fp_t(fps[k]), fp_end, lens[k]);
+            }
+        }
     }
 };

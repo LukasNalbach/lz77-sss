@@ -230,51 +230,67 @@ void sample_index<text_t, lce_r_t, array_t>::build_interval_hash_sets(uint64_t m
             << "A_C intervals" << std::flush;
     }
 
-    const uint64_t len_min = smpl_patt_lens[dir][first_hashed_len_idx];
-    const uint64_t num_chunks = std::max<uint64_t>(1, std::min<uint64_t>(s, uint64_t(p) * 16));
-    const uint64_t chunk_target = div_ceil(s, num_chunks);
-    std::vector<uint64_t> sect_beg;
-    sect_beg.reserve(num_chunks + 1);
-    sect_beg.emplace_back(0);
-
-    for (uint64_t i = 1; i < s; i++) {
-        if (i - sect_beg.back() >= chunk_target && LCX_S[i] < len_min) sect_beg.emplace_back(i);
-    }
-
-    sect_beg.emplace_back(s);
-    const uint64_t num_sects = sect_beg.size() - 1;
-
-    std::vector<std::vector<uint64_t>> xiv_s_cnt(p, std::vector<uint64_t>(num_patt_lens, 0));
-    std::vector<std::vector<uint64_t>> xiv_s_max(p, std::vector<uint64_t>(num_patt_lens, 0));
     const uint64_t len_max = smpl_patt_lens[dir].back();
+    const uint64_t* lens = smpl_patt_lens[dir].data();
+    const uint64_t sect_len = div_ceil<uint64_t>(s, std::max<uint64_t>(1, std::min<uint64_t>(s, uint64_t(p) * 64)));
+    const uint64_t num_sects = div_ceil<uint64_t>(s, sect_len);
+    constexpr uint64_t no_bnd = std::numeric_limits<uint64_t>::max();
 
-    #pragma omp parallel for num_threads(p) schedule(dynamic, 1)
-    for (uint64_t sect = 0; sect < num_sects; sect++) {
-        const uint16_t i_p = omp_get_thread_num();
-        const uint64_t beg = sect_beg[sect];
-        const uint64_t end = sect_beg[sect + 1];
-        std::vector<uint64_t> iv_beg(num_patt_lens, beg);
-        std::vector<uint64_t>& cnt = xiv_s_cnt[i_p];
-        std::vector<uint64_t>& max_width = xiv_s_max[i_p];
+    auto smpl_at = [&](uint64_t k) { return k == s ? n : uint64_t(S[k]); };
+    const uint64_t all_lens_beg = dir == RIGHT ? 0 : bin_search_min_geq<uint64_t, uint64_t>(len_max - 1, 0, s, smpl_at);
+    const uint64_t all_lens_end = dir == LEFT ? s : bin_search_min_geq<uint64_t, uint64_t>(n - len_max + 1, 0, s, smpl_at);
+
+    auto scan_sect = [&](uint64_t sect, auto&& fnc) {
+        const uint64_t beg = sect * sect_len;
+        const uint64_t end = std::min<uint64_t>(s, beg + sect_len);
 
         for (uint64_t i = beg + 1; i <= end; i++) {
             const uint64_t lcx = LCX_S[i];
             if (lcx >= len_max) continue;
-            const uint64_t pos_im1 = S[XA_S<dir>(i - 1)];
+            const uint64_t smpl = XA_S<dir>(i - 1);
+            uint64_t j_lo = num_patt_lens;
+            while (j_lo > first_hashed_len_idx && lens[j_lo - 1] > lcx) j_lo--;
+            uint64_t j_hi = num_patt_lens;
 
-            for (int64_t j = num_patt_lens - 1; j >= int64_t(first_hashed_len_idx); j--) {
-                const uint64_t len = smpl_patt_lens[dir][j];
-                if (lcx >= len) break;
+            if (smpl < all_lens_beg || smpl >= all_lens_end) [[unlikely]] {
+                const uint64_t pos = S[smpl];
+                const uint64_t len_lim = dir == LEFT ? pos + 1 : n - pos;
+                while (j_hi > j_lo && lens[j_hi - 1] > len_lim) j_hi--;
+            }
 
-                if (is_pos_in_T<dir>(pos_im1, len - 1)) {
-                    cnt[j]++;
-                    max_width[j] = std::max<uint64_t>(max_width[j], i - 1 - iv_beg[j]);
+            fnc(i, smpl, j_lo, j_hi);
+        }
+    };
+
+    std::vector<std::vector<uint64_t>> xiv_s_cnt(p, std::vector<uint64_t>(num_patt_lens, 0));
+    std::vector<std::vector<uint64_t>> xiv_s_max(p, std::vector<uint64_t>(num_patt_lens, 0));
+    std::vector<uint64_t> first_bnd(num_sects * num_patt_lens, no_bnd);
+    std::vector<uint64_t> last_bnd(num_sects * num_patt_lens, no_bnd);
+
+    #pragma omp parallel for num_threads(p) schedule(dynamic, 1)
+    for (uint64_t sect = 0; sect < num_sects; sect++) {
+        const uint16_t i_p = omp_get_thread_num();
+        uint64_t* first = first_bnd.data() + sect * num_patt_lens;
+        uint64_t* last = last_bnd.data() + sect * num_patt_lens;
+        std::vector<uint64_t>& cnt = xiv_s_cnt[i_p];
+        std::vector<uint64_t>& max_width = xiv_s_max[i_p];
+
+        scan_sect(sect, [&](uint64_t i, uint64_t, uint64_t j_lo, uint64_t j_hi) {
+            for (uint64_t j = j_lo; j < num_patt_lens; j++) {
+                if (last[j] == no_bnd) {
+                    first[j] = i;
+                } else if (j < j_hi) {
+                    max_width[j] = std::max<uint64_t>(max_width[j], i - 1 - last[j]);
                 }
 
-                iv_beg[j] = i;
+                last[j] = i;
             }
-        }
+
+            for (uint64_t j = j_lo; j < j_hi; j++) cnt[j]++;
+        });
     }
+
+    std::vector<uint64_t> carry_in(num_sects * num_patt_lens, 0);
 
     #pragma omp parallel for num_threads(p) schedule(dynamic, 1)
     for (uint64_t j = first_hashed_len_idx; j < num_patt_lens; j++) {
@@ -286,31 +302,63 @@ void sample_index<text_t, lce_r_t, array_t>::build_interval_hash_sets(uint64_t m
             max_width = std::max<uint64_t>(max_width, xiv_s_max[i_p][j]);
         }
 
+        uint64_t carry = 0;
+
+        for (uint64_t sect = 0; sect < num_sects; sect++) {
+            const uint64_t idx = sect * num_patt_lens + j;
+            carry_in[idx] = carry;
+            const uint64_t first = first_bnd[idx];
+            if (first == no_bnd) continue;
+
+            if (is_pos_in_T<dir>(S[XA_S<dir>(first - 1)], lens[j] - 1)) {
+                max_width = std::max<uint64_t>(max_width, first - 1 - carry);
+            }
+
+            carry = last_bnd[idx];
+        }
+
         XIV_S[dir][j] = interval_hash_set(cnt, s, max_width);
     }
 
+    first_bnd = std::vector<uint64_t>();
+    last_bnd = std::vector<uint64_t>();
+
+    struct pending_insert {
+        uint64_t len_idx;
+        uint64_t fp;
+        uint64_t b;
+        uint64_t e;
+    };
+
+    constexpr uint64_t look_ahead = 16;
+
     #pragma omp parallel for num_threads(p) schedule(dynamic, 1)
     for (uint64_t sect = 0; sect < num_sects; sect++) {
-        const uint64_t beg = sect_beg[sect];
-        const uint64_t end = sect_beg[sect + 1];
-        std::vector<uint64_t> iv_beg(num_patt_lens, beg);
+        std::vector<uint64_t> iv_beg(carry_in.begin() + sect * num_patt_lens,
+            carry_in.begin() + (sect + 1) * num_patt_lens);
+        std::vector<uint64_t> fps(num_patt_lens);
+        std::array<pending_insert, look_ahead> pending;
+        uint64_t num_pending = 0;
 
-        for (uint64_t i = beg + 1; i <= end; i++) {
-            const uint64_t lcx = LCX_S[i];
-            if (lcx >= len_max) continue;
-            const uint64_t pos_im1 = S[XA_S<dir>(i - 1)];
+        auto insert = [&](const pending_insert& ins) {
+            XIV_S[dir][ins.len_idx].insert_parallel(ins.fp, ins.b, ins.e);
+        };
 
-            for (int64_t j = num_patt_lens - 1; j >= int64_t(first_hashed_len_idx); j--) {
-                const uint64_t len = smpl_patt_lens[dir][j];
-                if (lcx >= len) break;
+        scan_sect(sect, [&](uint64_t i, uint64_t smpl, uint64_t j_lo, uint64_t j_hi) {
+            RKS.template substr_fps<dir>(S[smpl], lens + j_lo, j_hi - j_lo, fps.data());
 
-                if (is_pos_in_T<dir>(pos_im1, len - 1)) {
-                    XIV_S[dir][j].insert_parallel(
-                        RKS.template substr_fp<dir>(pos_im1, len), iv_beg[j], i - 1);
-                }
-
-                iv_beg[j] = i;
+            for (uint64_t j = j_lo; j < j_hi; j++) {
+                pending_insert& ins = pending[num_pending++ % look_ahead];
+                if (num_pending > look_ahead) insert(ins);
+                XIV_S[dir][j].prefetch(fps[j - j_lo]);
+                ins = { j, fps[j - j_lo], iv_beg[j], i - 1 };
             }
+
+            for (uint64_t j = j_lo; j < num_patt_lens; j++) iv_beg[j] = i;
+        });
+
+        for (uint64_t k = num_pending - std::min(num_pending, look_ahead); k < num_pending; k++) {
+            insert(pending[k % look_ahead]);
         }
     }
 
@@ -370,10 +418,10 @@ void sample_index<text_t, lce_r_t, array_t>::build(
             sorted[i] = i;
         }
 
-        ips4o::parallel::sort(sorted.begin(), sorted.end(),
+        ips4o::parallel::sort(sorted.begin(), sorted.end(), outlined_cmp {
             [&](uint64_t i, uint64_t j) {
                 return cmp_sample_lex<LEFT>(i, j);
-            });
+            } }, p);
 
         PA_S = bit_aligned_vector(s, s);
 
@@ -433,7 +481,7 @@ void sample_index<text_t, lce_r_t, array_t>::build(
                 }
             });
 
-            ips4o::parallel::sort(sorted.begin(), sorted.end(), [&](uint64_t i, uint64_t j) {
+            ips4o::parallel::sort(sorted.begin(), sorted.end(), outlined_cmp { [&](uint64_t i, uint64_t j) {
                 if (i == j) [[unlikely]] return false;
                 const uint32_t oi = off[i];
 
@@ -446,12 +494,12 @@ void sample_index<text_t, lce_r_t, array_t>::build(
                 }
 
                 return cmp_sample_lex<RIGHT>(i, j);
-            });
+            } }, p);
         } else {
-            ips4o::parallel::sort(sorted.begin(), sorted.end(),
+            ips4o::parallel::sort(sorted.begin(), sorted.end(), outlined_cmp {
                 [&](uint64_t i, uint64_t j) {
                     return cmp_sample_lex<RIGHT>(i, j);
-                });
+                } }, p);
         }
 
         SA_S = bit_aligned_vector(s, s);

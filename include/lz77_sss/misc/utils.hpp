@@ -225,6 +225,14 @@ inline std::string random_alphanumeric_string(uint64_t length)
 
 enum direction { LEFT, RIGHT };
 
+template <typename cmp_t>
+struct outlined_cmp {
+    cmp_t cmp;
+
+    template <typename val_t>
+    [[gnu::noinline]] bool operator()(const val_t& a, const val_t& b) const { return cmp(a, b); }
+};
+
 template <typename uint_t>
 inline static uint_t div_ceil(const uint_t x, const uint_t y)
 {
