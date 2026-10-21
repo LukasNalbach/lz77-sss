@@ -66,7 +66,7 @@ class grouped_range final : public range_ds {
         point.y = uint64_t(point.y) + G_S[g];
     }
 
-    inline point_t internal_point(const std::vector<uint32_t>& grp,
+    inline point_t internal_point(const no_init_vector<uint32_t>& grp,
         const bit_aligned_interleaved_vectors<3>& P, uint64_t i) const
     {
         point_t point { .x = P.get<0>(i), .y = P.get<1>(i), .weight = P.get<2>(i) };
@@ -87,11 +87,11 @@ class grouped_range final : public range_ds {
     }
 
     template <typename chr_t>
-    void build_groups(const std::vector<chr_t>& chr, const bit_aligned_interleaved_vectors<3>& P, uint16_t p)
+    void build_groups(const no_init_vector<chr_t>& chr, const bit_aligned_interleaved_vectors<3>& P, uint16_t p)
     {
         const uint64_t n = chr.size();
-        std::vector<chr_t> chr_by_y;
-        no_init_resize(chr_by_y, n);
+        no_init_vector<chr_t> chr_by_y;
+        resize_no_init(chr_by_y, n);
 
         #pragma omp parallel for num_threads(p) schedule(static)
         for (uint64_t i = 0; i < n; i++) chr_by_y[P.get<1>(i)] = chr[i];
@@ -108,7 +108,7 @@ class grouped_range final : public range_ds {
             }
         }
 
-        chr_by_y = std::vector<chr_t>();
+        chr_by_y = no_init_vector<chr_t>();
         const uint64_t limit = std::max<uint64_t>(1, n / max_group_share_inv);
         G_S.assign(1, 0);
         uint64_t prev = 0;
@@ -128,7 +128,7 @@ class grouped_range final : public range_ds {
         G_S.emplace_back(n);
     }
 
-    void build_buckets(const std::vector<uint32_t>& grp,
+    void build_buckets(const no_init_vector<uint32_t>& grp,
         const bit_aligned_interleaved_vectors<3>& P, uint16_t p)
     {
         const uint64_t n = grp.size();
@@ -163,8 +163,8 @@ class grouped_range final : public range_ds {
         }
 
         auto build_bucket = [&](uint64_t g, uint16_t p_g) {
-            std::vector<point_t> bucket;
-            no_init_resize(bucket, frq(g));
+            no_init_vector<point_t> bucket;
+            resize_no_init(bucket, frq(g));
 
             #pragma omp parallel for num_threads(p_g) schedule(dynamic, 65536)
             for (uint64_t k = 0; k < frq(g); k++) {
@@ -196,13 +196,13 @@ public:
     static constexpr uint64_t max_group_share_inv = 256;
 
     template <typename chr_t>
-    grouped_range(const std::vector<chr_t>& chr, const bit_aligned_interleaved_vectors<3>& P, uint16_t p)
+    grouped_range(const no_init_vector<chr_t>& chr, const bit_aligned_interleaved_vectors<3>& P, uint16_t p)
     {
         const uint64_t n = chr.size();
         build_groups(chr, P, p);
         R_g.resize(G_S.size() - 1);
-        std::vector<uint32_t> grp;
-        no_init_resize(grp, n);
+        no_init_vector<uint32_t> grp;
+        resize_no_init(grp, n);
 
         #pragma omp parallel for num_threads(p) schedule(static)
         for (uint64_t i = 0; i < n; i++) grp[i] = uint32_t(group_of(P.get<1>(i)));

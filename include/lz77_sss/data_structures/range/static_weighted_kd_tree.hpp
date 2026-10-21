@@ -56,10 +56,10 @@ public:
     static_weighted_kd_tree() = default;
 
     static_weighted_kd_tree(
-        std::vector<point_t>& points,
+        no_init_vector<point_t>& points,
         [[maybe_unused]] uint64_t pos_max_excl, uint16_t p = 1)
     {
-        no_init_resize(nodes, points.size());
+        resize_no_init(nodes, points.size());
 
         #pragma omp parallel for num_threads(p)
         for (uint64_t i = 0; i < points.size(); i++) {
@@ -139,13 +139,13 @@ protected:
 
     static constexpr uint64_t min_par_chunk_size = 1 << 14;
 
-    std::vector<node_t> nodes;
+    no_init_vector<node_t> nodes;
 
     template <axis split_axis>
     static inline uint64_t coord(const point_t& point) { return split_axis == axis::x ? point.x : point.y; }
 
     template <axis split_axis>
-    void build(std::vector<point_t>& points, uint64_t beg, uint64_t end, uint64_t node_idx)
+    void build(no_init_vector<point_t>& points, uint64_t beg, uint64_t end, uint64_t node_idx)
     {
         if (beg >= end) return;
         uint64_t mid = beg + (end - beg) / 2;

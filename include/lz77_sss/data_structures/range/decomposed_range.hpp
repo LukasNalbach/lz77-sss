@@ -72,7 +72,7 @@ class decomposed_range final : public range_ds {
         point.y = uint64_t(point.y) + rnk_c;
     }
 
-    inline point_t internal_point(const std::vector<uint8_t>& chr,
+    inline point_t internal_point(const no_init_vector<uint8_t>& chr,
         const bit_aligned_interleaved_vectors<3>& P, uint64_t i) const
     {
         point_t point { .x = P.get<0>(i), .y = P.get<1>(i), .weight = P.get<2>(i) };
@@ -92,7 +92,7 @@ class decomposed_range final : public range_ds {
         return sorted;
     }
 
-    void build_buckets(const std::vector<uint8_t>& chr,
+    void build_buckets(const no_init_vector<uint8_t>& chr,
         const bit_aligned_interleaved_vectors<3>& P, uint16_t p, offsets_t& offs)
     {
         const uint64_t n = chr.size();
@@ -110,8 +110,8 @@ class decomposed_range final : public range_ds {
         }
 
         auto build_bucket = [&](uint8_t c, uint16_t p_c) {
-            std::vector<point_t> bucket;
-            no_init_resize(bucket, frq(c));
+            no_init_vector<point_t> bucket;
+            resize_no_init(bucket, frq(c));
 
             #pragma omp parallel for num_threads(p_c) schedule(dynamic, 65536)
             for (uint64_t k = 0; k < frq(c); k++) {
@@ -140,7 +140,7 @@ class decomposed_range final : public range_ds {
     }
 
 public:
-    decomposed_range(const std::vector<uint8_t>& chr,
+    decomposed_range(const no_init_vector<uint8_t>& chr,
         const bit_aligned_interleaved_vectors<3>& P, uint16_t p)
     {
         const uint64_t n = chr.size();

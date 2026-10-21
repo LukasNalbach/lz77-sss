@@ -75,7 +75,7 @@ void bench(const range_ds_kind& kind, uint64_t win_size) {
     bench_win_size = win_size;
     using point_t = range_ds::point_t;
     std::vector<uint40_t> sampling_local;
-    std::vector<point_t> points_local;
+    no_init_vector<point_t> points_local;
 
     for (uint64_t s : sampling) {
         sampling_local.emplace_back(s);
@@ -89,7 +89,7 @@ void bench(const range_ds_kind& kind, uint64_t win_size) {
     uint64_t check_sum;
     auto time_start = now();
 
-    while (time_diff_sec(time_start, now()) < 2) {
+    while (time_diff_ns(time_start) < 2'000'000'000) {
         num_iterations++;
         points_local.clear();
         points_local.reserve(points.size());
@@ -249,7 +249,7 @@ int main(int argc, char** argv)
     n = std::filesystem::file_size(file_path);
     auto t0 = now();
     std::cout << "reading input (" << format_size(n) << ")" << std::flush;
-    no_init_resize_with_excess(T, n, 4 * 4096);
+    resize_with_zero_excess(T, n, 4 * 4096);
     read_fully(input_file, T.data(), n);
     input_file.close();
     log_runtime(t0);

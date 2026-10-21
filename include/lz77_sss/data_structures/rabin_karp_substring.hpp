@@ -31,9 +31,9 @@
 #include <vector>
 
 #include <lz77_sss/misc/utils.hpp>
-#include <text/direct_text.hpp>
+#include <compact_texts/direct_text.hpp>
 
-template <uint8_t mers_exp = 61, typename text_t = lce::text::direct_text<char>>
+template <uint8_t mers_exp = 61, typename text_t = compact_texts::direct_text<char>>
 class rabin_karp_substring {
 protected:
     static_assert(mers_exp == 31 || mers_exp == 61);
@@ -54,9 +54,9 @@ protected:
     uint64_t w;
     fp_wide_t pop_prec[256] = { };
     fp_wide_t pop_mul = 0;
-    std::vector<fp_t> prefix_fps;
-    std::vector<fp_t> base_pow_leq_sqrt_n;
-    std::vector<fp_t> base_pow_step_sqrt_n;
+    no_init_vector<fp_t> prefix_fps;
+    no_init_vector<fp_t> base_pow_leq_sqrt_n;
+    no_init_vector<fp_t> base_pow_step_sqrt_n;
     
     inline static fp_t mod(const fp_wide_t val)
     {
@@ -83,7 +83,7 @@ public:
         const uint64_t sample_rate = 16,
         const uint64_t w = 0,
         const uint16_t p = 1)
-        requires(lce::text::is_direct_text_v<text_t> && text_t::is_byte_text)
+        requires(compact_texts::is_direct_text_v<text_t> && text_t::is_byte_text)
         : rabin_karp_substring(text_t(const_cast<char*>(T), n), n, sample_rate, w, p) { }
 
     rabin_karp_substring(
@@ -101,8 +101,8 @@ public:
 
         base = std::uniform_int_distribution<fp_t>(257, mersenne_prime - 1)(mt);
         const uint64_t num_blks = div_ceil<uint64_t>(n, sample_rate);
-        no_init_resize(base_pow_leq_sqrt_n, sqrt_n + 1);
-        no_init_resize(base_pow_step_sqrt_n, sqrt_n + 1);
+        resize_no_init(base_pow_leq_sqrt_n, sqrt_n + 1);
+        resize_no_init(base_pow_step_sqrt_n, sqrt_n + 1);
         base_pow_leq_sqrt_n[0] = 1;
         base_pow_step_sqrt_n[0] = 1;
 
@@ -126,7 +126,7 @@ public:
         }
 
         if (sample_rate >= n) {
-            no_init_resize(prefix_fps, num_blks + 1);
+            resize_no_init(prefix_fps, num_blks + 1);
             prefix_fps[0] = 0;
             fp_t fp = 0;
 
@@ -141,8 +141,8 @@ public:
         }
 
         uint64_t blks_per_thr = num_blks / p;
-        std::vector<fp_t> blk_fps;
-        no_init_resize(blk_fps, p + 1);
+        no_init_vector<fp_t> blk_fps;
+        resize_no_init(blk_fps, p + 1);
         blk_fps[0] = 0;
 
         #pragma omp parallel num_threads(p)
@@ -157,7 +157,7 @@ public:
             blk_fps[i_p] = concat(blk_fps[i_p - 1], blk_fps[i_p], sample_rate * blks_per_thr);
         }
         
-        no_init_resize(prefix_fps, num_blks + 1);
+        resize_no_init(prefix_fps, num_blks + 1);
         prefix_fps[0] = 0;
 
         #pragma omp parallel num_threads(p)

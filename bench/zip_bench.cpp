@@ -58,7 +58,7 @@ uint64_t child_peak_rss_kib()
     std::ifstream log_file(log_file_path);
     std::string log_file_str;
     uint64_t log_file_length = std::filesystem::file_size(log_file_path);
-    no_init_resize(log_file_str, log_file_length);
+    resize_no_init(log_file_str, log_file_length);
     log_file.read(log_file_str.data(), log_file_length);
     log_file.close();
     std::filesystem::remove(log_file_path);
@@ -151,7 +151,7 @@ void bench(std::string compressor, bool use_multiple_threads, uint32_t param = 0
                 << " n=" << bytes_input
                 << " compressor=" << compressor_label
                 << " time=" << time_compress
-                << " throughput=" << throughput_mb_per_s(bytes_input, time_compress)
+                << " throughput=" << throughput_in_mb_per_s(bytes_input, time_compress)
                 << " mem_peak=" << memory_peak_compress
                 << " bytes_comp=" << bytes_compressed
                 << " comp_ratio=" << compression_ratio
@@ -205,7 +205,7 @@ void bench(std::string compressor, bool use_multiple_threads, uint32_t param = 0
                 << " n=" << bytes_input
                 << " compressor=" << compressor_label
                 << " time=" << time_decompress
-                << " throughput=" << throughput_mb_per_s(bytes_input, time_decompress)
+                << " throughput=" << throughput_in_mb_per_s(bytes_input, time_decompress)
                 << " mem_peak=" << memory_peak_decompress
                 << " bytes_comp=" << bytes_compressed
                 << " comp_ratio=" << compression_ratio

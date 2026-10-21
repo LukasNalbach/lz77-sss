@@ -410,8 +410,8 @@ void sample_index<text_t, lce_r_t, array_t>::build(
     }
 
     {
-        std::vector<uint40_t> sorted;
-        no_init_resize(sorted, s);
+        no_init_vector<uint40_t> sorted;
+        resize_no_init(sorted, s);
 
         #pragma omp parallel for num_threads(p)
         for (uint64_t i = 0; i < s; i++) {
@@ -445,8 +445,8 @@ void sample_index<text_t, lce_r_t, array_t>::build(
     }
 
     {
-        std::vector<uint40_t> sorted;
-        no_init_resize(sorted, s);
+        no_init_vector<uint40_t> sorted;
+        resize_no_init(sorted, s);
 
         #pragma omp parallel for num_threads(p)
         for (uint64_t i = 0; i < s; i++) {
@@ -459,10 +459,10 @@ void sample_index<text_t, lce_r_t, array_t>::build(
             const uint64_t num_sync = sync.size();
             const uint64_t max_off = 3 * LCE_R.tau();
             constexpr uint32_t no_off = std::numeric_limits<uint32_t>::max();
-            std::vector<uint32_t> off;
-            std::vector<uint40_t> rank;
-            no_init_resize(off, s);
-            no_init_resize(rank, s);
+            no_init_vector<uint32_t> off;
+            no_init_vector<uint40_t> rank;
+            resize_no_init(off, s);
+            resize_no_init(rank, s);
 
             parallel_chunks(s, p, [&](uint64_t beg, uint64_t end) {
                 uint64_t j = bin_search_min_geq<uint64_t, uint64_t>(

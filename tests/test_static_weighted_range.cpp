@@ -48,7 +48,7 @@ void test(const range_ds_kind& kind)
 
     // choose a random input length
     uint32_t input_size = random_log_uniform_size(1, 10000, gen);
-    std::vector<point_t> input;
+    no_init_vector<point_t> input;
     std::uniform_int_distribution<uint32_t> distrib(0, input_size - 1);
 
     // generate a random set of input points with random weights,

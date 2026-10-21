@@ -29,7 +29,6 @@
 #include <ips4o.hpp>
 #include <lz77_sss/data_structures/range/range.hpp>
 #include <lz77_sss/data_structures/sample_index/sample_index.hpp>
-#include <lz77_sss/misc/repetitive_input.hpp>
 
 #include "test-progress.hpp"
 
@@ -51,7 +50,7 @@ void test(const range_ds_kind& kind)
 {
     using sym_t = typename input_t::value_type;
     static constexpr bool byte_input = sizeof(sym_t) == 1;
-    using text_t = lce::text::direct_text<sym_t>;
+    using text_t = compact_texts::direct_text<sym_t>;
     using lce_r_t = lce::ds::lce_naive_wordwise_xor<sym_t>;
     uint16_t num_threads = std::uniform_int_distribution<uint16_t>(1, omp_get_max_threads())(gen);
 
@@ -62,10 +61,10 @@ void test(const range_ds_kind& kind)
     input_t input;
 
     if constexpr (byte_input) {
-        input = random_repetitive_input<input_t>(input_size, input_size);
+        input = random_input<input_t>(input_size, input_size);
     } else {
         const uint32_t sigma = random_log_uniform_size(1, uint64_t { 1 } << 16, gen);
-        input = random_repetitive_input<input_t>(input_size, input_size, sym_t(0), sym_t(sigma - 1));
+        input = random_input<input_t>(input_size, input_size, sym_t(0), sym_t(sigma - 1));
     }
 
     auto symbol_at = [&](uint64_t i) -> uint64_t {
@@ -99,7 +98,7 @@ void test(const range_ds_kind& kind)
     index.build(text, input_size, sampling, lce_r, interval_samples::skip, 32, num_threads);
 
     // build the points-array
-    std::vector<point_t> points;
+    no_init_vector<point_t> points;
     points.reserve(num_samples);
 
     for (uint32_t i = 0; i < num_samples; i++) {

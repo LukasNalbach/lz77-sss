@@ -85,7 +85,7 @@ template <typename text_t>
 template <typename next_lpf_t>
 void lz77_sss::factorizer<text_t>::prepare_block(
     next_lpf_t next_lpf, const par_blk_t& blk, uint64_t end,
-    par_buf_t& buf, uint64_t num_owners, std::vector<uint64_t>& prefix_fps)
+    par_buf_t& buf, uint64_t num_owners, no_init_vector<uint64_t>& prefix_fps)
 {
     buf.gaps.clear();
     lpf_cursor_t lpf_cursor = blk.lpf_cursor;
@@ -111,7 +111,7 @@ void lz77_sss::factorizer<text_t>::prepare_block(
     }
 
     buf.num_pos = num_pos;
-    no_init_resize(buf.slot_refs, num_pos * num_patt_lens);
+    resize_no_init(buf.slot_refs, num_pos * num_patt_lens);
 
     for (const par_gap_t& gap : buf.gaps) {
         rh_idx.fill_slots(gap.beg, gap.end, buf.slot_refs.data() + gap.ref_beg, num_pos, prefix_fps);
@@ -135,8 +135,8 @@ void lz77_sss::factorizer<text_t>::prepare_block(
     }
 
     buf.owner_fill.assign(buf.owner_beg.begin(), buf.owner_beg.end() - 1);
-    no_init_resize(buf.slots, buf.owner_beg[num_owners]);
-    no_init_resize(buf.vals, buf.owner_beg[num_owners]);
+    resize_no_init(buf.slots, buf.owner_beg[num_owners]);
+    resize_no_init(buf.vals, buf.owner_beg[num_owners]);
 
     for (const par_gap_t& gap : buf.gaps) {
         for (uint64_t pos = gap.beg; pos < gap.end; pos++) {
@@ -160,7 +160,7 @@ template <typename text_t>
 void lz77_sss::factorizer<text_t>::exchange_block(par_buf_t& buf)
 {
     const uint64_t num_pos = buf.num_pos;
-    no_init_resize(buf.vals, num_pos * num_patt_lens);
+    resize_no_init(buf.vals, num_pos * num_patt_lens);
     uint64_t dst = 0;
 
     for (const par_gap_t& gap : buf.gaps) {
@@ -421,7 +421,7 @@ void lz77_sss::factorizer<text_t>::factorize_hashed_gaps(
             }
         } else {
             const uint64_t worker = has_out_thr ? i_p - 1 : i_p;
-            std::vector<uint64_t> prefix_fps;
+            no_init_vector<uint64_t> prefix_fps;
 
             for (uint64_t b = worker; b < std::min(blks_per_round, num_blks); b += num_workers) {
                 bufs[b].slot_refs.reserve(max_blk_num_pos * num_patt_lens);

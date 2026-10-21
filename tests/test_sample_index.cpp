@@ -27,9 +27,8 @@
 #include <gtest/gtest.h>
 #include <ips4o.hpp>
 #include <lz77_sss/data_structures/sample_index/sample_index.hpp>
-#include <text/packed_text.hpp>
-#include <text/split_text.hpp>
-#include <lz77_sss/misc/repetitive_input.hpp>
+#include <compact_texts/packed_text.hpp>
+#include <compact_texts/split_text.hpp>
 
 #include "test-progress.hpp"
 
@@ -130,20 +129,20 @@ void test_extend_locate(interval_samples mode)
     uint16_t num_threads = std::uniform_int_distribution<uint16_t>(1, omp_get_max_threads())(gen);
 
     // generate a random string
-    std::string input = random_repetitive_input<std::string>(1, 10000);
-    test_extend_locate_on(lce::text::direct_text<char>(input.data(), input.size()), input, mode, num_threads);
+    std::string input = random_input<std::string>(1, 10000);
+    test_extend_locate_on(compact_texts::direct_text<char>(input.data(), input.size()), input, mode, num_threads);
 }
 
 void test_extend_locate_int(interval_samples mode)
 {
     uint16_t num_threads = std::uniform_int_distribution<uint16_t>(1, omp_get_max_threads())(gen);
     const uint32_t sigma = random_log_uniform_size(1, uint64_t { 1 } << 18, gen);
-    std::vector<uint32_t> input = random_repetitive_input<std::vector<uint32_t>>(1, 10000, uint32_t(0), uint32_t(sigma - 1));
+    std::vector<uint32_t> input = random_input<std::vector<uint32_t>>(1, 10000, uint32_t(0), uint32_t(sigma - 1));
 
     switch (std::uniform_int_distribution<int>(0, 2)(gen)) {
-        case 0: test_extend_locate_on(lce::text::direct_text<uint32_t>(input.data(), input.size(), sigma), input, mode, num_threads); break;
-        case 1: test_extend_locate_on(lce::text::packed_text<uint32_t>(input.data(), input.size(), sigma, num_threads), input, mode, num_threads); break;
-        default: test_extend_locate_on(lce::text::split_text<uint32_t>(input.data(), input.size(), sigma, num_threads), input, mode, num_threads); break;
+        case 0: test_extend_locate_on(compact_texts::direct_text<uint32_t>(input.data(), input.size(), sigma), input, mode, num_threads); break;
+        case 1: test_extend_locate_on(compact_texts::packed_text<uint32_t>(input.data(), input.size(), sigma, num_threads), input, mode, num_threads); break;
+        default: test_extend_locate_on(compact_texts::split_text<uint32_t>(input.data(), input.size(), sigma, num_threads), input, mode, num_threads); break;
     }
 }
 

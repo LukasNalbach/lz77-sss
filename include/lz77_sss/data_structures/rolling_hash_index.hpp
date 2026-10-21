@@ -43,7 +43,7 @@ protected:
     uint64_t n = 0;
     std::array<uint64_t, num_patt_lens> patt_lens;
     std::array<uint64_t, num_patt_lens> base_pows;
-    std::vector<uint8_t> H;
+    no_init_vector<uint8_t> H;
     uint64_t capacity = 0;
     uint64_t owner_mul = 0;
     uint64_t base = 0;
@@ -100,9 +100,9 @@ public:
     {
         entry_bytes = entry_bytes_for(n);
         capacity = size_in_bytes_for(n, target_size_in_bytes) / entry_bytes;
-        no_init_resize(H, capacity * entry_bytes);
+        resize_no_init(H, capacity * entry_bytes);
         advise_huge_pages(H.data(), H.size());
-        lce::util::parallel_memset(H.data(), 255, H.size(), p);
+        compact_texts::parallel_memset(H.data(), 255, H.size(), p);
 
         base = std::mt19937_64(std::random_device()())() | 1;
 
@@ -131,10 +131,10 @@ public:
     inline void prefetch(uint32_t slot) const { __builtin_prefetch(H.data() + uint64_t(slot) * entry_bytes, 1); }
 
     void fill_slots(uint64_t beg, uint64_t end, uint32_t* slots,
-        uint64_t stride, std::vector<uint64_t>& prefix) const
+        uint64_t stride, no_init_vector<uint64_t>& prefix) const
     {
         const uint64_t lim = std::min<uint64_t>(end + patt_lens[num_patt_lens - 1], n);
-        no_init_resize(prefix, lim - beg + 1);
+        resize_no_init(prefix, lim - beg + 1);
         uint64_t fp = 0;
         prefix[0] = 0;
 

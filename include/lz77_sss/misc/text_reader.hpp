@@ -39,9 +39,9 @@
 #include <utility>
 #include <vector>
 
-#include <text/direct_text.hpp>
-#include <text/packed_text.hpp>
-#include <text/split_text.hpp>
+#include <compact_texts/direct_text.hpp>
+#include <compact_texts/packed_text.hpp>
+#include <compact_texts/split_text.hpp>
 
 #include <lz77_sss/misc/block_io.hpp>
 #include <lz77_sss/misc/direct_io.hpp>
@@ -69,7 +69,7 @@ enum factorization_kind {
 
 inline uint64_t split_penalty(factorization_kind kind)
 {
-    return kind == exact_factorization ? exact_split_penalty : lce::text::split_text<>::payload_penalty;
+    return kind == exact_factorization ? exact_split_penalty : compact_texts::split_text<>::payload_penalty;
 }
 
 template <typename error_t>
@@ -153,7 +153,7 @@ inline double h0_bits_per_char(const char_histogram& histogram, uint64_t size)
 
 inline double split_bits_per_char(const char_histogram& histogram, uint64_t size, factorization_kind kind)
 {
-    return 8.0 * lce::text::split_text<>::size_in_bytes_for(histogram, size, split_penalty(kind)) /
+    return 8.0 * compact_texts::split_text<>::size_in_bytes_for(histogram, size, split_penalty(kind)) /
         std::max<uint64_t>(1, size);
 }
 
@@ -193,12 +193,12 @@ inline text_encoding estimate_auto_encoding(const std::string& path, uint64_t fi
     if (probe_size == 0) return auto_encoding;
 
     std::string probe;
-    no_init_resize(probe, probe_size);
+    resize_no_init(probe, probe_size);
     direct_ifstream in(path);
     read_fully(in, probe.data(), probe_size);
 
     char_histogram histogram { };
-    lce::text::packed_text<>::add_char_counts(histogram, probe.data(), probe_size, p);
+    compact_texts::packed_text<>::add_char_counts(histogram, probe.data(), probe_size, p);
     const double scale = double(file_size) / probe_size;
     for (uint64_t& count : histogram) count = uint64_t(std::ceil(count * scale));
     return auto_encoding_for(histogram, file_size, kind);
@@ -310,13 +310,13 @@ inline void with_text_from_file(const std::string& path, uint64_t file_size, tex
 
     if (encoding == split_encoding) {
         if (log) std::cout << "split-encoding" << std::flush;
-        auto text = read_encoded_file(lce::text::split_text<>(histogram, text_size, split_penalty(kind)),
+        auto text = read_encoded_file(compact_texts::split_text<>(histogram, text_size, split_penalty(kind)),
             path, file_size, text_size, layout ? &*layout : nullptr, p);
         log_encoding(8.0 * text.size_in_bytes() / std::max<uint64_t>(1, text_size), text.size_in_bytes());
         use(std::move(text));
     } else if (encoding == packed_encoding) {
         if (log) std::cout << "packing" << std::flush;
-        auto text = read_encoded_file(lce::text::packed_text<>(histogram, text_size),
+        auto text = read_encoded_file(compact_texts::packed_text<>(histogram, text_size),
             path, file_size, text_size, layout ? &*layout : nullptr, p);
         log_encoding(text.width(), text.size_in_bytes());
         use(std::move(text));
@@ -336,6 +336,6 @@ inline void with_text_from_file(const std::string& path, uint64_t file_size, tex
             log_encoding(8, text_size);
         }
 
-        use(lce::text::direct_text<char>(data.data(), text_size));
+        use(compact_texts::direct_text<char>(data.data(), text_size));
     }
 }

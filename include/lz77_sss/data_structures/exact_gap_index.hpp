@@ -36,7 +36,7 @@
 #include <libsais.h>
 #include <libsais16.h>
 #include <libsais40.h>
-#include <util/threads.hpp>
+#include <misc/threads.hpp>
 
 #include <lz77_sss/data_structures/min_tree.hpp>
 #include <lz77_sss/misc/utils.hpp>
@@ -77,7 +77,7 @@ public:
     }
 
     template <typename step_t = no_step>
-    exact_gap_index(const text_t& text, std::vector<uint8_t>&& bytes, uint64_t size, uint16_t p, step_t step = { })
+    exact_gap_index(const text_t& text, no_init_vector<uint8_t>&& bytes, uint64_t size, uint16_t p, step_t step = { })
         : text(&text)
         , size(size)
         , sa(build_sa(std::move(bytes), size, p))
@@ -101,7 +101,7 @@ public:
 
     template <typename sym_t, typename step_t = no_step>
         requires(std::is_same_v<sym_t, int32_t> || std::is_same_v<sym_t, sa_int40_t>)
-    exact_gap_index(const text_t& text, std::vector<sym_t>&& symbols, uint64_t size, uint64_t sigma, uint16_t p,
+    exact_gap_index(const text_t& text, no_init_vector<sym_t>&& symbols, uint64_t size, uint64_t sigma, uint16_t p,
         step_t step = { })
         : text(&text)
         , size(size)
@@ -130,12 +130,12 @@ public:
     }
 
 private:
-    static std::vector<sa_t> build_sa(const uint8_t* bytes, uint64_t size, uint16_t p)
+    static no_init_vector<sa_t> build_sa(const uint8_t* bytes, uint64_t size, uint16_t p)
     {
-        std::vector<sa_t> sa;
-        no_init_resize(sa, size);
+        no_init_vector<sa_t> sa;
+        resize_no_init(sa, size);
 
-        const int threads = lce::util::sais_threads(p);
+        const int threads = int(num_cores_of_omp_team(p));
 
         if constexpr (std::is_same_v<sa_t, int32_t>) {
             if (libsais_omp(bytes, sa.data(), int32_t(size), 0, nullptr, threads) != 0) {
@@ -150,31 +150,31 @@ private:
         return sa;
     }
 
-    static std::vector<sa_t> build_sa(const uint16_t* symbols, uint64_t size, uint16_t p)
+    static no_init_vector<sa_t> build_sa(const uint16_t* symbols, uint64_t size, uint16_t p)
     {
-        std::vector<sa_t> sa;
-        no_init_resize(sa, size);
+        no_init_vector<sa_t> sa;
+        resize_no_init(sa, size);
 
-        if (libsais16_omp(symbols, sa.data(), int32_t(size), 0, nullptr, lce::util::sais_threads(p)) != 0) {
+        if (libsais16_omp(symbols, sa.data(), int32_t(size), 0, nullptr, int(num_cores_of_omp_team(p))) != 0) {
             throw std::runtime_error("libsais16_omp failed");
         }
 
         return sa;
     }
 
-    static std::vector<sa_t> build_sa(std::vector<uint8_t>&& bytes, uint64_t size, uint16_t p)
+    static no_init_vector<sa_t> build_sa(no_init_vector<uint8_t>&& bytes, uint64_t size, uint16_t p)
     {
-        std::vector<uint8_t> owned = std::move(bytes);
+        no_init_vector<uint8_t> owned = std::move(bytes);
         return build_sa(owned.data(), size, p);
     }
 
     template <typename sym_t>
-    static std::vector<sa_t> build_sa(sym_t* symbols, uint64_t size, uint64_t sigma, uint16_t p)
+    static no_init_vector<sa_t> build_sa(sym_t* symbols, uint64_t size, uint64_t sigma, uint16_t p)
     {
-        std::vector<sa_t> sa;
-        no_init_resize(sa, size);
+        no_init_vector<sa_t> sa;
+        resize_no_init(sa, size);
 
-        const int threads = lce::util::sais_threads(p);
+        const int threads = int(num_cores_of_omp_team(p));
 
         if constexpr (std::is_same_v<sa_t, int32_t>) {
             static_assert(std::is_same_v<sym_t, int32_t>);
@@ -195,16 +195,16 @@ private:
     }
 
     template <typename sym_t>
-    static std::vector<sa_t> build_sa(std::vector<sym_t>&& symbols, uint64_t size, uint64_t sigma, uint16_t p)
+    static no_init_vector<sa_t> build_sa(no_init_vector<sym_t>&& symbols, uint64_t size, uint64_t sigma, uint16_t p)
     {
-        std::vector<sym_t> owned = std::move(symbols);
+        no_init_vector<sym_t> owned = std::move(symbols);
         return build_sa(owned.data(), size, sigma, p);
     }
 
-    static std::vector<sa_t> build_isa(const std::vector<sa_t>& sa, uint16_t p)
+    static no_init_vector<sa_t> build_isa(const no_init_vector<sa_t>& sa, uint16_t p)
     {
-        std::vector<sa_t> isa;
-        no_init_resize(isa, sa.size());
+        no_init_vector<sa_t> isa;
+        resize_no_init(isa, sa.size());
 
         #pragma omp parallel for num_threads(p) schedule(dynamic, 65536)
         for (uint64_t x = 0; x < sa.size(); x++) {
@@ -227,7 +227,7 @@ private:
 
     const text_t* text;
     uint64_t size;
-    std::vector<sa_t> sa;
-    std::vector<sa_t> isa;
-    min_tree<std::vector<sa_t>> smaller;
+    no_init_vector<sa_t> sa;
+    no_init_vector<sa_t> isa;
+    min_tree<no_init_vector<sa_t>> smaller;
 };

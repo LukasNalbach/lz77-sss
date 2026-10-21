@@ -52,20 +52,31 @@
 #include <unistd.h>
 #endif
 
-#include <malloc_count/malloc_count.h>
+#include <malloc_count.h>
 #include <omp.h>
+
+#if defined(__GLIBC__)
+#include <malloc.h>
+#endif
+
+#include <compact_texts/common.hpp>
+#include <misc/bits.hpp>
+#include <misc/log.hpp>
+#include <misc/memory.hpp>
+#include <misc/packed_integers.hpp>
+#include <misc/threads.hpp>
 #include <rolling_hash/rolling_hash.hpp>
 #include <util/bit_aligned_vector.hpp>
-#include <util/memory.hpp>
 
-using uint128_t = lce::rolling_hash::uint128_t;
-
-using lce::util::uint40_t;
-using lce::util::largest_value;
-using lce::util::no_init_resize;
-using lce::util::release_free_memory;
-using lce::util::advise_huge_pages;
 using lce::util::bit_aligned_vector;
+
+// returns the freed memory of the heap to the operating system
+inline void release_free_memory()
+{
+#if defined(__GLIBC__)
+    malloc_trim(0);
+#endif
+}
 
 template <typename array_t>
 inline auto array_view(const array_t& arr)
@@ -79,8 +90,6 @@ inline auto array_view(const array_t& arr)
 
 template <typename array_t>
 using array_view_t = decltype(array_view(std::declval<const array_t&>()));
-
-inline std::chrono::steady_clock::time_point now() { return std::chrono::steady_clock::now(); }
 
 inline void cpu_relax()
 {
@@ -128,21 +137,6 @@ public:
     void wait() { wait([] { }); }
 };
 
-inline uint64_t time_diff_sec(std::chrono::steady_clock::time_point t1, std::chrono::steady_clock::time_point t2)
-{
-    return std::chrono::duration_cast<std::chrono::seconds>(t2 - t1).count();
-}
-
-inline uint64_t time_diff_ns(std::chrono::steady_clock::time_point t1, std::chrono::steady_clock::time_point t2)
-{
-    return std::chrono::duration_cast<std::chrono::nanoseconds>(t2 - t1).count();
-}
-
-inline uint64_t time_diff_ns(std::chrono::steady_clock::time_point t)
-{
-    return time_diff_ns(t, std::chrono::steady_clock::now());
-}
-
 inline void read_fully(std::istream& in, char* into, uint64_t size)
 {
     uint64_t size_left = size;
@@ -159,14 +153,14 @@ template <typename char_t>
 inline char_t uchar_to_char(uint8_t c)
 {
     static_assert(sizeof(char_t) == 1);
-    return *reinterpret_cast<char_t*>(&c);
+    return std::bit_cast<char_t>(c);
 }
 
 template <typename char_t>
 inline uint8_t char_to_uchar(char_t c)
 {
     static_assert(sizeof(char_t) == 1);
-    return *reinterpret_cast<uint8_t*>(&c);
+    return std::bit_cast<uint8_t>(c);
 }
 
 template <typename uint_t, typename char_t>
@@ -174,32 +168,13 @@ inline char_t unsigned_to_char(uint_t c)
 {
     static_assert(std::numeric_limits<uint_t>::min() == 0);
     static_assert(sizeof(char_t) == 1);
-    return *reinterpret_cast<char_t*>(&c);
+    return std::bit_cast<char_t>(static_cast<uint8_t>(c));
 }
 
-template <typename T, typename Alloc = std::allocator<T>>
-class default_init_allocator : public Alloc {
-    using Alloc::Alloc;
-
-public:
-    template <typename U>
-    struct rebind { };
-    template <typename U>
-    void construct(U* ptr) noexcept(std::is_nothrow_default_constructible<U>::value) { ::new ((void*)(ptr)) U; }
-    template <typename U, typename... Args>
-    void construct(U* ptr, Args&&... args) { }
-};
-
-inline void no_init_resize(std::string& str, size_t size)
-{
-    (*reinterpret_cast<std::basic_string<char, std::char_traits<char>, default_init_allocator<char>>*>(&str)).resize(size);
-    std::atomic_signal_fence(std::memory_order_seq_cst);
-}
-
-inline void no_init_resize_with_excess(std::string& str, size_t size, size_t excess)
+// resizes str to size (new characters are set to 0) and sets the excess characters behind it, which str reserves, to 0
+inline void resize_with_zero_excess(std::string& str, size_t size, size_t excess)
 {
     str.reserve(size + excess);
-    no_init_resize(str, size);
     str.resize(size + excess);
     std::fill(str.end() - excess, str.end(), 0);
     str.resize(size);
@@ -223,6 +198,7 @@ inline std::string random_alphanumeric_string(uint64_t length)
     return str_rand;
 }
 
+// a search or reading direction; indexes arrays with one entry per direction
 enum direction { LEFT, RIGHT };
 
 template <typename cmp_t>
@@ -232,13 +208,6 @@ struct outlined_cmp {
     template <typename val_t>
     [[gnu::noinline]] bool operator()(const val_t& a, const val_t& b) const { return cmp(a, b); }
 };
-
-template <typename uint_t>
-inline static uint_t div_ceil(const uint_t x, const uint_t y)
-{
-    if (x == 0) [[unlikely]] return 0;
-    return 1 + (x - 1) / y;
-}
 
 template <typename fnc_t>
 inline void parallel_chunks(uint64_t count, uint16_t p, fnc_t fnc, uint64_t chunks_per_thread = 16)
@@ -251,15 +220,6 @@ inline void parallel_chunks(uint64_t count, uint16_t p, fnc_t fnc, uint64_t chun
     for (uint64_t c = 0; c < num_chunks; c++) {
         fnc(c * chunk, std::min<uint64_t>(count, (c + 1) * chunk));
     }
-}
-
-template <typename gen_t>
-uint64_t random_log_uniform_size(uint64_t min_size, uint64_t max_size, gen_t& gen)
-{
-    std::uniform_real_distribution<double> log_distrib(
-        std::log((double) std::max<uint64_t>(1, min_size)),
-        std::log((double) std::max<uint64_t>(1, max_size)));
-    return std::clamp<uint64_t>((uint64_t) std::llround(std::exp(log_distrib(gen))), min_size, max_size);
 }
 
 template <typename T>

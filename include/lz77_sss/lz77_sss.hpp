@@ -31,9 +31,9 @@
 #include <vector>
 
 #include <ds/lce_sss.hpp>
-#include <text/direct_text.hpp>
-#include <text/packed_text.hpp>
-#include <text/split_text.hpp>
+#include <compact_texts/direct_text.hpp>
+#include <compact_texts/packed_text.hpp>
+#include <compact_texts/split_text.hpp>
 
 #include <lz77_sss/data_structures/range/range.hpp>
 #include <lz77_sss/data_structures/min_tree.hpp>
@@ -42,7 +42,6 @@
 #include <lz77_sss/data_structures/sample_index/sample_index.hpp>
 #include <lz77_sss/misc/direct_io.hpp>
 #include <lz77_sss/data_structures/bit_aligned_interleaved_vectors.hpp>
-#include <lz77_sss/misc/progress.hpp>
 #include <lz77_sss/misc/log.hpp>
 #include <lz77_sss/misc/search.hpp>
 #include <lz77_sss/misc/utils.hpp>
@@ -227,15 +226,15 @@ public:
         }
     };
 
-    using direct_text = lce::text::direct_text<char>;
-    using packed_text = lce::text::packed_text<>;
-    using split_text = lce::text::split_text<>;
-    using int16_direct_text = lce::text::direct_text<uint16_t>;
-    using int_direct_text = lce::text::direct_text<uint32_t>;
-    using int40_direct_text = lce::text::direct_text<uint40_t>;
-    using int64_direct_text = lce::text::direct_text<uint64_t>;
-    using int_packed_text = lce::text::packed_text<uint32_t>;
-    using int_split_text = lce::text::split_text<uint32_t>;
+    using direct_text = compact_texts::direct_text<char>;
+    using packed_text = compact_texts::packed_text<>;
+    using split_text = compact_texts::split_text<>;
+    using int16_direct_text = compact_texts::direct_text<uint16_t>;
+    using int_direct_text = compact_texts::direct_text<uint32_t>;
+    using int40_direct_text = compact_texts::direct_text<uint40_t>;
+    using int64_direct_text = compact_texts::direct_text<uint64_t>;
+    using int_packed_text = compact_texts::packed_text<uint32_t>;
+    using int_split_text = compact_texts::split_text<uint32_t>;
 
     template <typename text_t, typename output_fnc_t>
     static void factorize_approximate(text_t text, output_fnc_t output, parameters params = { })
@@ -285,7 +284,7 @@ public:
         std::conditional_t<sizeof(int_t) == 1, std::type_identity<char>, std::make_unsigned<int_t>>>::type;
 
     template <typename int_t>
-    using int_text_t = lce::text::direct_text<int_symbol_t<int_t>>;
+    using int_text_t = compact_texts::direct_text<int_symbol_t<int_t>>;
 
     template <typename int_t, typename output_fnc_t>
     static void factorize_approximate(int_t* input, uint64_t input_size, output_fnc_t output, parameters params = { })
@@ -335,14 +334,6 @@ protected:
         inline uint64_t size() const { return data.size(); }
         inline bool empty() const { return data.size() == 0; }
         uint64_t size_in_bytes() const { return data.size_in_bytes(); }
-
-        std::vector<lpf_phrase> to_vector() const
-        {
-            std::vector<lpf_phrase> out;
-            no_init_resize(out, data.size());
-            for (uint64_t i = 0; i < data.size(); i++) out[i] = (*this)[i];
-            return out;
-        }
 
         void from_vector(std::vector<lpf_phrase>& in, uint64_t max_value)
         {
@@ -509,9 +500,9 @@ protected:
         struct par_buf_t {
             uint64_t num_pos = 0;
             std::vector<par_gap_t> gaps;
-            std::vector<uint32_t> slot_refs;
-            std::vector<uint32_t> slots;
-            std::vector<uint40_t> vals;
+            no_init_vector<uint32_t> slot_refs;
+            no_init_vector<uint32_t> slots;
+            no_init_vector<uint40_t> vals;
             std::vector<uint64_t> owner_beg;
             std::vector<uint64_t> owner_fill;
         };
@@ -623,7 +614,7 @@ protected:
                         << " num_factors=" << num_fact
                         << " comp_ratio=" << comp_ratio
                         << " time=" << time_total
-                        << " throughput=" << throughput_mb_per_s(n, time_total)
+                        << " throughput=" << throughput_in_mb_per_s(n, time_total)
                         << " mem_peak=" << peak_bytes << std::endl;
                 }
             }
@@ -737,7 +728,7 @@ protected:
 
         template <typename next_lpf_t>
         void prepare_block(next_lpf_t next_lpf, const par_blk_t& blk, uint64_t end,
-            par_buf_t& buf, uint64_t num_owners, std::vector<uint64_t>& prefix_fps);
+            par_buf_t& buf, uint64_t num_owners, no_init_vector<uint64_t>& prefix_fps);
 
         void exchange_block(par_buf_t& buf);
 
@@ -762,7 +753,7 @@ protected:
         void factorize_exact_gaps(factor_sink& output, lpf_beg_t lpf_beg, next_lpf_t next_lpf);
 
         template <typename sym_t>
-        static std::vector<sym_t> symbols_of(const text_t& text, uint16_t p);
+        static no_init_vector<sym_t> symbols_of(const text_t& text, uint16_t p);
 
         bool sa_supported() const;
 
@@ -854,8 +845,8 @@ protected:
 
                     if (kind.is_static() && !write_queries) P.clear();
                 } else {
-                    std::vector<point_t> points;
-                    no_init_resize(points, c);
+                    no_init_vector<point_t> points;
+                    resize_no_init(points, c);
 
                     #pragma omp parallel for num_threads(p) schedule(dynamic, 65536)
                     for (uint64_t i = 0; i < c; i++) {

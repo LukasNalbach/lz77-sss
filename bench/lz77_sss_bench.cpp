@@ -95,7 +95,7 @@ void log_algorithm(
             << " num_factors=" << num_factors
             << " comp_ratio=" << comp_ratio
             << " time=" << time
-            << " throughput=" << throughput_mb_per_s(n, time)
+            << " throughput=" << throughput_in_mb_per_s(n, time)
             << " mem_peak=" << mem_peak << std::endl;
     }
 }
@@ -164,7 +164,7 @@ int main(int argc, char** argv)
     auto t0 = now();
     std::cout << std::endl << "reading input for the reference algorithms ("
         << format_size(n) << ")" << std::flush;
-    no_init_resize_with_excess(T, n, 4 * lz77_sss::default_tau);
+    resize_with_zero_excess(T, n, 4 * lz77_sss::default_tau);
     direct_ifstream reference_file(file_path);
     read_fully(reference_file, T.data(), n);
     reference_file.close();

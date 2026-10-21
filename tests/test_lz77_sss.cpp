@@ -30,7 +30,6 @@
 #include <lz77_sss/misc/fasta_interleaver.hpp>
 #include <lz77_sss/misc/file_decoder.hpp>
 #include <lz77_sss/misc/text_reader.hpp>
-#include <lz77_sss/misc/repetitive_input.hpp>
 #include <lz77/parallel_lpf.hpp>
 
 #include "test-progress.hpp"
@@ -82,7 +81,7 @@ void test_roundtrip(std::string input, const std::function<void(std::string&, co
     std::vector<lz77_sss::factor> factorization;
     run(input, [&](lz77_sss::factor f) { factorization.emplace_back(f); }, num_threads);
     std::string input_decoded;
-    no_init_resize(input_decoded, input.size());
+    resize_no_init(input_decoded, input.size());
     lz77_sss::decode(factorization.begin(), input_decoded.data(), input.size());
     EXPECT_EQ(input, input_decoded);
 
@@ -96,7 +95,7 @@ void test_roundtrip(std::string input, const std::function<void(std::string&, co
 std::string random_fasta_input(uint64_t max_size) {
     std::uniform_real_distribution<double> prob(0.0, 1.0);
     const bool full_alphabet = prob(gen) < 0.5;
-    const std::string src = random_repetitive_input<std::string>(1, max_size,
+    const std::string src = random_input<std::string>(1, max_size,
         full_alphabet ? std::numeric_limits<char>::min() : 'A',
         full_alphabet ? std::numeric_limits<char>::max() : 'Z');
     const double header_rate = prob(gen);
@@ -146,7 +145,7 @@ void test_fasta_roundtrip(const std::string& input) {
 
     std::filesystem::remove(path);
     std::string input_decoded;
-    no_init_resize(input_decoded, input.size());
+    resize_no_init(input_decoded, input.size());
     lz77_sss::decode(factorization.begin(), input_decoded.data(), input.size());
     EXPECT_EQ(input, input_decoded);
 }
@@ -181,7 +180,7 @@ void test_file_decoder(const std::string& input) {
     }
 
     std::string output;
-    no_init_resize(output, input.size());
+    resize_no_init(output, input.size());
     std::ifstream(path, std::ios::binary).read(output.data(), input.size());
     EXPECT_EQ(std::filesystem::file_size(path), input.size());
     std::filesystem::remove(path);
@@ -204,7 +203,7 @@ int_input<int_t> random_int_input(uint64_t max_size) {
         uint64_t { 1 } << std::min<uint64_t>(20, max_bits)), gen);
     int_input<int_t> result;
     std::vector<uint32_t>& ranks = result.ranks;
-    ranks = random_repetitive_input<std::vector<uint32_t>>(n, n, uint32_t(0), uint32_t(sigma - 1));
+    ranks = random_input<std::vector<uint32_t>>(n, n, uint32_t(0), uint32_t(sigma - 1));
     std::uniform_real_distribution<double> prob(0.0, 1.0);
 
     if (prob(gen) < 0.5) {
@@ -321,43 +320,43 @@ lz77_sss::parameters random_exact_params(lz77_sss::transform_mode transf_mode) {
 
 TEST(test_lz77_sss, approximate) {
     run_fuzz("lz77-sss", {
-        { "approximate", [](uint64_t) { test_roundtrip(random_repetitive_input<std::string>(1, 500000), run_approximate); }, false },
+        { "approximate", [](uint64_t) { test_roundtrip(random_input<std::string>(1, 500000), run_approximate); }, false },
     }, fuzz_iterations(1500));
 }
 
 TEST(test_lz77_sss, approximate_exact_gaps) {
     run_fuzz("lz77-sss", {
-        { "approximate-exact-gaps", [](uint64_t) { test_roundtrip(random_repetitive_input<std::string>(1, 500000), run_approximate_exact_gaps); }, false },
+        { "approximate-exact-gaps", [](uint64_t) { test_roundtrip(random_input<std::string>(1, 500000), run_approximate_exact_gaps); }, false },
     }, fuzz_iterations(1500));
 }
 
 TEST(test_lz77_sss, exact_with_interval_samples) {
     run_fuzz("lz77-sss", {
-        { "exact-with-interval-samples", [](uint64_t) { test_roundtrip(random_repetitive_input<std::string>(1, 100000), run_exact_with_interval_samples, true); }, false },
+        { "exact-with-interval-samples", [](uint64_t) { test_roundtrip(random_input<std::string>(1, 100000), run_exact_with_interval_samples, true); }, false },
     }, fuzz_iterations(1000));
 }
 
 TEST(test_lz77_sss, exact_without_interval_samples) {
     run_fuzz("lz77-sss", {
-        { "exact-without-interval-samples", [](uint64_t) { test_roundtrip(random_repetitive_input<std::string>(1, 100000), run_exact_without_interval_samples, true); }, false },
+        { "exact-without-interval-samples", [](uint64_t) { test_roundtrip(random_input<std::string>(1, 100000), run_exact_without_interval_samples, true); }, false },
     }, fuzz_iterations(1000));
 }
 
 TEST(test_lz77_sss, exact_sa) {
     run_fuzz("lz77-sss", {
-        { "exact-sa", [](uint64_t) { test_roundtrip(random_repetitive_input<std::string>(1, 100000), run_exact_sa, true); }, false },
+        { "exact-sa", [](uint64_t) { test_roundtrip(random_input<std::string>(1, 100000), run_exact_sa, true); }, false },
     }, fuzz_iterations(1500));
 }
 
 TEST(test_lz77_sss, exact_auto) {
     run_fuzz("lz77-sss", {
-        { "exact-auto", [](uint64_t) { test_roundtrip(random_repetitive_input<std::string>(1, 100000), run_exact_auto, true); }, false },
+        { "exact-auto", [](uint64_t) { test_roundtrip(random_input<std::string>(1, 100000), run_exact_auto, true); }, false },
     }, fuzz_iterations(1000));
 }
 
 TEST(test_lz77_sss, file_decoder) {
     run_fuzz("lz77-sss", {
-        { "file-decoder", [](uint64_t) { test_file_decoder(random_repetitive_input<std::string>(1, 200000)); }, false },
+        { "file-decoder", [](uint64_t) { test_file_decoder(random_input<std::string>(1, 200000)); }, false },
     }, fuzz_iterations(1000));
 }
 
@@ -370,7 +369,7 @@ void test_fasta_reader(const std::string& input) {
 
     fasta_headers expected_headers;
     std::string expected;
-    no_init_resize(expected, input.size());
+    resize_no_init(expected, input.size());
     fasta_filter filter(&expected_headers);
     expected.resize(filter.filter(input.data(), input.size(), expected.data(), 0));
     if (expected_headers.text_end.size() < expected_headers.seq_pos.size()) expected_headers.text_end.push_back(expected_headers.text.size());
@@ -380,7 +379,7 @@ void test_fasta_reader(const std::string& input) {
         std::numeric_limits<uint64_t>::max(), num_threads, [](const char*, uint64_t, uint16_t) { }, block);
     ASSERT_TRUE(layout.has_value());
     std::string sequence;
-    no_init_resize(sequence, layout->seq_off.back());
+    resize_no_init(sequence, layout->seq_off.back());
     read_fasta_sequence(path, input.size(), *layout, num_threads,
         [&](const char* data, uint64_t len, uint64_t at, uint16_t) { std::memcpy(sequence.data() + at, data, len); });
     EXPECT_EQ(sequence, expected) << "n=" << input.size() << " block=" << block << " threads=" << num_threads;
@@ -392,8 +391,8 @@ void test_fasta_reader(const std::string& input) {
     if (!expected.empty()) {
         char_histogram histogram { };
         for (char c : expected) histogram[uint8_t(c)]++;
-        lce::text::packed_text<> text(histogram, expected.size());
-        parallel_packer<lce::text::packed_text<>> packer(text, num_threads);
+        compact_texts::packed_text<> text(histogram, expected.size());
+        parallel_packer<compact_texts::packed_text<>> packer(text, num_threads);
         read_fasta_sequence(path, input.size(), *layout, num_threads,
             [&](const char* data, uint64_t len, uint64_t at, uint16_t t) { packer.pack(data, len, at, t); });
         packer.finish();

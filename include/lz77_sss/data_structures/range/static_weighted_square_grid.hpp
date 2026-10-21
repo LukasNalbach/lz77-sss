@@ -57,7 +57,7 @@ protected:
     uint64_t grid_width = 0;
     uint64_t pos_max_excl = 0;
     bit_aligned_interleaved_vectors<3> points;
-    std::vector<window> windows;
+    no_init_vector<window> windows;
 
     inline uint64_t grid_index(uint64_t x_w, uint64_t y_w) const { return grid_width * y_w + x_w; }
     inline uint64_t window_index(point_t point) const { return grid_index(point.x / win_size, point.y / win_size); }
@@ -71,7 +71,7 @@ public:
     static_weighted_square_grid() = default;
 
     static_weighted_square_grid(
-        std::vector<point_t>& input_points,
+        no_init_vector<point_t>& input_points,
         uint64_t pos_max_excl, uint16_t p = 1,
         uint64_t win_size = default_win_size)
     {
@@ -134,7 +134,7 @@ public:
         for (uint64_t g = 0; g < num_grids; g++) {
             static_weighted_square_grid& grid = grids[g];
             const uint64_t num_win_g = win_offs[g + 1] - win_offs[g];
-            no_init_resize(grid.windows, num_win_g);
+            resize_no_init(grid.windows, num_win_g);
             uint64_t pos = 0;
 
             for (uint64_t w = 0; w < num_win_g; w++) {

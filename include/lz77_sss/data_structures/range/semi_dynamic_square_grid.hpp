@@ -50,8 +50,8 @@ protected:
     uint64_t win_size = 0;
     uint64_t grid_width = 0;
     uint64_t pos_max_excl = 0;
-    std::vector<point_t> points;
-    std::vector<window> windows;
+    no_init_vector<point_t> points;
+    no_init_vector<window> windows;
 
     inline uint64_t grid_index(uint64_t x_w, uint64_t y_w) const { return grid_width * y_w + x_w; }
     inline uint64_t window_index(point_t point) const { return grid_index(point.x / win_size, point.y / win_size); }
@@ -60,7 +60,7 @@ public:
     semi_dynamic_square_grid() = default;
 
     semi_dynamic_square_grid(
-        const std::vector<point_t>& input_points,
+        const no_init_vector<point_t>& input_points,
         uint64_t pos_max_excl, [[maybe_unused]] uint16_t p = 1,
         uint64_t win_size = default_win_size)
         : win_size(bench_win_size != 0 ? bench_win_size : win_size)
@@ -68,7 +68,7 @@ public:
     {
         grid_width = div_ceil(pos_max_excl, this->win_size);
         uint64_t num_win = grid_width * grid_width;
-        no_init_resize(windows, num_win);
+        resize_no_init(windows, num_win);
 
         #pragma omp parallel for num_threads(p)
         for (uint64_t i = 0; i < num_win; i++) {
@@ -88,7 +88,7 @@ public:
             w.len = 0;
         }
 
-        no_init_resize(points, input_points.size());
+        resize_no_init(points, input_points.size());
 
         #pragma omp parallel for num_threads(p)
         for (uint64_t i = 0; i < input_points.size(); i++) {
