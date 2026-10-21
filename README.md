@@ -12,24 +12,22 @@ cmake ..
 make
 ```
 
-cmake applies the patches in patches/ to the lce submodule with git apply.
+cmake applies the patches in patches/ to the lce submodule with git apply. The text classes (plain, packed and split) are in [compact-texts](https://github.com/LukasNalbach/compact-texts) (submodule external/compact-texts); the build settings, the logging and memory helpers and the libraries ips4o, libsais, malloc_count and googletest come from [string-utils](https://github.com/LukasNalbach/string-utils) (submodule external/string-utils), which also describes the environment variables (LZ77_SSS_HUGE_PAGES, ...).
 
 ### CMake Options
 | Option | Default | Description |
 |---|---|---|
 | LZ77_SSS_BUILD_CLI | ON | build the CLI programs |
 | LZ77_SSS_BUILD_BENCH | ON (OFF on Windows) | build the benchmark programs and alz |
-| LZ77_SSS_BUILD_EXAMPLES | OFF | build the example program |
 | LZ77_SSS_BUILD_TESTS | ON | build the tests |
 | LZ77_SSS_USE_MALLOC_COUNT | ON | track memory usage via malloc_count (overrides malloc/free) |
 | LZ77_SSS_MARCH_NATIVE | ON | tune the build for the host CPU (-march=native); turn OFF for portable binaries |
 | LZ77_SSS_ENABLE_LTO | ON | enable link-time optimization for the executables |
 | LZ77_SSS_EXTERN_TEMPLATES | ON | compile the factorizer once for the plain, packed and split text instead of in every translation unit |
 | LZ77_SSS_LCE_DIR | external/lce | lce source directory |
-| LZ77_SSS_WINDOWS_TBB_ROOT | | Windows only: root of an extracted oneAPI TBB release |
 
-This creates the compression tools in `build/cli/`, the benchmark tools in `build/bench/`,
-the examples in `build/examples/` and the tests in `build/tests/`.
+This creates the compression tools in `build/cli/`, the benchmark tools in `build/bench/` and the tests in
+`build/tests/`.
 
 ## CLI Programs
 ### Compression Tools
@@ -45,9 +43,6 @@ the examples in `build/examples/` and the tests in `build/tests/`.
 - gen-range-queries (generates range query data for a given text)
 - bench-range-queries (benchmarks all range data structures using generated query data)
 - zip-bench (benchmarks alz, lz4, xz, 7zip, gzip, bzip2, zstd and bsc)
-
-### Examples
-- lz77-sss-example (the C++ example from below, built with LZ77_SSS_BUILD_EXAMPLES=ON)
 
 ### Test Executables
 - test-decomposed-range
@@ -162,9 +157,9 @@ With -m, each benchmark appends one `RESULT key=value ...` line per run to <m_fi
 ## Usage in C++
 ### Cmake
 ```cmake
+set(CMAKE_CXX_STANDARD 23)
 set(LZ77_SSS_BUILD_CLI OFF CACHE BOOL "" FORCE)
 set(LZ77_SSS_BUILD_BENCH OFF CACHE BOOL "" FORCE)
-set(LZ77_SSS_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(LZ77_SSS_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 add_subdirectory(lz77_sss/)
 target_link_libraries(<your_target> PRIVATE lz77_sss)
@@ -173,31 +168,40 @@ target_link_libraries(<your_target> PRIVATE lz77_sss)
 ### C++
 ```c++
 #include <lz77_sss/inst.hpp>
-#include <lz77_sss/misc/repetitive_input.hpp>
+#include <misc/repetitive_input.hpp>
 
 int main()
 {
-    // generate a random string
-    std::string input = random_repetitive_input<std::string>(4'000, 1'000'000);
+    // generate a repetitive string
+    std::mt19937_64 random(std::random_device {}());
+    std::string input = generate_repetitive_input<std::string>(
+        random_repetitive_params(1'000'000, random));
+    // the algorithms read up to 4 tau bytes after the input
+    resize_with_zero_excess(input, input.size(), 4 * lz77_sss::default_tau);
     std::cout << "input length: " << input.size() << std::endl;
-    
+
     // compute an approximate LZ77 factorization
     std::vector<lz77_sss::factor> factorization;
-    lz77_sss::factorize_approximate<>(input.data(), input.size(), [&](auto f){factorization.emplace_back(f);});
+    lz77_sss::factorize_approximate<>(input.data(), input.size(),
+        [&](auto f) { factorization.emplace_back(f); });
     std::cout << "num. of factors: " << factorization.size() << std::endl;
-    std::cout << "input length / num. of factors: " << input.size() / (double) factorization.size() << std::endl;
+    std::cout << "input length / num. of factors: "
+        << input.size() / (double) factorization.size() << std::endl;
 
     // decode the factorization
-    std::string input_decoded;
-    no_init_resize(input_decoded, input.size());
-    lz77_sss::decode(factorization.begin(), input_decoded.data(), input.size());
+    std::string input_decoded(input.size(), '\0');
+    lz77_sss::decode(factorization.begin(), input_decoded.data(),
+        input.size());
+    std::cout << "decoded correctly: " << (input_decoded == input)
+        << std::endl;
 
     // compute the exact LZ77 factorization to get the approximation ratio
     std::vector<lz77_sss::factor> exact_factorization;
     lz77_sss::factorize_exact<>(input.data(), input.size(),
-        [&](auto f){exact_factorization.emplace_back(f);});
+        [&](auto f) { exact_factorization.emplace_back(f); });
     std::cout << "approximation ratio: "
-        << factorization.size() / (double) exact_factorization.size() << std::endl;
+        << factorization.size() / (double) exact_factorization.size()
+        << std::endl;
 }
 ```
 
@@ -219,11 +223,24 @@ one of these text types:
 All values in the input must be smaller than `sigma`, if `sigma` is provided.
 
 ```c++
-std::vector<uint32_t> input = ...;
-std::vector<lz77_sss::factor> factorization;
-lz77_sss::factorize_exact(input.data(), input.size(), [&](auto f){factorization.emplace_back(f);});
-std::vector<uint32_t> decoded(input.size());
-lz77_sss::decode(factorization.begin(), decoded.data(), decoded.size());
+#include <lz77_sss/inst.hpp>
+
+int main()
+{
+    // a text of 32-bit integers
+    std::mt19937_64 random(std::random_device {}());
+    std::vector<uint32_t> input(1'000'000);
+    for (uint32_t& c : input) c = random() % 1'000;
+
+    std::vector<lz77_sss::factor> factorization;
+    lz77_sss::factorize_exact(input.data(), input.size(),
+        [&](auto f) { factorization.emplace_back(f); });
+    std::cout << "num. of factors: " << factorization.size() << std::endl;
+
+    std::vector<uint32_t> decoded(input.size());
+    lz77_sss::decode(factorization.begin(), decoded.data(), decoded.size());
+    std::cout << "decoded correctly: " << (decoded == input) << std::endl;
+}
 ```
 
 ## References

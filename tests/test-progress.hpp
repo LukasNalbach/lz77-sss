@@ -32,7 +32,9 @@
 #include <cstdio>
 #include <cstdlib>
 #include <functional>
+#include <limits>
 #include <string>
+#include <type_traits>
 #include <vector>
 #ifdef _WIN32
 #include <io.h>
@@ -41,6 +43,24 @@
 #endif
 
 #include <omp.h>
+
+#include <lz77_sss/misc/utils.hpp>
+#include <test-inputs.hpp>
+
+// zero bytes after a random string, as many as the text readers add for tau = 4096 (4 tau)
+inline constexpr uint64_t random_text_excess = 4 * 4096;
+
+// returns a random repetitive input (see random_repetitive_input of string-utils); a string is followed by
+// random_text_excess zero bytes
+template <typename inp_t>
+inline inp_t random_input(uint64_t min_size, uint64_t max_size,
+    typename inp_t::value_type min_sym = std::numeric_limits<typename inp_t::value_type>::min(),
+    typename inp_t::value_type max_sym = std::numeric_limits<typename inp_t::value_type>::max())
+{
+    inp_t input = random_repetitive_input<inp_t>(min_size, max_size, min_sym, max_sym);
+    if constexpr (std::is_same_v<inp_t, std::string>) resize_with_zero_excess(input, input.size(), random_text_excess);
+    return input;
+}
 
 inline uint64_t fuzz_iterations(uint64_t default_iterations = 1000)
 {

@@ -48,7 +48,7 @@ void test(const range_ds_kind& kind)
 
     // choose a random input length
     uint32_t input_size = random_log_uniform_size(1, 10000, gen);
-    std::vector<point_t> input;
+    no_init_vector<point_t> input;
 
     // choose a random range to pick points from
     uint32_t pos_max = range_size_distrib(gen);

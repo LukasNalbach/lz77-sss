@@ -57,7 +57,7 @@ public:
             bits_per_entry += field_width[c];
         }
 
-        no_init_resize(words, (size * bits_per_entry) / 64 + 4);
+        resize_no_init(words, (size * bits_per_entry) / 64 + 4);
         if (init == init_mode::zero) std::memset(words.data(), 0, words.size() * 8);
         advise_huge_pages(words.data(), words.size() * 8);
     }
@@ -162,7 +162,7 @@ public:
         }
 
         num_entries = 0;
-        no_init_resize(words, (capacity * bits_per_entry) / 64 + 4);
+        resize_no_init(words, (capacity * bits_per_entry) / 64 + 4);
         std::memset(words.data(), 0, words.size() * 8);
     }
 
@@ -215,7 +215,7 @@ private:
         }
     }
 
-    std::vector<uint64_t> words;
+    no_init_vector<uint64_t> words;
     std::array<uint64_t, num_fields> field_mask {};
     std::array<uint8_t, num_fields> field_width {};
     std::array<uint8_t, num_fields> field_offset {};

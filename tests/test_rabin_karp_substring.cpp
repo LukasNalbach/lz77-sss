@@ -26,9 +26,8 @@
 
 #include <gtest/gtest.h>
 #include <lz77_sss/data_structures/rabin_karp_substring.hpp>
-#include <text/packed_text.hpp>
-#include <text/split_text.hpp>
-#include <lz77_sss/misc/repetitive_input.hpp>
+#include <compact_texts/packed_text.hpp>
+#include <compact_texts/split_text.hpp>
 
 #include "test-progress.hpp"
 
@@ -41,7 +40,7 @@ thread_local std::uniform_int_distribution<uint64_t> sample_rate_distrib(1, 1000
 template <uint8_t mers_exp>
 void test_roll()
 {
-    std::string input = random_repetitive_input<std::string>(1, 30000);
+    std::string input = random_input<std::string>(1, 30000);
     uint16_t num_threads = std::uniform_int_distribution<uint16_t>(1, omp_get_max_threads())(gen);
     uint64_t window = std::min<uint64_t>(window_distrib(gen), input.size());
     rabin_karp_substring<mers_exp> rks(input.data(), input.size(), sample_rate_distrib(gen), window, num_threads);
@@ -62,7 +61,7 @@ void test_roll()
 template <uint8_t mers_exp>
 void test_concat()
 {
-    std::string input = random_repetitive_input<std::string>(1, 30000);
+    std::string input = random_input<std::string>(1, 30000);
     uint16_t num_threads = std::uniform_int_distribution<uint16_t>(1, omp_get_max_threads())(gen);
     uint64_t window = std::min<uint64_t>(window_distrib(gen), input.size());
     rabin_karp_substring<mers_exp> rks(input.data(), input.size(), sample_rate_distrib(gen), window, num_threads);
@@ -83,7 +82,7 @@ void test_concat()
 template <uint8_t mers_exp>
 void test_substring()
 {
-    std::string input = random_repetitive_input<std::string>(1, 30000);
+    std::string input = random_input<std::string>(1, 30000);
     uint16_t num_threads = std::uniform_int_distribution<uint16_t>(1, omp_get_max_threads())(gen);
     uint64_t window = std::min<uint64_t>(window_distrib(gen), input.size());
     rabin_karp_substring<mers_exp> rks(input.data(), input.size(), sample_rate_distrib(gen), window, num_threads);
@@ -123,7 +122,7 @@ void check_substr_fps(const rks_t& rks, uint64_t n)
 template <uint8_t mers_exp>
 void test_substrings()
 {
-    std::string input = random_repetitive_input<std::string>(1, 30000);
+    std::string input = random_input<std::string>(1, 30000);
     uint16_t num_threads = std::uniform_int_distribution<uint16_t>(1, omp_get_max_threads())(gen);
     uint64_t sample_rate = random_log_uniform_size(1, 10000, gen);
 
@@ -135,9 +134,9 @@ void test_substrings()
     };
 
     switch (std::uniform_int_distribution<int>(0, 2)(gen)) {
-        case 0: check(lce::text::direct_text<char>(input.data(), input.size())); break;
-        case 1: check(lce::text::packed_text<>(input.data(), input.size(), num_threads)); break;
-        default: check(lce::text::split_text<>(input.data(), input.size(), num_threads)); break;
+        case 0: check(compact_texts::direct_text<char>(input.data(), input.size())); break;
+        case 1: check(compact_texts::packed_text<>(input.data(), input.size(), num_threads)); break;
+        default: check(compact_texts::split_text<>(input.data(), input.size(), num_threads)); break;
     }
 }
 
@@ -145,13 +144,13 @@ template <typename fnc_t>
 void with_random_int_text(fnc_t fnc)
 {
     const uint32_t sigma = random_log_uniform_size(1, uint64_t { 1 } << 16, gen);
-    std::vector<uint32_t> input = random_repetitive_input<std::vector<uint32_t>>(1, 10000, uint32_t(0), uint32_t(sigma - 1));
+    std::vector<uint32_t> input = random_input<std::vector<uint32_t>>(1, 10000, uint32_t(0), uint32_t(sigma - 1));
     uint16_t num_threads = std::uniform_int_distribution<uint16_t>(1, omp_get_max_threads())(gen);
 
     switch (std::uniform_int_distribution<int>(0, 2)(gen)) {
-        case 0: fnc(lce::text::direct_text<uint32_t>(input.data(), input.size(), sigma), num_threads); break;
-        case 1: fnc(lce::text::packed_text<uint32_t>(input.data(), input.size(), sigma, num_threads), num_threads); break;
-        default: fnc(lce::text::split_text<uint32_t>(input.data(), input.size(), sigma, num_threads), num_threads); break;
+        case 0: fnc(compact_texts::direct_text<uint32_t>(input.data(), input.size(), sigma), num_threads); break;
+        case 1: fnc(compact_texts::packed_text<uint32_t>(input.data(), input.size(), sigma, num_threads), num_threads); break;
+        default: fnc(compact_texts::split_text<uint32_t>(input.data(), input.size(), sigma, num_threads), num_threads); break;
     }
 }
 

@@ -423,7 +423,7 @@ private:
     void make_room()
     {
         flush();
-        if (buffer.size() < capacity) no_init_resize(buffer, capacity);
+        if (buffer.size() < capacity) resize_no_init(buffer, capacity);
     }
 
     positional_writer& writer;
@@ -601,7 +601,7 @@ private:
     template <typename fnc_t>
     void for_each_char(uint64_t beg, uint64_t len, fnc_t& fnc) const
     {
-        if constexpr (lce::text::is_direct_text_v<text_t>) {
+        if constexpr (compact_texts::is_direct_text_v<text_t>) {
             const uint8_t* data = reinterpret_cast<const uint8_t*>(T.data()) + beg;
             for (uint64_t k = 0; k < len; k++) fnc(data[k]);
         } else {
@@ -680,7 +680,7 @@ private:
             if (pack) {
                 for_each_char(beg, len, add_char);
             } else if constexpr (write) {
-                if constexpr (lce::text::is_direct_text_v<text_t>) {
+                if constexpr (compact_texts::is_direct_text_v<text_t>) {
                     lits.put_bytes(T.data() + beg, len);
                 } else {
                     auto cursor = T.cursor_at(beg);
@@ -1039,7 +1039,7 @@ void run_postcompressor(const postcompressor_command& pc, const std::string& fee
             phase_progress progress(!quiet, total);
             std::ifstream in(feed_path, std::ios::binary);
             std::string buffer;
-            no_init_resize(buffer, feed_block);
+            resize_no_init(buffer, feed_block);
             uint64_t done = 0;
 
             while (done < total && in.good()) {
@@ -1096,7 +1096,7 @@ uint64_t child_peak_rss_kib()
     std::ifstream log_file(log_file_path);
     std::string log_file_str;
     uint64_t log_file_length = std::filesystem::file_size(log_file_path);
-    no_init_resize(log_file_str, log_file_length);
+    resize_no_init(log_file_str, log_file_length);
     log_file.read(log_file_str.data(), log_file_length);
     log_file.close();
     std::string str_to_find = "Maximum resident set size (kbytes): ";
@@ -1194,7 +1194,7 @@ void compress()
             << " rel_len_gaps=" << rel_len_gaps
             << " two_bit_literals=" << two_bit_literals
             << " time=" << time_total
-            << " throughput=" << throughput_mb_per_s(bytes_input, time_total)
+            << " throughput=" << throughput_in_mb_per_s(bytes_input, time_total)
             << " mem_peak=" << memory_peak
             << " bytes_comp=" << bytes_compressed
             << " comp_ratio=" << compression_ratio
@@ -1221,7 +1221,7 @@ public:
         , left(len)
     {
         file.seekg(std::streamoff(beg), std::ios::beg);
-        no_init_resize(buffer, std::max<uint64_t>(1, std::min(capacity, len)));
+        resize_no_init(buffer, std::max<uint64_t>(1, std::min(capacity, len)));
     }
 
     uint64_t position() const { return off - (fill - at); }
@@ -1411,7 +1411,7 @@ void decode_gapped()
             headers.seq_pos[k] = header.get_vbyte();
             const uint64_t length = header.get_vbyte();
             const uint64_t start = headers.text.size();
-            no_init_resize(headers.text, start + length);
+            resize_no_init(headers.text, start + length);
             header.read(headers.text.data() + start, length);
             headers.text_end[k] = headers.text.size();
         }
@@ -1445,7 +1445,7 @@ void decode_gapped()
     if (!quiet) std::cout << "reverting gapped factorization ("
         << format_size(bytes_gapped) << ")" << std::flush;
     std::string buffer;
-    if (two_bit) no_init_resize(buffer, stream_read_buffer);
+    if (two_bit) resize_no_init(buffer, stream_read_buffer);
     gapped_recent_dists recent;
 
     while (true) {
@@ -1487,7 +1487,7 @@ void decode_gapped()
         std::ifstream stripped_file(sequence_file_path, std::ios::binary);
         std::ofstream final_file(output_file_path, std::ios::binary);
         std::string block;
-        no_init_resize(block, std::min<uint64_t>(
+        resize_no_init(block, std::min<uint64_t>(
             std::max<uint64_t>(bytes_decoded, 1), 1024 * 1024));
         uint64_t at = 0;
 
@@ -1542,7 +1542,7 @@ void decode_gapped()
 
         result_log::out
             << " time=" << time_total
-            << " throughput=" << throughput_mb_per_s(bytes_input, time_total)
+            << " throughput=" << throughput_in_mb_per_s(bytes_input, time_total)
             << " mem_peak=" << memory_peak
             << " bytes_comp=" << bytes_compressed
             << " comp_ratio=" << compression_ratio

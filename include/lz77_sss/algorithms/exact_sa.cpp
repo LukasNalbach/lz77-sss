@@ -30,11 +30,11 @@
 
 template <typename text_t>
 template <typename sym_t>
-std::vector<sym_t> lz77_sss::factorizer<text_t>::symbols_of(const text_t& text, uint16_t p)
+no_init_vector<sym_t> lz77_sss::factorizer<text_t>::symbols_of(const text_t& text, uint16_t p)
 {
     const uint64_t size = text.size();
-    std::vector<sym_t> symbols;
-    no_init_resize(symbols, size);
+    no_init_vector<sym_t> symbols;
+    resize_no_init(symbols, size);
 
     parallel_chunks(size, p, [&](uint64_t beg, uint64_t end) {
         auto cursor = text.cursor_at(beg);

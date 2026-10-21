@@ -68,7 +68,7 @@ class range_ds_impl final : public range_ds {
     impl_t impl;
 
 public:
-    range_ds_impl(std::vector<point_t>& points, uint64_t pos_max_excl, uint16_t p)
+    range_ds_impl(no_init_vector<point_t>& points, uint64_t pos_max_excl, uint16_t p)
         : impl(points, pos_max_excl, p) { }
 
     bool is_decomposed() const override { return false; }
@@ -148,7 +148,7 @@ inline std::optional<range_ds_kind> range_ds_by_name(const std::string& name)
 }
 
 inline range_ds* make_range_ds(const range_ds_kind& kind,
-    std::vector<range_point_t>& points, uint64_t pos_max_excl, uint16_t p)
+    no_init_vector<range_point_t>& points, uint64_t pos_max_excl, uint16_t p)
 {
     return visit_range_ds_type(kind.type, [&](auto impl) -> range_ds* {
         return new range_ds_impl<typename decltype(impl)::type>(points, pos_max_excl, p);
@@ -162,8 +162,8 @@ inline range_ds* make_range_ds(const range_ds_kind& kind,
 {
     constexpr uint64_t chr_bytes = sizeof(std::remove_cvref_t<decltype(T[0])>);
     constexpr bool byte_chars = chr_bytes == 1;
-    std::vector<std::conditional_t<byte_chars, uint8_t, std::conditional_t<chr_bytes <= 4, uint32_t, uint64_t>>> chr;
-    no_init_resize(chr, S.size());
+    no_init_vector<std::conditional_t<byte_chars, uint8_t, std::conditional_t<chr_bytes <= 4, uint32_t, uint64_t>>> chr;
+    resize_no_init(chr, S.size());
 
     #pragma omp parallel for num_threads(p) schedule(dynamic, 65536)
     for (uint64_t i = 0; i < S.size(); i++) {

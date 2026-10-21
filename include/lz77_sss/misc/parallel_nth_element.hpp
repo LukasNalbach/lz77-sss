@@ -35,9 +35,9 @@
 
 #include <lz77_sss/misc/utils.hpp>
 
-template <typename value_t, typename pred_t>
+template <typename value_t, typename alloc_t, typename pred_t>
 inline uint64_t parallel_partition(
-    std::vector<value_t>& values, uint64_t beg, uint64_t end, uint16_t p, pred_t pred)
+    std::vector<value_t, alloc_t>& values, uint64_t beg, uint64_t end, uint16_t p, pred_t pred)
 {
     using segment_t = std::pair<uint64_t, uint64_t>;
     const uint64_t size = end - beg;
@@ -125,9 +125,9 @@ inline uint64_t parallel_partition(
     return mid;
 }
 
-template <typename value_t, typename key_fnc_t>
+template <typename value_t, typename alloc_t, typename key_fnc_t>
 inline void parallel_nth_element(
-    std::vector<value_t>& values, uint64_t beg, uint64_t nth, uint64_t end, uint16_t p, key_fnc_t key)
+    std::vector<value_t, alloc_t>& values, uint64_t beg, uint64_t nth, uint64_t end, uint16_t p, key_fnc_t key)
 {
     constexpr uint64_t min_par_chunk_size = 1 << 14;
     constexpr uint64_t max_sample_size = 1 << 14;

@@ -1,9 +1,12 @@
 [submodule "external/lce"]
 	path = external/lce
 	url = https://github.com/LukasNalbach/lce.git
-[submodule "external/googletest"]
-	path = external/googletest
-	url = https://github.com/google/googletest.git
 [submodule "external/alz"]
 	path = external/alz
 	url = https://github.com/pdinklag/alz.git
+[submodule "external/string-utils"]
+	path = external/string-utils
+	url = ../string-utils.git
+[submodule "external/compact-texts"]
+	path = external/compact-texts
+	url = ../compact-texts.git

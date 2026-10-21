@@ -49,9 +49,9 @@ public:
 
         while (count > 1) {
             const uint64_t blocks = (count + block_size - 1) >> block_bits;
-            const std::vector<uint64_t>* below = levels.empty() ? nullptr : &levels.back();
-            std::vector<uint64_t> level;
-            no_init_resize(level, blocks);
+            const no_init_vector<uint64_t>* below = levels.empty() ? nullptr : &levels.back();
+            no_init_vector<uint64_t> level;
+            resize_no_init(level, blocks);
 
             #pragma omp parallel for num_threads(p) schedule(dynamic, 256)
             for (uint64_t b = 0; b < blocks; b++) {
@@ -85,7 +85,7 @@ public:
         uint64_t b = x >> block_bits;
 
         for (uint64_t l = 0; l < levels.size(); l++) {
-            const std::vector<uint64_t>& min = levels[l];
+            const no_init_vector<uint64_t>& min = levels[l];
             const uint64_t group_beg = b & ~(block_size - 1);
 
             for (uint64_t c = b; c > group_beg;) {
@@ -110,7 +110,7 @@ public:
         uint64_t b = x >> block_bits;
 
         for (uint64_t l = 0; l < levels.size(); l++) {
-            const std::vector<uint64_t>& min = levels[l];
+            const no_init_vector<uint64_t>& min = levels[l];
             const uint64_t group_end = std::min<uint64_t>(min.size(), (b | (block_size - 1)) + 1);
 
             for (uint64_t c = b + 1; c < group_end; c++) {
@@ -126,7 +126,7 @@ public:
     uint64_t size_in_bytes() const
     {
         uint64_t bytes = sizeof(*this);
-        for (const std::vector<uint64_t>& level : levels) bytes += level.size() * sizeof(uint64_t);
+        for (const no_init_vector<uint64_t>& level : levels) bytes += level.size() * sizeof(uint64_t);
         return bytes;
     }
 
@@ -136,7 +136,7 @@ private:
     uint64_t last_below(uint64_t l, uint64_t c, uint64_t v) const
     {
         for (; l > 0; l--) {
-            const std::vector<uint64_t>& min = levels[l - 1];
+            const no_init_vector<uint64_t>& min = levels[l - 1];
             uint64_t child = std::min<uint64_t>(min.size(), (c + 1) << block_bits);
             while (min[--child] >= v) { }
             c = child;
@@ -150,7 +150,7 @@ private:
     uint64_t first_below(uint64_t l, uint64_t c, uint64_t v) const
     {
         for (; l > 0; l--) {
-            const std::vector<uint64_t>& min = levels[l - 1];
+            const no_init_vector<uint64_t>& min = levels[l - 1];
             uint64_t child = c << block_bits;
             while (min[child] >= v) child++;
             c = child;
@@ -161,7 +161,7 @@ private:
         return y;
     }
 
-    std::vector<std::vector<uint64_t>> levels;
+    std::vector<no_init_vector<uint64_t>> levels;
     array_view_t<array_t> values;
     uint64_t num_values;
 };

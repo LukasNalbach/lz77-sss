@@ -1,5 +1,5 @@
 diff --git a/include/ds/lce_classic_for_sss.hpp b/include/ds/lce_classic_for_sss.hpp
-index 483d9d5..a50ce78 100644
+index 9b0fac0..9123b4f 100644
 --- a/include/ds/lce_classic_for_sss.hpp
 +++ b/include/ds/lce_classic_for_sss.hpp
 @@ -141,6 +141,17 @@ class lce_classic_for_sss {
@@ -38,10 +38,10 @@ index 483d9d5..a50ce78 100644
    lce::util::bit_aligned_vector m_lcp;
    lce::rmq::rmq_n<t_index_type, uint32_t, 128, lce::util::bit_aligned_view> m_rmq;
 diff --git a/include/ds/lce_sss.hpp b/include/ds/lce_sss.hpp
-index 7301dd1..1aff567 100644
+index 510fa38..0511e8e 100644
 --- a/include/ds/lce_sss.hpp
 +++ b/include/ds/lce_sss.hpp
-@@ -231,6 +231,12 @@ class lce_sss {
+@@ -232,6 +232,12 @@ class lce_sss {
  
    const lce::util::bit_aligned_vector& get_sync_set() const { return m_sync_set.get_sss(); }
  

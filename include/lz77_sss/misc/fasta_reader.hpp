@@ -71,7 +71,7 @@ struct fasta_headers {
     void finish(uint64_t excess)
     {
         std::string padded;
-        no_init_resize_with_excess(padded, text.size(), excess);
+        resize_with_zero_excess(padded, text.size(), excess);
         std::memcpy(padded.data(), text.data(), text.size());
         text = std::move(padded);
         seq_pos.shrink_to_fit();
@@ -260,7 +260,7 @@ inline bool looks_like_fasta(const std::string& path, uint64_t file_size)
     if (file_size == 0) return false;
     const uint64_t probe_size = std::min<uint64_t>(file_size, 4 * 1024 * 1024);
     std::string probe;
-    no_init_resize(probe, probe_size);
+    resize_no_init(probe, probe_size);
     direct_ifstream in(path);
     read_fully(in, probe.data(), probe_size);
     if (!fasta_filter::is_header_start(probe[0])) return false;

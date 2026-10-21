@@ -136,8 +136,8 @@ void lz77_sss::factorizer<text_t>::factorize_exact_gaps(
     };
 
     if constexpr (text_t::is_byte_text) {
-        std::string G;
-        no_init_resize(G, len_G);
+        no_init_vector<char> G;
+        resize_no_init(G, len_G);
         std::array<uint64_t, 256> hist { };
 
         #pragma omp parallel num_threads(p)
@@ -185,13 +185,13 @@ void lz77_sss::factorizer<text_t>::factorize_exact_gaps(
     } else {
         auto factorize_int_gaps = [&](auto G_chr) {
             using G_chr_t = decltype(G_chr);
-            using G_text_t = lce::text::direct_text<G_chr_t>;
+            using G_text_t = compact_texts::direct_text<G_chr_t>;
             using sa_t = std::conditional_t<std::is_same_v<G_chr_t, uint32_t>, int32_t, sa_int40_t>;
-            std::vector<G_chr_t> G;
+            no_init_vector<G_chr_t> G;
             uint64_t sigma_G = T.sigma() + 1;
 
             if (T.sigma() < len_G) {
-                no_init_resize(G, len_G);
+                resize_no_init(G, len_G);
 
                 #pragma omp parallel for num_threads(p) schedule(dynamic, 256)
                 for (uint64_t r = 0; r < num_regs; r++) {
@@ -201,8 +201,8 @@ void lz77_sss::factorizer<text_t>::factorize_exact_gaps(
                     G[reg_off[r + 1] - 1] = G_chr_t(sigma_G - 1);
                 }
             } else {
-                std::vector<symbol_t> alph;
-                no_init_resize(alph, len_G - num_regs);
+                no_init_vector<symbol_t> alph;
+                resize_no_init(alph, len_G - num_regs);
 
                 #pragma omp parallel for num_threads(p) schedule(dynamic, 256)
                 for (uint64_t r = 0; r < num_regs; r++) {
@@ -215,7 +215,7 @@ void lz77_sss::factorizer<text_t>::factorize_exact_gaps(
                 alph.erase(std::unique(alph.begin(), alph.end()), alph.end());
                 alph.shrink_to_fit();
                 sigma_G = alph.size() + 1;
-                no_init_resize(G, len_G);
+                resize_no_init(G, len_G);
 
                 #pragma omp parallel for num_threads(p) schedule(dynamic, 256)
                 for (uint64_t r = 0; r < num_regs; r++) {

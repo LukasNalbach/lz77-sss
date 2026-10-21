@@ -32,7 +32,7 @@
 #include <vector>
 
 #include <ds/lce_naive_wordwise_xor.hpp>
-#include <text/direct_text.hpp>
+#include <compact_texts/direct_text.hpp>
 #include <lz77_sss/data_structures/rabin_karp_substring.hpp>
 #include <lz77_sss/misc/log.hpp>
 #include <lz77_sss/misc/search.hpp>
@@ -44,7 +44,7 @@ enum class interval_samples {
     skip
 };
 
-template <typename text_t = lce::text::direct_text<char>,
+template <typename text_t = compact_texts::direct_text<char>,
     typename lce_r_t = lce::ds::lce_naive_wordwise_xor<char>,
     typename array_t = std::vector<uint40_t>>
 class sample_index {
@@ -74,7 +74,7 @@ public:
     };
 
 protected:
-    static constexpr uint64_t no_occ = largest_value<uint40_t>();
+    static constexpr uint64_t no_occ = max_value_of<uint40_t>();
     static constexpr bool byte_text = text_t::is_byte_text;
     static constexpr uint64_t first_hashed_len_idx = byte_text ? 2 : 0;
 
