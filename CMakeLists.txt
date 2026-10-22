@@ -31,13 +31,16 @@ if(NOT TARGET string_utils)
     set(CMAKE_CXX_STANDARD 23)
   endif()
 
-  add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/external/string-utils")
+  add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/external/string-utils" EXCLUDE_FROM_ALL)
 endif()
+
+# the libraries of string-utils beyond its core that are used here
+string_utils_add_components(libsais)
 
 # the text classes
 if(NOT TARGET compact_texts)
   string_utils_fetch_submodules("${CMAKE_CURRENT_SOURCE_DIR}" PATHS external/compact-texts)
-  add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/external/compact-texts")
+  add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/external/compact-texts" EXCLUDE_FROM_ALL)
 endif()
 
 if(NOT EXISTS "${LZ77_SSS_LCE_DIR}/CMakeLists.txt")
@@ -45,7 +48,7 @@ if(NOT EXISTS "${LZ77_SSS_LCE_DIR}/CMakeLists.txt")
 endif()
 
 set(CMAKE_POLICY_VERSION_MINIMUM 3.10)
-add_subdirectory("${LZ77_SSS_LCE_DIR}" "${CMAKE_BINARY_DIR}/external/lce")
+add_subdirectory("${LZ77_SSS_LCE_DIR}" "${CMAKE_BINARY_DIR}/external/lce" EXCLUDE_FROM_ALL)
 unset(CMAKE_POLICY_VERSION_MINIMUM)
 
 function(lz77_sss_apply_patch patch dir)
@@ -68,7 +71,7 @@ lz77_sss_apply_patch("${CMAKE_CURRENT_SOURCE_DIR}/patches/lce.patch" "${LZ77_SSS
 
 add_library(lz77_sss_core INTERFACE)
 target_include_directories(lz77_sss_core INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/include/")
-target_link_libraries(lz77_sss_core INTERFACE string_utils compact_texts lce)
+target_link_libraries(lz77_sss_core INTERFACE string_utils libsais libsais40 compact_texts lce)
 
 add_library(lz77_sss INTERFACE)
 target_link_libraries(lz77_sss INTERFACE lz77_sss_core)
@@ -111,6 +114,7 @@ if(LZ77_SSS_BUILD_BENCH)
     lz77_sss_add_executable(${tool} "${CMAKE_CURRENT_SOURCE_DIR}/bench/${src}.cpp" "${CMAKE_BINARY_DIR}/bench/")
   endforeach()
 
+  string_utils_fetch_submodules("${CMAKE_CURRENT_SOURCE_DIR}" PATHS external/alz)
   include(ExternalProject)
   set(lz77_sss_alz_binary "${CMAKE_BINARY_DIR}/bench/alz")
 
@@ -133,6 +137,7 @@ endif()
 if(LZ77_SSS_BUILD_TESTS)
   include(GoogleTest)
   enable_testing()
+  string_utils_add_components(tests)
 
   foreach(s lz77-sss sample-index dynamic-range static-weighted-range
             decomposed-range rabin-karp-substring)
