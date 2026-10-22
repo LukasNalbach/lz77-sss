@@ -161,7 +161,7 @@ With -m, each benchmark appends one `RESULT key=value ...` line per run to <m_fi
 set(CMAKE_CXX_STANDARD 23)
 set(LZ77_SSS_BUILD_CLI OFF CACHE BOOL "" FORCE)
 set(LZ77_SSS_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-add_subdirectory(lz77_sss/)
+add_subdirectory(lz77_sss/ EXCLUDE_FROM_ALL)
 target_link_libraries(<your_target> PRIVATE lz77_sss)
 ```
 
