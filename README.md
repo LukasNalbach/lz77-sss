@@ -18,7 +18,7 @@ cmake applies the patches in patches/ to the lce submodule with git apply. The t
 | Option | Default | Description |
 |---|---|---|
 | LZ77_SSS_BUILD_CLI | ON | build the CLI programs |
-| LZ77_SSS_BUILD_BENCH | ON (OFF on Windows) | build the benchmark programs and alz |
+| LZ77_SSS_BUILD_BENCH | OFF (not available on Windows) | build the benchmark programs and alz |
 | LZ77_SSS_BUILD_TESTS | ON | build the tests |
 | LZ77_SSS_USE_MALLOC_COUNT | ON | track memory usage via malloc_count (overrides malloc/free) |
 | LZ77_SSS_MARCH_NATIVE | ON | tune the build for the host CPU (-march=native); turn OFF for portable binaries |
@@ -159,7 +159,6 @@ With -m, each benchmark appends one `RESULT key=value ...` line per run to <m_fi
 ```cmake
 set(CMAKE_CXX_STANDARD 23)
 set(LZ77_SSS_BUILD_CLI OFF CACHE BOOL "" FORCE)
-set(LZ77_SSS_BUILD_BENCH OFF CACHE BOOL "" FORCE)
 set(LZ77_SSS_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 add_subdirectory(lz77_sss/)
 target_link_libraries(<your_target> PRIVATE lz77_sss)

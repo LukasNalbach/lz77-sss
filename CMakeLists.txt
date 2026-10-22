@@ -3,7 +3,7 @@ set(CMAKE_CXX_STANDARD 23)
 project (lz77_sss LANGUAGES C CXX)
 
 option(LZ77_SSS_BUILD_CLI           "Build cli programs"            ON)
-option(LZ77_SSS_BUILD_BENCH         "Build benchmark cli programs"  ON)
+option(LZ77_SSS_BUILD_BENCH         "Build benchmark cli programs"  OFF)
 option(LZ77_SSS_BUILD_TESTS         "Build tests"                   ON)
 option(LZ77_SSS_EXTERN_TEMPLATES    "Compile the factorizer once instead of in every translation unit" ON)
 set(LZ77_SSS_LCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/lce" CACHE PATH "lce source directory")
