@@ -5,7 +5,8 @@ This repository contains implementations of Lempel-Ziv 77 (LZ77) algorithms [1] 
 This implementation has been tested on Ubuntu 26.04 with g++ 15.2, CMake 4.2, git and libtbb-dev installed. ssszip needs the chosen postcompressor in the PATH (by default [bsc](https://github.com/IlyaGrebnov/libbsc), which has to be built and installed manually); zip-bench needs time and taskset and benchmarks [alz](https://github.com/pdinklag/alz) (built automatically from external/alz, followed by bsc) and those of lz4, xz, 7z, gzip, bzip2, zstd and bsc that are installed.
 
 ```shell
-git clone --recurse-submodules https://github.com/LukasNalbach/lz77-sss.git
+git clone https://github.com/LukasNalbach/lz77-sss.git
+cd lz77-sss
 mkdir build
 cd build
 cmake ..
