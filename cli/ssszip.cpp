@@ -1120,6 +1120,13 @@ void compress()
 
     bytes_input = std::filesystem::file_size(input_file_path);
     input_file.close();
+
+    if (!quiet) {
+        std::cout << "compressing " << input_file_path << " (" << format_size(bytes_input) << ") with "
+                  << format_threads(num_threads) << std::endl;
+        std::cout << "output: " << output_file_path << std::endl;
+    }
+
     fasta_headers headers;
     char_histogram histogram { };
     uint64_t time_read = 0;
@@ -1177,13 +1184,12 @@ void compress()
     std::filesystem::remove(tmp_file_path);
 
     if (!quiet) {
-        std::cout << "postcompressor peak memory = " << format_size(postcompressor_peak) << std::endl;
-        std::cout << "total time = " << format_time(time_total) << std::endl;
-        std::cout << "total throughput = " << format_throughput(bytes_input, time_total) << std::endl;
-        std::cout << "total peak memory consumption = " << format_size(memory_peak)
-                  << " (" << (100.0 * memory_peak) / std::max<uint64_t>(1, bytes_input) << " % of input)" << std::endl;
-        std::cout << "output file size = " << format_size(bytes_compressed) << std::endl;
-        std::cout << "compression ratio = " << compression_ratio << std::endl;
+        log_peak_memory_usage("peak memory usage of the postcompressor", postcompressor_peak, 0);
+        std::cout << "compression time: " << format_time(time_total) << " ("
+                  << format_throughput(bytes_input, time_total) << ")" << std::endl;
+        log_peak_memory_usage("peak memory usage", memory_peak, bytes_input);
+        std::cout << "output size: " << format_size(bytes_compressed) << std::endl;
+        std::cout << "compression ratio = " << format_ratio(compression_ratio) << std::endl;
     }
 
     if (result_log::path != "") {
@@ -1519,12 +1525,12 @@ void decode_gapped()
 
     if (!quiet) {
         log_runtime(time_decode);
-        std::cout << "total time = " << format_time(time_total) << std::endl;
-        std::cout << "total throughput = " << format_throughput(bytes_input, time_total) << std::endl;
-        std::cout << "total peak memory consumption = " << format_size(memory_peak)
-                  << " (" << (100.0 * memory_peak) / std::max<uint64_t>(1, bytes_input) << " % of output)" << std::endl;
-        std::cout << "output file size = " << format_size(bytes_input) << std::endl;
-        std::cout << "compression ratio = " << compression_ratio << std::endl;
+        std::cout << "decompression time: " << format_time(time_total) << " ("
+                  << format_throughput(bytes_input, time_total) << ")" << std::endl;
+        std::cout << "peak memory usage: " << format_size(memory_peak) << " ("
+                  << format_percentage(memory_peak, bytes_input) << " of the output)" << std::endl;
+        std::cout << "output size: " << format_size(bytes_input) << std::endl;
+        std::cout << "compression ratio = " << format_ratio(compression_ratio) << std::endl;
     }
 
     if (result_log::path != "") {
@@ -1558,6 +1564,13 @@ void decompress()
         0, input_file_path.length() - postcompressor.length() - 8);
     if (std::filesystem::weakly_canonical(output_file_path) == std::filesystem::weakly_canonical(input_file_path))
         help("error: the output file must differ from <input_file>");
+
+    if (!quiet) {
+        std::cout << "decompressing " << input_file_path << " (" << format_size(bytes_compressed) << ") with "
+                  << format_threads(num_threads) << std::endl;
+        std::cout << "output: " << output_file_path << std::endl;
+    }
+
     run_postcompressor(decompress_command(), input_file_path, false,
         "decompressing gapped factorization (" + std::string(spec->name) + ", " + format_size(bytes_compressed) + ")");
     decode_gapped();

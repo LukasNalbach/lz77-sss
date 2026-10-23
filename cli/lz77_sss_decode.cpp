@@ -73,7 +73,9 @@ int main(int argc, char** argv)
     }
 
     uint64_t input_file_size = std::filesystem::file_size(input_file_path);
-    std::cout << "input file size = " << format_size(input_file_size) << std::endl;
+    std::cout << "decompressing " << input_file_path << " (" << format_size(input_file_size) << ") with "
+              << format_threads(num_threads) << std::endl;
+    std::cout << "output: " << output_file_path << std::endl;
     uint64_t n = 0;
     input_file.read((char*) &n, 5);
     file_decoder decoder(output_file_path, n, in_ram, num_threads);
@@ -120,8 +122,10 @@ int main(int argc, char** argv)
         exit(-1);
     }
 
-    std::cout << "throughput = " << format_throughput(n, time_diff_ns(t1, t2)) << std::endl;
-    std::cout << "peak memory consumption = " << format_size(malloc_count_peak()) << std::endl;
-    std::cout << "compression ratio = " << n / (double) input_file_size << std::endl;
+    std::cout << "decompression time: " << format_time(time_diff_ns(t1, t2)) << " ("
+              << format_throughput(n, time_diff_ns(t1, t2)) << ")" << std::endl;
+    std::cout << "peak memory usage: " << format_size(malloc_count_peak()) << " ("
+              << format_percentage(malloc_count_peak(), n) << " of the output)" << std::endl;
+    std::cout << "compression ratio = " << format_ratio(n / (double) input_file_size) << std::endl;
     return 0;
 }
