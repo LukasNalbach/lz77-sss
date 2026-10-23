@@ -599,14 +599,11 @@ protected:
                 double comp_ratio = n / (double) num_fact;
 
                 if (log_factor_count) {
-                    std::cout << "num. of factors = " << num_fact << std::endl;
-                    std::cout << "input length / num. of factors = " << comp_ratio << std::endl;
+                    std::cout << "z = " << format_number(num_fact) << ", n/z = " << format_ratio(comp_ratio)
+                              << std::endl;
                 }
 
-                std::cout << "total time = " << format_time(time_total) << std::endl;
-                std::cout << "throughput = " << format_throughput(n, time_total) << std::endl;
-                std::cout << "peak memory consumption = " << format_size(peak_bytes);
-                std::cout << " (" << (100.0 * peak_bytes) / n << " % of input)" << std::endl;
+                log_construction_summary(time_total, n, peak_bytes);
 
                 if (result_log::write_rows && result_log::out.is_open()) {
                     result_log::out

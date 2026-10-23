@@ -52,10 +52,12 @@ int main(int argc, char** argv)
     uint64_t n = std::filesystem::file_size(options.input_file_path);
     fasta_headers headers;
     input_file.close();
+    std::cout << "computing a 3-approximation of the LZ77 parsing of " << options.input_file_path << " ("
+              << format_size(n) << ") with " << format_threads(options.num_threads) << std::endl;
+    std::cout << "output: " << options.output_file_path << std::endl;
 
     with_text_from_file(options.input_file_path, n, options.encoding, aprx_factorization, options.fasta, headers,
         4 * lz77_sss::default_tau, options.num_threads, true, [&](auto T) {
-        std::cout << "running LZ77 SSS 3-approximation:" << std::endl;
         huff_factor_writer writer(output_file, n);
         auto sink = [&](auto f) { writer.add(f); };
         lz77_sss::parameters params { .num_threads = options.num_threads, .fact_mode = lz77_sss::auto_gaps };
@@ -71,15 +73,14 @@ int main(int argc, char** argv)
         interleaver.finish();
         writer.finish();
 
-        std::cout << "num. of factors = " << interleaver.num_factors() << std::endl;
-        std::cout << "input length / num. of factors = "
-                  << n / (double) std::max<uint64_t>(1, interleaver.num_factors()) << std::endl;
+        std::cout << "z = " << format_number(interleaver.num_factors()) << ", n/z = "
+                  << format_ratio(n / (double) std::max<uint64_t>(1, interleaver.num_factors())) << std::endl;
     });
 
     output_file.close();
 
     uint64_t output_file_size = std::filesystem::file_size(options.output_file_path);
-    std::cout << "output file size = " << format_size(output_file_size) << std::endl;
-    std::cout << "compression ratio = " << n / (double) output_file_size << std::endl;
+    std::cout << "output size: " << format_size(output_file_size) << std::endl;
+    std::cout << "compression ratio = " << format_ratio(n / (double) output_file_size) << std::endl;
     return 0;
 }
