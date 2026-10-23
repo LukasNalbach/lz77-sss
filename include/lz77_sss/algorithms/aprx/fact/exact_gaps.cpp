@@ -177,16 +177,22 @@ void lz77_sss::factorizer<text_t>::factorize_exact_gaps(
         log_gaps(len_G);
         const direct_text G_text(G.data(), len_G);
 
+        const uint8_t* bytes = reinterpret_cast<const uint8_t*>(G.data());
+
         if (len_G <= INT32_MAX) {
-            factorize_gaps(exact_gap_index<direct_text, int32_t>(G_text, reinterpret_cast<const uint8_t*>(G.data()), len_G, p));
+            factorize_gaps(exact_gap_index<direct_text, int32_t>(G_text, bytes, len_G, p));
+        } else if (len_G <= uint64_t(SA_INT40_MAX_N)) {
+            factorize_gaps(exact_gap_index<direct_text, sa_int40_t>(G_text, bytes, len_G, p));
         } else {
-            factorize_gaps(exact_gap_index<direct_text, sa_int40_t>(G_text, reinterpret_cast<const uint8_t*>(G.data()), len_G, p));
+            factorize_gaps(exact_gap_index<direct_text, sa_int48_t>(G_text, bytes, len_G, p));
         }
     } else {
         auto factorize_int_gaps = [&](auto G_chr) {
             using G_chr_t = decltype(G_chr);
             using G_text_t = compact_texts::direct_text<G_chr_t>;
-            using sa_t = std::conditional_t<std::is_same_v<G_chr_t, uint32_t>, int32_t, sa_int40_t>;
+            // the signed integer type of the width of G_chr_t
+            using sa_t = std::conditional_t<std::is_same_v<G_chr_t, uint32_t>, int32_t,
+                std::conditional_t<std::is_same_v<G_chr_t, uint40_t>, sa_int40_t, sa_int48_t>>;
             no_init_vector<G_chr_t> G;
             uint64_t sigma_G = T.sigma() + 1;
 
@@ -237,8 +243,10 @@ void lz77_sss::factorizer<text_t>::factorize_exact_gaps(
 
         if (len_G <= INT32_MAX) {
             factorize_int_gaps(uint32_t { });
-        } else {
+        } else if (len_G <= uint64_t(SA_INT40_MAX_N)) {
             factorize_int_gaps(uint40_t { });
+        } else {
+            factorize_int_gaps(uint48_t { });
         }
     }
 

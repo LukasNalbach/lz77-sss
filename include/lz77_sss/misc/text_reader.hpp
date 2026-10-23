@@ -220,7 +220,7 @@ inline void with_text_from_file(const std::string& path, uint64_t file_size, tex
     const bool scan_logged = log && headers.active;
 
     if (headers.active) {
-        if (log) std::cout << "scanning input (" << format_size(file_size) << ")" << std::flush;
+        if (log) std::cout << "scanning input" << std::flush;
         const uint64_t max_header_bytes = fasta == fasta_on ? std::numeric_limits<uint64_t>::max()
             : uint64_t(max_auto_fasta_header_share * file_size);
 
@@ -248,8 +248,7 @@ inline void with_text_from_file(const std::string& path, uint64_t file_size, tex
         (encoding == plain_encoding || estimate_auto_encoding(path, file_size, kind, p) == plain_encoding);
 
     if (log && !headers.active && !scan_logged) {
-        std::cout << (scan_reads_text ? "scanning and reading input (" : "scanning input (")
-            << format_size(file_size) << ")" << std::flush;
+        std::cout << (scan_reads_text ? "scanning and reading input" : "scanning input") << std::flush;
     }
 
     if (scan_reads_text) {

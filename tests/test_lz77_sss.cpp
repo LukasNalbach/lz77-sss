@@ -197,8 +197,7 @@ struct int_input {
 template <typename int_t>
 int_input<int_t> random_int_input(uint64_t max_size) {
     const uint64_t n = random_log_uniform_size(1, max_size, gen);
-    uint64_t max_bits = 40;
-    if constexpr (!std::is_same_v<int_t, uint40_t>) max_bits = 8 * sizeof(int_t);
+    const uint64_t max_bits = 8 * sizeof(int_t);
     const uint64_t sigma = random_log_uniform_size(1, std::clamp<uint64_t>(n / 4, 1,
         uint64_t { 1 } << std::min<uint64_t>(20, max_bits)), gen);
     int_input<int_t> result;
@@ -299,15 +298,12 @@ void test_int_roundtrip_of(uint64_t max_size, lz77_sss::parameters params, bool 
 }
 
 void test_int_roundtrip(uint64_t max_size, lz77_sss::parameters params, bool exact) {
-    switch (std::uniform_int_distribution<int>(0, 8)(gen)) {
+    switch (std::uniform_int_distribution<int>(0, 5)(gen)) {
         case 0: test_int_roundtrip_of<int8_t>(max_size, params, exact); break;
         case 1: test_int_roundtrip_of<uint8_t>(max_size, params, exact); break;
-        case 2: test_int_roundtrip_of<int16_t>(max_size, params, exact); break;
-        case 3: test_int_roundtrip_of<uint16_t>(max_size, params, exact); break;
-        case 4: test_int_roundtrip_of<int32_t>(max_size, params, exact); break;
-        case 5: test_int_roundtrip_of<uint32_t>(max_size, params, exact); break;
-        case 6: test_int_roundtrip_of<uint40_t>(max_size, params, exact); break;
-        case 7: test_int_roundtrip_of<int64_t>(max_size, params, exact); break;
+        case 2: test_int_roundtrip_of<int32_t>(max_size, params, exact); break;
+        case 3: test_int_roundtrip_of<uint32_t>(max_size, params, exact); break;
+        case 4: test_int_roundtrip_of<int64_t>(max_size, params, exact); break;
         default: test_int_roundtrip_of<uint64_t>(max_size, params, exact); break;
     }
 }

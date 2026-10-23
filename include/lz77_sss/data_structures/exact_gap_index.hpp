@@ -34,7 +34,6 @@
 #include <vector>
 
 #include <libsais.h>
-#include <libsais16.h>
 #include <libsais40.h>
 #include <misc/threads.hpp>
 
@@ -65,18 +64,6 @@ public:
     }
 
     template <typename step_t = no_step>
-        requires(std::is_same_v<sa_t, int32_t>)
-    exact_gap_index(const text_t& text, const uint16_t* symbols, uint64_t size, uint16_t p, step_t step = { })
-        : text(&text)
-        , size(size)
-        , sa(build_sa(symbols, size, p))
-        , isa((step(sa.size() * sizeof(sa_t)), build_isa(sa, p)))
-        , smaller(sa, size, p)
-    {
-        step(size_in_bytes() - sa.size() * sizeof(sa_t));
-    }
-
-    template <typename step_t = no_step>
     exact_gap_index(const text_t& text, no_init_vector<uint8_t>&& bytes, uint64_t size, uint16_t p, step_t step = { })
         : text(&text)
         , size(size)
@@ -88,7 +75,7 @@ public:
     }
 
     template <typename sym_t, typename step_t = no_step>
-        requires(std::is_same_v<sym_t, int32_t> || std::is_same_v<sym_t, sa_int40_t>)
+        requires(std::is_same_v<sym_t, sa_t>)
     exact_gap_index(const text_t& text, sym_t* symbols, uint64_t size, uint64_t sigma, uint16_t p, step_t step = { })
         : text(&text)
         , size(size)
@@ -100,7 +87,7 @@ public:
     }
 
     template <typename sym_t, typename step_t = no_step>
-        requires(std::is_same_v<sym_t, int32_t> || std::is_same_v<sym_t, sa_int40_t>)
+        requires(std::is_same_v<sym_t, sa_t>)
     exact_gap_index(const text_t& text, no_init_vector<sym_t>&& symbols, uint64_t size, uint64_t sigma, uint16_t p,
         step_t step = { })
         : text(&text)
@@ -141,22 +128,14 @@ private:
             if (libsais_omp(bytes, sa.data(), int32_t(size), 0, nullptr, threads) != 0) {
                 throw std::runtime_error("libsais_omp failed");
             }
-        } else {
+        } else if constexpr (std::is_same_v<sa_t, sa_int40_t>) {
             if (libsais40_impl::libsais40_omp(bytes, sa.data(), int64_t(size), 0, nullptr, threads) != 0) {
                 throw std::runtime_error("libsais40_omp failed");
             }
-        }
-
-        return sa;
-    }
-
-    static no_init_vector<sa_t> build_sa(const uint16_t* symbols, uint64_t size, uint16_t p)
-    {
-        no_init_vector<sa_t> sa;
-        resize_no_init(sa, size);
-
-        if (libsais16_omp(symbols, sa.data(), int32_t(size), 0, nullptr, int(num_cores_of_omp_team(p))) != 0) {
-            throw std::runtime_error("libsais16_omp failed");
+        } else {
+            if (libsais48_impl::libsais48_omp(bytes, sa.data(), int64_t(size), 0, nullptr, threads) != 0) {
+                throw std::runtime_error("libsais48_omp failed");
+            }
         }
 
         return sa;
@@ -176,18 +155,21 @@ private:
 
         const int threads = int(num_cores_of_omp_team(p));
 
-        if constexpr (std::is_same_v<sa_t, int32_t>) {
-            static_assert(std::is_same_v<sym_t, int32_t>);
+        static_assert(std::is_same_v<sym_t, sa_t>);
 
+        if constexpr (std::is_same_v<sa_t, int32_t>) {
             if (libsais_int_omp(symbols, sa.data(), int32_t(size), int32_t(std::max<uint64_t>(sigma, 1)), 0, threads) != 0) {
                 throw std::runtime_error("libsais_int_omp failed");
             }
-        } else {
-            static_assert(std::is_same_v<sym_t, sa_int40_t>);
-
+        } else if constexpr (std::is_same_v<sa_t, sa_int40_t>) {
             if (libsais40_impl::libsais40_long_omp(symbols, sa.data(), int64_t(size),
                     int64_t(std::max<uint64_t>(sigma, 1)), 0, threads) != 0) {
                 throw std::runtime_error("libsais40_long_omp failed");
+            }
+        } else {
+            if (libsais48_impl::libsais48_long_omp(symbols, sa.data(), int64_t(size),
+                    int64_t(std::max<uint64_t>(sigma, 1)), 0, threads) != 0) {
+                throw std::runtime_error("libsais48_long_omp failed");
             }
         }
 

@@ -71,7 +71,7 @@ lz77_sss_apply_patch("${CMAKE_CURRENT_SOURCE_DIR}/patches/lce.patch" "${LZ77_SSS
 
 add_library(lz77_sss_core INTERFACE)
 target_include_directories(lz77_sss_core INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/include/")
-target_link_libraries(lz77_sss_core INTERFACE string_utils libsais libsais40 compact_texts lce)
+target_link_libraries(lz77_sss_core INTERFACE string_utils libsais libsais40 libsais48 compact_texts lce)
 
 add_library(lz77_sss INTERFACE)
 target_link_libraries(lz77_sss INTERFACE lz77_sss_core)
@@ -80,7 +80,7 @@ if(LZ77_SSS_EXTERN_TEMPLATES)
   add_library(lz77_sss_inst STATIC)
   target_link_libraries(lz77_sss_inst PUBLIC lz77_sss_core)
 
-  foreach(text direct_text packed_text split_text int16_direct_text int_direct_text int40_direct_text int64_direct_text int_packed_text int_split_text)
+  foreach(text direct_text packed_text split_text int_direct_text int64_direct_text int_packed_text int_split_text)
     foreach(part factorizer lce lpf fact sa aprx_to_exact)
       set(obj lz77_sss_${text}_${part})
       add_library(${obj} OBJECT "${CMAKE_CURRENT_SOURCE_DIR}/src/inst/${part}.cpp")

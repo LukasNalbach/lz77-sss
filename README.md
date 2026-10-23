@@ -207,15 +207,13 @@ int main()
 
 ### Integer Alphabets
 `factorize_approximate` and `factorize_exact` also accept a pointer to a signed or unsigned
-integer type of 1, 2, 4 or 8 bytes, or to `uint40_t`. The suffix array path for exact factorizations
+integer type of 1, 4 or 8 bytes. The suffix array path for exact factorizations
 may change the input while it runs, but restores it before it returns. A text can also be passed as
 one of these text types:
 
 | type                          | space per symbol                  |
 |-------------------------------|-----------------------------------|
-| `lz77_sss::int16_direct_text` | 2 bytes                           |
 | `lz77_sss::int_direct_text`   | 4 bytes                           |
-| `lz77_sss::int40_direct_text` | 5 bytes                           |
 | `lz77_sss::int64_direct_text` | 8 bytes                           |
 | `lz77_sss::int_packed_text`   | ⌈log2 sigma⌉ bits                 |
 | `lz77_sss::int_split_text`    | fewer bits for frequent symbols   |
