@@ -95,7 +95,7 @@ template <typename text_t>
 void lz77_sss::factorizer<text_t>::build_LCE()
 {
     if (log) {
-        std::cout << "building LCE data structure" << std::flush;
+        std::cout << "building LCE" << std::flush;
     }
 
     uint64_t lce_baseline_bytes = malloc_count_current();

@@ -130,7 +130,8 @@ public:
 
     static uint64_t exact_gaps_bytes(uint64_t len_G, uint64_t num_gaps, uint64_t symbol_bytes = 1)
     {
-        const uint64_t sa_bytes = len_G <= INT32_MAX ? sizeof(int32_t) : sizeof(sa_int40_t);
+        const uint64_t sa_bytes = len_G <= INT32_MAX ? sizeof(int32_t)
+            : len_G <= uint64_t(SA_INT40_MAX_N) ? sizeof(sa_int40_t) : sizeof(sa_int48_t);
         const uint64_t gap_bytes = symbol_bytes == 1 ? 1 : sa_bytes;
         return len_G * (gap_bytes + 2 * sa_bytes) + (len_G / 8) * (1 + sizeof(factor)) +
             num_gaps * 3 * sizeof(uint64_t);
@@ -229,9 +230,7 @@ public:
     using direct_text = compact_texts::direct_text<char>;
     using packed_text = compact_texts::packed_text<>;
     using split_text = compact_texts::split_text<>;
-    using int16_direct_text = compact_texts::direct_text<uint16_t>;
     using int_direct_text = compact_texts::direct_text<uint32_t>;
-    using int40_direct_text = compact_texts::direct_text<uint40_t>;
     using int64_direct_text = compact_texts::direct_text<uint64_t>;
     using int_packed_text = compact_texts::packed_text<uint32_t>;
     using int_split_text = compact_texts::split_text<uint32_t>;
@@ -275,13 +274,13 @@ public:
     }
 
     template <typename int_t>
-    static constexpr bool is_int_input_v = std::is_same_v<int_t, uint40_t> || (std::is_integral_v<int_t> &&
-        !std::is_const_v<int_t> && !std::is_same_v<int_t, bool> &&
-        (sizeof(int_t) == 1 || sizeof(int_t) == 2 || sizeof(int_t) == 4 || sizeof(int_t) == 8));
+    static constexpr bool is_int_input_v = std::is_integral_v<int_t> && !std::is_const_v<int_t> &&
+        !std::is_same_v<int_t, bool> &&
+        (sizeof(int_t) == sizeof(char) || sizeof(int_t) == sizeof(uint32_t) || sizeof(int_t) == sizeof(uint64_t));
 
     template <typename int_t>
-    using int_symbol_t = typename std::conditional_t<std::is_same_v<int_t, uint40_t>, std::type_identity<uint40_t>,
-        std::conditional_t<sizeof(int_t) == 1, std::type_identity<char>, std::make_unsigned<int_t>>>::type;
+    using int_symbol_t = typename std::conditional_t<sizeof(int_t) == sizeof(char), std::type_identity<char>,
+        std::make_unsigned<int_t>>::type;
 
     template <typename int_t>
     using int_text_t = compact_texts::direct_text<int_symbol_t<int_t>>;
@@ -390,7 +389,7 @@ protected:
         using rh_idx_t = rolling_hash_index<num_patt_lens, text_t>;
         using symbol_t = typename text_t::symbol_type;
 
-        static constexpr uint64_t symbol_bytes = text_t::is_byte_text ? 1 : sizeof(uint32_t);
+        static constexpr uint64_t symbol_bytes = sizeof(symbol_t);
 
         static uint8_t src_bytes_of(const text_t& T)
         {

@@ -42,7 +42,7 @@ void sample_index<text_t, lce_r_t, array_t>::build_xiv_s_1_2(uint16_t p, bool lo
     auto time = now();
 
     if (log) {
-        std::cout << "precomputing PA_C- and SA_C intervals for all 1- and 2-mers" << std::flush;
+        std::cout << "precomputing the 1- and 2-mer intervals" << std::flush;
     }
 
     #pragma omp parallel for num_threads(p)

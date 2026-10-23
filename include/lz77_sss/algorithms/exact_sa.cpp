@@ -57,11 +57,7 @@ bool lz77_sss::factorizer<text_t>::sa_supported() const
 template <typename text_t>
 uint64_t lz77_sss::factorizer<text_t>::sa_bytes() const
 {
-    if constexpr (std::is_same_v<text_t, int40_direct_text>) {
-        return sizeof(sa_int40_t);
-    } else {
-        return n <= INT32_MAX && T.sigma() <= INT32_MAX ? sizeof(int32_t) : sizeof(sa_int40_t);
-    }
+    return n <= INT32_MAX && T.sigma() <= INT32_MAX ? sizeof(int32_t) : sizeof(sa_int40_t);
 }
 
 template <typename text_t>
@@ -70,8 +66,7 @@ uint64_t lz77_sss::factorizer<text_t>::sa_extra_bytes() const
     if constexpr (text_t::is_byte_text) {
         return 0;
     } else {
-        const bool in_place = std::is_same_v<text_t, int40_direct_text> || (sa_bytes() == sizeof(int32_t) &&
-            (std::is_same_v<text_t, int16_direct_text> || std::is_same_v<text_t, int_direct_text>));
+        const bool in_place = sa_bytes() == sizeof(int32_t) && std::is_same_v<text_t, int_direct_text>;
         return (in_place ? 0 : n * sa_bytes()) + T.sigma() * sa_bytes();
     }
 }
@@ -79,9 +74,7 @@ uint64_t lz77_sss::factorizer<text_t>::sa_extra_bytes() const
 template <typename text_t>
 void lz77_sss::factorizer<text_t>::factorize_exact_sa(factor_sink& output)
 {
-    if constexpr (std::is_same_v<text_t, int40_direct_text>) {
-        factorize_exact_sa<sa_int40_t>(output);
-    } else if (sa_bytes() == sizeof(int32_t)) {
+    if (sa_bytes() == sizeof(int32_t)) {
         factorize_exact_sa<int32_t>(output);
     } else {
         factorize_exact_sa<sa_int40_t>(output);
@@ -112,12 +105,8 @@ void lz77_sss::factorizer<text_t>::factorize_exact_sa(factor_sink& output)
         idx.emplace(T, reinterpret_cast<const uint8_t*>(T.data()), n, p, step);
     } else if constexpr (text_t::is_byte_text) {
         idx.emplace(T, symbols_of<uint8_t>(T, p), n, p, step);
-    } else if constexpr (std::is_same_v<text_t, int40_direct_text>) {
-        idx.emplace(T, reinterpret_cast<sa_int40_t*>(T.data()), n, T.sigma(), p, step);
     } else if constexpr (std::is_same_v<sa_t, int32_t>) {
-        if constexpr (std::is_same_v<text_t, int16_direct_text>) {
-            idx.emplace(T, T.data(), n, p, step);
-        } else if constexpr (std::is_same_v<text_t, int_direct_text>) {
+        if constexpr (std::is_same_v<text_t, int_direct_text>) {
             idx.emplace(T, reinterpret_cast<int32_t*>(T.data()), n, T.sigma(), p, step);
         } else {
             idx.emplace(T, symbols_of<int32_t>(T, p), n, T.sigma(), p, step);
