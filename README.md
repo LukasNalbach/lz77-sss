@@ -1,8 +1,27 @@
-# LZ77-SSS Algorithms
-This repository contains implementations of Lempel-Ziv 77 (LZ77) algorithms [1] based on string synchronizing sets [2]. These implementations are described in [3] (accepted at ALENEX 2027, [arxiv.org](https://arxiv.org/abs/2609.30193)).
+# LZ77-SSS
 
-## CLI Build Instructions
-This implementation has been tested on Ubuntu 26.04 with g++ 15.2, CMake 4.2, git and libtbb-dev installed. ssszip needs the chosen postcompressor in the PATH (by default [bsc](https://github.com/IlyaGrebnov/libbsc), which has to be built and installed manually); zip-bench needs time and taskset and benchmarks [alz](https://github.com/pdinklag/alz) (built automatically from external/alz, followed by bsc) and those of lz4, xz, 7z, gzip, bzip2, zstd and bsc that are installed.
+This repository contains parallel algorithms that compute the Lempel-Ziv 77 (LZ77) factorization [1] of a text with
+string synchronizing sets [2], described in [3], together with command-line tools, benchmarks and tests.
+
+- `lz77_sss::factorize_approximate` computes a 3-approximation of the LZ77 factorization (at most 3 times as many
+  factors), `lz77_sss::factorize_exact` the exact factorization and `lz77_sss::decode` the text of a factorization.
+- The text consists of bytes or of integers of 1, 4 or 8 bytes; it can be stored with fewer bits per symbol with the
+  text classes of [compact-texts](https://github.com/LukasNalbach/compact-texts).
+- **ssszip** compresses files with an LZ77 factorization and a general-purpose postcompressor.
+
+## Contents
+
+- [Build](#build)
+- [Command-line tools](#command-line-tools)
+- [C++ usage](#c-usage)
+- [Tests](#tests)
+- [References](#references)
+- [License](#license)
+
+## Build
+
+Requirements: a C++23 compiler, CMake 3.21 or later, git and Intel TBB (`libtbb-dev`). Tested on Ubuntu 26.04 with
+GCC 15.2 and CMake 4.2.
 
 ```shell
 git clone https://github.com/LukasNalbach/lz77-sss.git
@@ -13,150 +32,44 @@ cmake ..
 make
 ```
 
-cmake applies the patches in patches/ to the lce submodule with git apply. The text classes (plain, packed and split) are in [compact-texts](https://github.com/LukasNalbach/compact-texts) (submodule external/compact-texts); the build settings, the logging and memory helpers and the libraries ips4o, libsais, malloc_count and googletest come from [string-utils](https://github.com/LukasNalbach/string-utils) (submodule external/string-utils), which also describes the environment variables (LZ77_SSS_HUGE_PAGES, ...).
+The command-line tools are written to `build/cli/`, the benchmark tools to `build/bench/` and the tests to
+`build/tests/`. `cmake` downloads the submodules [lce](https://github.com/LukasNalbach/lce) (with the patch in
+[patches/](patches/)), [compact-texts](https://github.com/LukasNalbach/compact-texts),
+[string-utils](https://github.com/LukasNalbach/string-utils) (build settings, logging, memory helpers, ips4o, libsais,
+malloc_count and googletest) and, for the benchmarks, [alz](https://github.com/pdinklag/alz).
 
-### CMake Options
-| Option | Default | Description |
-|---|---|---|
-| LZ77_SSS_BUILD_CLI | ON | build the CLI programs |
-| LZ77_SSS_BUILD_BENCH | OFF (not available on Windows) | build the benchmark programs and alz |
-| LZ77_SSS_BUILD_TESTS | ON | build the tests |
-| LZ77_SSS_USE_MALLOC_COUNT | ON | track memory usage via malloc_count (overrides malloc/free) |
-| LZ77_SSS_MARCH_NATIVE | ON | tune the build for the host CPU (-march=native); turn OFF for portable binaries |
-| LZ77_SSS_ENABLE_LTO | ON | enable link-time optimization for the executables |
-| LZ77_SSS_EXTERN_TEMPLATES | ON | compile the factorizer once for the plain, packed and split text instead of in every translation unit |
-| LZ77_SSS_LCE_DIR | external/lce | lce source directory |
+| Option | Description |
+| --- | --- |
+| `LZ77_SSS_BUILD_CLI` | build the command-line tools (`ON`) |
+| `LZ77_SSS_BUILD_BENCH` | build the benchmark tools and alz (`OFF`; not on Windows) |
+| `LZ77_SSS_BUILD_TESTS` | build the tests (`ON`) |
+| `LZ77_SSS_ENABLE_LTO` | link-time optimization of the executables (`ON`) |
+| `LZ77_SSS_LCE_DIR` | the directory of the lce sources (default: `external/lce`) |
 
-This creates the compression tools in `build/cli/`, the benchmark tools in `build/bench/` and the tests in
-`build/tests/`.
+The other options (`LZ77_SSS_MARCH_NATIVE`, `LZ77_SSS_USE_MALLOC_COUNT`, ...) and the environment variables are
+described in string-utils (with the prefix `LZ77_SSS`).
 
-## CLI Programs
-### Compression Tools
-- lz77-sss-3-aprx (LZ77 3-approximation)
-- lz77-sss-exact (LZ77 Exact Algorithm without interval sampling)
-- lz77-sss-exact-smpl (LZ77 Exact Algorithm with interval sampling)
-- lz77-sss-decode (decodes/reverts the factorization output by one of the above executables)
-- ssszip ((de-)compression tool with an interface that is similar to state-of-the-art compressors)
+## Command-line tools
 
-### Benchmark Tools
-- lz77-sss-bench (benchmarks all LZ77 algorithms)
-- lz77-sss-bench-tau (benchmarks the LZ77 3-approximation with different values for tau)
-- gen-range-queries (generates range query data for a given text)
-- bench-range-queries (benchmarks all range data structures using generated query data)
-- zip-bench (benchmarks alz, lz4, xz, 7zip, gzip, bzip2, zstd and bsc)
+The compression tools print their options with `-h` and take the number of threads with `-t`.
 
-### Test Executables
-- test-decomposed-range
-- test-dynamic-range
-- test-lz77-sss
-- test-rabin-karp-substring
-- test-sample-index
-- test-static-weighted-range
+- **lz77-sss-3-aprx**, **lz77-sss-exact**, **lz77-sss-exact-smpl**: write the 3-approximation or the exact
+  factorization of a file (the latter without or with interval sampling) to `<input_file>.lz77-aprx` or
+  `<input_file>.lz77-exact`. `-enc` selects how the text is stored in memory and `-fasta` stores the header lines of a
+  FASTA file separately. `lz77-sss-exact -t 8 text.txt`
+- **lz77-sss-decode**: writes the text of a factorization. `lz77-sss-decode text.txt.lz77-exact text.out`
+- **ssszip**: compresses a file into `<input_file>.ssszip.<postcompressor>` and decompresses it with `-d`. `-pc` selects
+  the postcompressor (default: [bsc](https://github.com/IlyaGrebnov/libbsc)), which has to be installed.
+  `ssszip -t 8 text.txt`
+- **lz77-sss-bench**, **lz77-sss-bench-tau**, **gen-range-queries**, **bench-range-queries**, **zip-bench** (in
+  `build/bench/`): measure the LZ77 algorithms, the 3-approximation for different tau, the range data structures, and
+  alz, lz4, xz, 7z, gzip, bzip2, zstd and bsc. With `-m <file>`, they append `RESULT key=value ...` lines to a file.
+  `lz77-sss-bench -m results.txt text.txt 16`
 
-## Compression Tool Interface
-```
-usage: lz77-sss-3-aprx [options] <input_file>
- -o <output_file>  output file (default: <input_file>.lz77-aprx)
- -t <threads>      number of threads (default: all)
- -enc <encoding>   how the text is kept in memory (default: auto):
-                   plain   one byte per character (fastest)
-                   packed  fewer bits per character for small alphabets
-                   split   fewer bits for frequent characters (slowest)
-                   auto    packed or split if that saves memory, else plain
- -fasta <mode>     handle the header lines of FASTA files separately from
-                   the sequences: on, off or auto (default: auto, on for
-                   FASTA files)
- -h                show help
-```
-The same interface is used by lz77-sss-exact and lz77-sss-exact-smpl; their default output
-file is <input_file>.lz77-exact. The exact algorithms additionally accept the following options:
-```
- -alg <algorithm>  exact algorithm (default: auto):
-                   sss     string synchronizing sets, for repetitive texts
-                   sa      suffix array, needs about 9 bytes per character
-                   auto    sa if it needs at most 25 % more memory than sss,
-                           else sss
- -r <range_ds>     range data structure (default: d-swsg):
-                   swsg    static weighted square grid
-                   swkdt   static weighted k-d tree
-                   sdsg    semi-dynamic square grid (single-threaded)
-                   d-...   one structure per character, e.g. d-swsg
-```
+## C++ usage
 
-The input text is scanned in parallel before the factorization to compute its character
-histogram, from which the default encoding is chosen as described for -enc.
+Add lz77-sss to a CMake project and link the target `lz77_sss`:
 
-## Decoding Tool Interface
-```
-usage: lz77-sss-decode [options] <input_file> <output_file>
- -ram          keep the whole output in memory while decoding (default: only
-               the last 64 MiB, older parts are read back from <output_file>)
- -t <threads>  number of threads (default: all)
- -h            show help
-```
-
-## ssszip Interface
-```
-usage: ssszip [options] <input_file>
- -d                    decompress <input_file> (*.ssszip.<postcompressor>)
- -ram                  keep the whole output in memory while decompressing
-                       (default: only the last 64 MiB)
- -o <base_name>        write <base_name>.ssszip.<postcompressor> (default:
-                       <input_file>); with -d: the output file (default:
-                       <input_file> without .ssszip.<postcompressor>)
- -t <threads>          number of threads (default: all)
- -pc <postcompressor>  postcompressor: bsc (default), zstd, xz, lzma, gzip,
-                       pigz, bzip2, pbzip2, lbzip2, brotli, lz4, lzop, lzip,
-                       plzip, bzip3, 7z
- -<quality>            post-compression quality, e.g. -9: higher gives smaller
-                       output but takes longer (range and default depend on
-                       the postcompressor); for bsc and bzip3 the block size
-                       in MB (bsc default: largest block that needs no more
-                       memory than the factorization, at most 2047)
- -enc <encoding>       how the text is kept in memory (default: auto):
-                       plain   one byte per character (fastest)
-                       packed  fewer bits per character for small alphabets
-                       split   fewer bits for frequent characters (slowest)
-                       auto    packed or split if that saves memory, else plain
- -fasta <mode>         store the header lines of FASTA files separately from
-                       the sequences: on, off or auto (default: auto, on for
-                       FASTA files)
- -q                    print nothing
- -v                    print progress and statistics (default)
- -m <m_file>           append results to <m_file>
- -h                    show help
-```
-
-## Benchmark Tool Interfaces
-```
-usage: lz77-sss-bench [-m <m_file>] <input_file> [<max_threads>]
- -m <m_file>    append results to <m_file>
- <max_threads>  largest thread count; the count doubles from 1 (default: all)
-
-usage: lz77-sss-bench-tau [-m <m_file>] <input_file> [<min_tau> <max_tau>]
- -m <m_file>  append results to <m_file>
- <min_tau>    smallest tau (default: 4, at least 4)
- <max_tau>    largest tau (default: 4096, at most 4096); every power of two
-              in between is run
-
-usage: gen-range-queries <input_file> <queries_file>
-
-usage: bench-range-queries [-m <m_file>] <input_file> <queries_file>
-                           [<min_win> <max_win>]
- -m <m_file>     append results to <m_file>
- <queries_file>  queries written by gen-range-queries for <input_file>
- <min_win>       log2 of the smallest square grid window (default: 11)
- <max_win>       log2 of the largest square grid window (default: 16)
-
-usage: zip-bench [-m <m_file>] <input_file> <min_threads> <max_threads>
- -m <m_file>    append results to <m_file>
- <min_threads>  smallest thread count for the multithreaded compressors
- <max_threads>  largest thread count; the count doubles from <min_threads>
-```
-With -m, each benchmark appends one `RESULT key=value ...` line per run to <m_file>.
-
-## Usage in C++
-### Cmake
 ```cmake
 set(CMAKE_CXX_STANDARD 23)
 set(LZ77_SSS_BUILD_CLI OFF CACHE BOOL "" FORCE)
@@ -165,7 +78,6 @@ add_subdirectory(lz77_sss/ EXCLUDE_FROM_ALL)
 target_link_libraries(<your_target> PRIVATE lz77_sss)
 ```
 
-### C++
 ```c++
 #include <lz77_sss/inst.hpp>
 #include <misc/repetitive_input.hpp>
@@ -205,20 +117,11 @@ int main()
 }
 ```
 
-### Integer Alphabets
-`factorize_approximate` and `factorize_exact` also accept a pointer to a signed or unsigned
-integer type of 1, 4 or 8 bytes. The suffix array path for exact factorizations
-may change the input while it runs, but restores it before it returns. A text can also be passed as
-one of these text types:
-
-| type                          | space per symbol                  |
-|-------------------------------|-----------------------------------|
-| `lz77_sss::int_direct_text`   | 4 bytes                           |
-| `lz77_sss::int64_direct_text` | 8 bytes                           |
-| `lz77_sss::int_packed_text`   | ⌈log2 sigma⌉ bits                 |
-| `lz77_sss::int_split_text`    | fewer bits for frequent symbols   |
-
-All values in the input must be smaller than `sigma`, if `sigma` is provided.
+`factorize_approximate` and `factorize_exact` also take a pointer to signed or unsigned integers of 1, 4 or 8 bytes, or
+one of the text types `lz77_sss::int_direct_text` (4 bytes per symbol), `lz77_sss::int64_direct_text` (8 bytes),
+`lz77_sss::int_packed_text` (ceil(log2 sigma) bits) and `lz77_sss::int_split_text` (fewer bits for frequent symbols).
+If `sigma` is given, all values have to be smaller than `sigma`. The exact factorization may change the input while it
+runs and restores it before it returns.
 
 ```c++
 #include <lz77_sss/inst.hpp>
@@ -241,9 +144,30 @@ int main()
 }
 ```
 
+## Tests
+
+```shell
+build/tests/test-lz77-sss
+```
+
+The other tests in `build/tests/` check the range data structures, the Rabin-Karp fingerprints and the sample index.
+They check random inputs: at most `LZ77_SSS_TEST_SECONDS` seconds (default 10) or `LZ77_SSS_TEST_ITERATIONS` inputs
+(default 1000) per function. A failed test prints its seed; `LZ77_SSS_TEST_SEED=<seed>` repeats its inputs.
+
 ## References
-[1] Jonas Ellert. Sublinear Time Lempel-Ziv (LZ77) Factorization. In String Processing and Information Retrieval (SPIRE) 2023, pages 171-187. ([springer.com](https://link.springer.com/chapter/10.1007/978-3-031-43980-3_14))
 
-[2] Dominik Kempa and Tomasz Kociumaka. String synchronizing sets: sublinear-time BWT construction and optimal LCE data structure. In Proceedings of the 51st Annual ACM SIGACT Symposium on Theory of Computing (STOC) 2019, pages 756-767. ([arxiv.org](https://arxiv.org/abs/1904.04228))
+[1] Jonas Ellert. Sublinear Time Lempel-Ziv (LZ77) Factorization. In String Processing and Information Retrieval
+(SPIRE) 2023, pages 171-187. ([springer.com](https://link.springer.com/chapter/10.1007/978-3-031-43980-3_14))
 
-[3] Jonas Ellert and Lukas Nalbach. Practical and Space-Efficient LZ77 and LZ Pre-Compression via String Synchronizing Sets. Accepted at the SIAM Symposium on Algorithm Engineering and Experiments (ALENEX) 2027. ([arxiv.org](https://arxiv.org/abs/2609.30193))
+[2] Dominik Kempa and Tomasz Kociumaka. String synchronizing sets: sublinear-time BWT construction and optimal LCE data
+structure. In Proceedings of the 51st Annual ACM SIGACT Symposium on Theory of Computing (STOC) 2019, pages 756-767.
+([arxiv.org](https://arxiv.org/abs/1904.04228))
+
+[3] Jonas Ellert and Lukas Nalbach. Practical and Space-Efficient LZ77 and LZ Pre-Compression via String Synchronizing
+Sets. Accepted at the SIAM Symposium on Algorithm Engineering and Experiments (ALENEX) 2027.
+([arxiv.org](https://arxiv.org/abs/2609.30193))
+
+## License
+
+This project is licensed under the MIT License, see [LICENSE](LICENSE). The submodules in [external/](external/) have
+their own licenses.
