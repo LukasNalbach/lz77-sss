@@ -603,7 +603,8 @@ protected:
                               << std::endl;
                 }
 
-                log_construction_summary(time_total, n, peak_bytes);
+                log_construction_summary(qual_mode == exact ? "LZ77 factorization" : "approximate LZ77 factorization",
+                    time_total, n, peak_bytes);
 
                 if (result_log::write_rows && result_log::out.is_open()) {
                     result_log::out
