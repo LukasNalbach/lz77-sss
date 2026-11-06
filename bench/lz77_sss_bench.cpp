@@ -136,7 +136,7 @@ int main(int argc, char** argv)
     };
 
     with_text_from_file(file_path, n, auto_encoding, aprx_factorization, fasta_off, headers,
-        4 * lz77_sss::default_tau, omp_get_max_threads(), true, [&](auto T) {
+        omp_get_max_threads(), true, [&](auto T) {
         open_result_log();
         std::cout << std::endl << "running LZ77 SSS 3-approximation:" << std::endl;
         run_sss_approximate(T, lz77_sss::auto_gaps, "fact_sss_aprx", max_threads);
@@ -147,7 +147,7 @@ int main(int argc, char** argv)
     std::cout << std::endl;
 
     with_text_from_file(file_path, n, auto_encoding, exact_factorization, fasta_off, headers,
-        4 * lz77_sss::default_tau, omp_get_max_threads(), true, [&](auto T) {
+        omp_get_max_threads(), true, [&](auto T) {
         open_result_log();
         std::cout << std::endl << "running LZ77 SSS exact algorithm (without interval samples):" << std::endl;
         run_sss_exact(T, lz77_sss::auto_gaps, lz77_sss::without_interval_samples,
@@ -164,7 +164,7 @@ int main(int argc, char** argv)
     auto t0 = now();
     std::cout << std::endl << "reading input for the reference algorithms ("
         << format_size(n) << ")" << std::flush;
-    resize_with_zero_excess(T, n, 4 * lz77_sss::default_tau);
+    resize_no_init(T, n);
     direct_ifstream reference_file(file_path);
     read_fully(reference_file, T.data(), n);
     reference_file.close();

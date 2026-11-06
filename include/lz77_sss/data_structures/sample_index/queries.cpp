@@ -32,7 +32,7 @@ template <typename text_t, typename lce_r_t, typename array_t>
 template <direction dir>
 inline std::pair<typename sample_index<text_t, lce_r_t, array_t>::interval_t, bool>
 sample_index<text_t, lce_r_t, array_t>::xa_interval(
-    uint64_t patt_len_idx, uint64_t pos_patt, std::size_t hash) const
+    uint64_t patt_len_idx, uint64_t pos_patt, uint64_t hash) const
 {
     if constexpr (byte_text) {
         if (patt_len_idx == 0) {
@@ -56,7 +56,7 @@ sample_index<text_t, lce_r_t, array_t>::xa_interval(
         if (!is_pos_in_T<dir>(pos_patt, patt_len - 1)) [[unlikely]] return { { 0, 0 }, false };
     }
 
-    if (hash == std::numeric_limits<std::size_t>::max()) {
+    if (hash == std::numeric_limits<uint64_t>::max()) {
         hash = RKS.template substr_fp<dir>(pos_patt, patt_len);
     }
 
@@ -98,7 +98,7 @@ bool sample_index<text_t, lce_r_t, array_t>::extend(
 
     uint64_t patt_len_idx = 0;
     uint64_t smpl_len;
-    std::size_t fp_smpl = std::numeric_limits<std::size_t>::max();
+    uint64_t fp_smpl = std::numeric_limits<uint64_t>::max();
 
     if (use_interval_samples) {
         patt_len_idx = bin_search_max_leq<uint64_t, uint64_t>(
@@ -148,10 +148,10 @@ bool sample_index<text_t, lce_r_t, array_t>::extend(
     ) {
         uint64_t nxt_smpl_len = sampled_pattern_lengths<dir>()[patt_len_idx + 1];
         uint64_t len_diff = nxt_smpl_len - smpl_len;
-        std::size_t fp_nxt_smpl = std::numeric_limits<std::size_t>::max();
+        uint64_t fp_nxt_smpl = std::numeric_limits<uint64_t>::max();
 
         if (patt_len_idx + 1 >= first_hashed_len_idx) {
-            if (fp_smpl == std::numeric_limits<std::size_t>::max()) {
+            if (fp_smpl == std::numeric_limits<uint64_t>::max()) {
                 fp_nxt_smpl = RKS.template substr_fp<dir>(pos_patt, nxt_smpl_len);
             } else if constexpr (dir == LEFT) {
                 fp_nxt_smpl = RKS.concat(

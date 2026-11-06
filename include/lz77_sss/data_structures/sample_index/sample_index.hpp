@@ -283,18 +283,18 @@ public:
     template <direction dir>
     inline std::pair<interval_t, bool> xa_interval(
         uint64_t patt_len_idx, uint64_t pos_patt,
-        std::size_t hash = std::numeric_limits<std::size_t>::max()) const;
+        uint64_t hash = std::numeric_limits<uint64_t>::max()) const;
 
     inline std::pair<interval_t, bool> pa_interval(
         uint64_t patt_len_idx, uint64_t pos_patt,
-        std::size_t hash = std::numeric_limits<std::size_t>::max()) const
+        uint64_t hash = std::numeric_limits<uint64_t>::max()) const
     {
         return xa_interval<LEFT>(patt_len_idx, pos_patt, hash);
     }
 
     inline std::pair<interval_t, bool> sa_interval(
         uint64_t patt_len_idx, uint64_t pos_patt,
-        std::size_t hash = std::numeric_limits<std::size_t>::max()) const
+        uint64_t hash = std::numeric_limits<uint64_t>::max()) const
     {
         return xa_interval<RIGHT>(patt_len_idx, pos_patt, hash);
     }

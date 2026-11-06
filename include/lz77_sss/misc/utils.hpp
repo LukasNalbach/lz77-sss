@@ -95,6 +95,8 @@ inline void cpu_relax()
 {
     #if defined(__x86_64__) || defined(_M_X64)
     _mm_pause();
+    #elif defined(__aarch64__)
+    __asm__ __volatile__("isb sy");
     #else
     std::this_thread::yield();
     #endif
@@ -113,8 +115,8 @@ inline void spin_until(pred_t done)
 }
 
 class spin_barrier {
-    alignas(64) std::atomic<uint64_t> count = 0;
-    alignas(64) std::atomic<uint64_t> generation = 0;
+    alignas(cache_line_bytes) std::atomic<uint64_t> count = 0;
+    alignas(cache_line_bytes) std::atomic<uint64_t> generation = 0;
     uint64_t num = 0;
 
 public:
@@ -169,15 +171,6 @@ inline char_t unsigned_to_char(uint_t c)
     static_assert(std::numeric_limits<uint_t>::min() == 0);
     static_assert(sizeof(char_t) == 1);
     return std::bit_cast<char_t>(static_cast<uint8_t>(c));
-}
-
-// resizes str to size (new characters are set to 0) and sets the excess characters behind it, which str reserves, to 0
-inline void resize_with_zero_excess(std::string& str, size_t size, size_t excess)
-{
-    str.reserve(size + excess);
-    str.resize(size + excess);
-    std::fill(str.end() - excess, str.end(), 0);
-    str.resize(size);
 }
 
 inline std::string random_alphanumeric_string(uint64_t length)

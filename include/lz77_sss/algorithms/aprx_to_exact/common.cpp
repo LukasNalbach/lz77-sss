@@ -320,7 +320,7 @@ lz77_sss::factor lz77_sss::factorizer<text_t>::exact_transformer::aprx_factor_at
     uint64_t sect = bin_search_max_leq<uint64_t, uint64_t>(
         i, 0, num_par_sect - 1, [&](uint64_t x) { return par_sect[x].beg; });
     uint64_t pos = par_sect[sect].beg;
-    direct_ifstream aprx_ifile(aprx_file_name, 64 * 1024);
+    direct_ifstream aprx_ifile(aprx_file_name, uint64_t { 64 * 1024 });
     aprx_ifile.seekg(par_sect[sect].first_aprx * (src_bytes + len_bytes), std::ios::beg);
     factor f;
     f.read(aprx_ifile, src_bytes, len_bytes);

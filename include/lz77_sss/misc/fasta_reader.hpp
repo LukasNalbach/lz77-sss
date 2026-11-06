@@ -68,12 +68,9 @@ struct fasta_headers {
     uint64_t text_begin(uint64_t k) const { return k == 0 ? 0 : text_end[k - 1]; }
     std::string_view line(uint64_t k) const { return std::string_view(text.data() + text_begin(k), text_end[k] - text_begin(k)); }
 
-    void finish(uint64_t excess)
+    void finish()
     {
-        std::string padded;
-        resize_with_zero_excess(padded, text.size(), excess);
-        std::memcpy(padded.data(), text.data(), text.size());
-        text = std::move(padded);
+        text.shrink_to_fit();
         seq_pos.shrink_to_fit();
         text_end.shrink_to_fit();
     }
@@ -200,7 +197,7 @@ inline std::optional<fasta_layout> scan_fasta(const std::string& path, uint64_t 
     for (uint64_t b = 0; b < num_blocks; b++) {
         const uint16_t t = omp_get_thread_num();
         const uint64_t len = std::min<uint64_t>(block_size, file_size - b * block_size);
-        if (!buffers[t].allocated()) buffers[t] = aligned_text_buffer(std::min<uint64_t>(block_size, file_size), 0);
+        if (!buffers[t].allocated()) buffers[t] = aligned_text_buffer(std::min<uint64_t>(block_size, file_size));
         char* buf = buffers[t].data();
         const bool skip = exceeded.load(std::memory_order_relaxed);
         if (!skip) reader.read(buf, len, b * block_size, t);
@@ -247,7 +244,7 @@ inline void read_fasta_sequence(const std::string& path, uint64_t file_size, con
     for (uint64_t b = 0; b < num_blocks; b++) {
         const uint16_t t = omp_get_thread_num();
         const uint64_t len = std::min<uint64_t>(layout.block_size, file_size - b * layout.block_size);
-        if (!buffers[t].allocated()) buffers[t] = aligned_text_buffer(std::min<uint64_t>(layout.block_size, file_size), 0);
+        if (!buffers[t].allocated()) buffers[t] = aligned_text_buffer(std::min<uint64_t>(layout.block_size, file_size));
         char* buf = buffers[t].data();
         reader.read(buf, len, b * layout.block_size, t);
         fasta_filter filter(nullptr, layout.start_state[b]);

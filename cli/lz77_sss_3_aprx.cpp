@@ -57,7 +57,7 @@ int main(int argc, char** argv)
     std::cout << "output: " << options.output_file_path << std::endl;
 
     with_text_from_file(options.input_file_path, n, options.encoding, aprx_factorization, options.fasta, headers,
-        4 * lz77_sss::default_tau, options.num_threads, true, [&](auto T) {
+        options.num_threads, true, [&](auto T) {
         huff_factor_writer writer(output_file, n);
         auto sink = [&](auto f) { writer.add(f); };
         lz77_sss::parameters params { .num_threads = options.num_threads, .fact_mode = lz77_sss::auto_gaps };

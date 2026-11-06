@@ -41,13 +41,27 @@ malloc_count and googletest) and, for the benchmarks, [alz](https://github.com/p
 | Option | Description |
 | --- | --- |
 | `LZ77_SSS_BUILD_CLI` | build the command-line tools (`ON`) |
-| `LZ77_SSS_BUILD_BENCH` | build the benchmark tools and alz (`OFF`; not on Windows) |
+| `LZ77_SSS_BUILD_BENCH` | build the benchmark tools and alz (`OFF`; only on Linux) |
 | `LZ77_SSS_BUILD_TESTS` | build the tests (`ON`) |
 | `LZ77_SSS_ENABLE_LTO` | link-time optimization of the executables (`ON`) |
 | `LZ77_SSS_LCE_DIR` | the directory of the lce sources (default: `external/lce`) |
 
 The other options (`LZ77_SSS_MARCH_NATIVE`, `LZ77_SSS_USE_MALLOC_COUNT`, ...) and the environment variables are
 described in string-utils (with the prefix `LZ77_SSS`).
+
+### macOS
+
+Apple Clang has no OpenMP runtime; install LLVM's `libomp` and the build tools with [Homebrew](https://brew.sh) (the
+compiler comes with Xcode or the Command Line Tools, `xcode-select --install`):
+
+```shell
+brew install cmake ninja libomp
+```
+
+Then build as above. TBB is not needed on macOS, and the benchmark tools are only built on Linux. CMake finds `libomp`
+in Homebrew or MacPorts, or in the prefix given with `-DOpenMP_ROOT=<prefix>`; see
+[string-utils](https://github.com/LukasNalbach/string-utils#macos) for the details and the differences from Linux.
+Tested on Apple silicon with Apple Clang 21 (macOS 26).
 
 ## Command-line tools
 
@@ -88,8 +102,6 @@ int main()
     std::mt19937_64 random(std::random_device {}());
     std::string input = generate_repetitive_input<std::string>(
         random_repetitive_params(1'000'000, random));
-    // the algorithms read up to 4 tau bytes after the input
-    resize_with_zero_excess(input, input.size(), 4 * lz77_sss::default_tau);
     std::cout << "input length: " << input.size() << std::endl;
 
     // compute an approximate LZ77 factorization

@@ -58,8 +58,7 @@ void lz77_sss::decode(fact_it_t fact_it, out_it_t out_it, uint64_t output_size)
 }
 
 template <typename int_t>
-lz77_sss::int_text_t<int_t> lz77_sss::int_text(int_t* input, uint64_t input_size, uint16_t p)
-    requires(is_int_input_v<int_t>)
+lz77_sss::int_text_t<int_t> lz77_sss::int_text(int_t* input, uint64_t input_size, uint16_t p) requires(is_int_input_v<int_t>)
 {
     using sym_t = int_symbol_t<int_t>;
     sym_t* symbols = reinterpret_cast<sym_t*>(input);
@@ -78,15 +77,13 @@ lz77_sss::int_text_t<int_t> lz77_sss::int_text(int_t* input, uint64_t input_size
 }
 
 template <typename int_t, typename output_fnc_t>
-void lz77_sss::factorize_approximate(int_t* input, uint64_t input_size, output_fnc_t output, parameters params)
-    requires(is_int_input_v<int_t>)
+void lz77_sss::factorize_approximate(int_t* input, uint64_t input_size, output_fnc_t output, parameters params) requires(is_int_input_v<int_t>)
 {
     factorize_approximate(int_text(input, input_size, params.num_threads), output, params);
 }
 
 template <typename int_t, typename output_fnc_t>
-void lz77_sss::factorize_exact(int_t* input, uint64_t input_size, output_fnc_t output, parameters params)
-    requires(is_int_input_v<int_t>)
+void lz77_sss::factorize_exact(int_t* input, uint64_t input_size, output_fnc_t output, parameters params) requires(is_int_input_v<int_t>)
 {
     factorize_exact(int_text(input, input_size, params.num_threads), output, params);
 }

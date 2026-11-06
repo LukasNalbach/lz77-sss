@@ -1019,7 +1019,12 @@ postcompressor_command decompress_command()
 void run_postcompressor(const postcompressor_command& pc, const std::string& feed_path, bool pin_cpus, const std::string& phase)
 {
     std::string command;
+#ifdef __APPLE__
+    // /usr/bin/time of macOS has -l instead of -v
+    if (std::filesystem::exists("/usr/bin/time")) command += "/usr/bin/time -l -o " + quote(log_file_path) + " ";
+#else
     if (std::filesystem::exists("/usr/bin/time")) command += "/usr/bin/time -v -o " + quote(log_file_path) + " ";
+#endif
     if (pin_cpus && binary_installed("taskset")) command += "taskset -c " + cpu_list() + " ";
     command += pc.command;
     if (pc.progress != progress_source::tool_stderr) command += " 2> " + quote(err_file_path);
@@ -1099,11 +1104,21 @@ uint64_t child_peak_rss_kib()
     resize_no_init(log_file_str, log_file_length);
     log_file.read(log_file_str.data(), log_file_length);
     log_file.close();
+#ifdef __APPLE__
+    // /usr/bin/time -l of macOS: "<bytes>  maximum resident set size"
+    std::string str_to_find = "maximum resident set size";
+    uint64_t end = log_file_str.find(str_to_find);
+    if (end == std::string::npos) return 0;
+    uint64_t beg = log_file_str.rfind('\n', end);
+    beg = beg == std::string::npos ? 0 : beg + 1;
+    return std::strtoull(log_file_str.substr(beg, end - beg).c_str(), nullptr, 10) / 1024;
+#else
     std::string str_to_find = "Maximum resident set size (kbytes): ";
     if (log_file_str.find(str_to_find) == std::string::npos) return 0;
     uint64_t beg = log_file_str.find(str_to_find) + str_to_find.length();
     uint64_t len = log_file_str.find("\n", beg) - beg;
     return atol(log_file_str.substr(beg, len).c_str());
+#endif
 }
 
 void compress()
@@ -1132,7 +1147,7 @@ void compress()
     uint64_t time_read = 0;
 
     with_text_from_file(input_file_path, bytes_input, encoding, aprx_factorization, fasta, headers,
-        4 * lz77_sss::default_tau, num_threads, !quiet, [&](auto T) {
+        num_threads, !quiet, [&](auto T) {
         time_read = time_diff_ns(time_start, now());
 
         if (result_log::path != "") {
@@ -1520,7 +1535,7 @@ void decode_gapped()
 
     uint64_t time_total = time_diff_ns(time_start, now());
     uint64_t postcompressor_peak = child_peak_rss_kib() * 1024;
-    uint64_t memory_peak = std::max(postcompressor_peak, malloc_count_peak());
+    uint64_t memory_peak = std::max<uint64_t>(postcompressor_peak, malloc_count_peak());
     double compression_ratio = bytes_input / (double) bytes_compressed;
 
     if (!quiet) {

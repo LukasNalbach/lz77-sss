@@ -95,7 +95,7 @@ void test_roundtrip(std::string input, const std::function<void(std::string&, co
 std::string random_fasta_input(uint64_t max_size) {
     std::uniform_real_distribution<double> prob(0.0, 1.0);
     const bool full_alphabet = prob(gen) < 0.5;
-    const std::string src = random_input<std::string>(1, max_size,
+    const std::string src = random_repetitive_input<std::string>(1, max_size,
         full_alphabet ? std::numeric_limits<char>::min() : 'A',
         full_alphabet ? std::numeric_limits<char>::max() : 'Z');
     const double header_rate = prob(gen);
@@ -134,7 +134,7 @@ void test_fasta_roundtrip(const std::string& input) {
     };
 
     with_text_from_file(path, input.size(), encoding, exact ? exact_factorization : aprx_factorization, mode, headers,
-        4 * lz77_sss::default_tau, num_threads, false, [&](auto T) {
+        num_threads, false, [&](auto T) {
         fasta_interleaver interleaver(std::move(headers), sink, [&](char* text, uint64_t size, auto out) {
             factorize(lz77_sss::direct_text(text, size), out);
         });
@@ -202,7 +202,7 @@ int_input<int_t> random_int_input(uint64_t max_size) {
         uint64_t { 1 } << std::min<uint64_t>(20, max_bits)), gen);
     int_input<int_t> result;
     std::vector<uint32_t>& ranks = result.ranks;
-    ranks = random_input<std::vector<uint32_t>>(n, n, uint32_t(0), uint32_t(sigma - 1));
+    ranks = random_repetitive_input<std::vector<uint32_t>>(n, n, uint32_t(0), uint32_t(sigma - 1));
     std::uniform_real_distribution<double> prob(0.0, 1.0);
 
     if (prob(gen) < 0.5) {
@@ -316,43 +316,43 @@ lz77_sss::parameters random_exact_params(lz77_sss::transform_mode transf_mode) {
 
 TEST(test_lz77_sss, approximate) {
     run_fuzz("lz77-sss", {
-        { "approximate", [](uint64_t) { test_roundtrip(random_input<std::string>(1, 500000), run_approximate); }, false },
+        { "approximate", [](uint64_t) { test_roundtrip(random_repetitive_input<std::string>(1, 500000), run_approximate); }, false },
     }, fuzz_iterations(1500));
 }
 
 TEST(test_lz77_sss, approximate_exact_gaps) {
     run_fuzz("lz77-sss", {
-        { "approximate-exact-gaps", [](uint64_t) { test_roundtrip(random_input<std::string>(1, 500000), run_approximate_exact_gaps); }, false },
+        { "approximate-exact-gaps", [](uint64_t) { test_roundtrip(random_repetitive_input<std::string>(1, 500000), run_approximate_exact_gaps); }, false },
     }, fuzz_iterations(1500));
 }
 
 TEST(test_lz77_sss, exact_with_interval_samples) {
     run_fuzz("lz77-sss", {
-        { "exact-with-interval-samples", [](uint64_t) { test_roundtrip(random_input<std::string>(1, 100000), run_exact_with_interval_samples, true); }, false },
+        { "exact-with-interval-samples", [](uint64_t) { test_roundtrip(random_repetitive_input<std::string>(1, 100000), run_exact_with_interval_samples, true); }, false },
     }, fuzz_iterations(1000));
 }
 
 TEST(test_lz77_sss, exact_without_interval_samples) {
     run_fuzz("lz77-sss", {
-        { "exact-without-interval-samples", [](uint64_t) { test_roundtrip(random_input<std::string>(1, 100000), run_exact_without_interval_samples, true); }, false },
+        { "exact-without-interval-samples", [](uint64_t) { test_roundtrip(random_repetitive_input<std::string>(1, 100000), run_exact_without_interval_samples, true); }, false },
     }, fuzz_iterations(1000));
 }
 
 TEST(test_lz77_sss, exact_sa) {
     run_fuzz("lz77-sss", {
-        { "exact-sa", [](uint64_t) { test_roundtrip(random_input<std::string>(1, 100000), run_exact_sa, true); }, false },
+        { "exact-sa", [](uint64_t) { test_roundtrip(random_repetitive_input<std::string>(1, 100000), run_exact_sa, true); }, false },
     }, fuzz_iterations(1500));
 }
 
 TEST(test_lz77_sss, exact_auto) {
     run_fuzz("lz77-sss", {
-        { "exact-auto", [](uint64_t) { test_roundtrip(random_input<std::string>(1, 100000), run_exact_auto, true); }, false },
+        { "exact-auto", [](uint64_t) { test_roundtrip(random_repetitive_input<std::string>(1, 100000), run_exact_auto, true); }, false },
     }, fuzz_iterations(1000));
 }
 
 TEST(test_lz77_sss, file_decoder) {
     run_fuzz("lz77-sss", {
-        { "file-decoder", [](uint64_t) { test_file_decoder(random_input<std::string>(1, 200000)); }, false },
+        { "file-decoder", [](uint64_t) { test_file_decoder(random_repetitive_input<std::string>(1, 200000)); }, false },
     }, fuzz_iterations(1000));
 }
 

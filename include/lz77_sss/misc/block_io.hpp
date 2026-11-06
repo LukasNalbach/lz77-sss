@@ -42,9 +42,9 @@ class aligned_text_buffer {
 public:
     aligned_text_buffer() = default;
 
-    aligned_text_buffer(uint64_t size, uint64_t excess)
+    explicit aligned_text_buffer(uint64_t size)
         : len(size)
-        , capacity(((size + excess + direct_io_alignment - 1) / direct_io_alignment) * direct_io_alignment)
+        , capacity(((size + direct_io_alignment - 1) / direct_io_alignment) * direct_io_alignment)
     {
         ptr = static_cast<char*>(::operator new[](capacity, std::align_val_t(direct_io_alignment)));
         advise_huge_pages(ptr, capacity);
@@ -94,7 +94,7 @@ public:
         streams.resize(std::max<uint16_t>(1, p));
         ok = std::ifstream(file_path, std::ios::binary).good();
         #else
-        fd_direct = ::open(file_path.c_str(), O_RDONLY | O_DIRECT);
+        fd_direct = open_o_direct(file_path, O_RDONLY);
         fd_plain = ::open(file_path.c_str(), O_RDONLY);
         ok = fd_plain >= 0;
         #endif
@@ -232,7 +232,7 @@ inline bool read_file_parallel(const std::string& path, uint64_t file_size, char
         const uint16_t t = omp_get_thread_num();
         const uint64_t off = b * block_size;
         const uint64_t len = std::min<uint64_t>(block_size, file_size - off);
-        if (into == nullptr && !scratch[t].allocated()) scratch[t] = aligned_text_buffer(std::min<uint64_t>(block_size, file_size), 0);
+        if (into == nullptr && !scratch[t].allocated()) scratch[t] = aligned_text_buffer(std::min<uint64_t>(block_size, file_size));
         char* buf = into == nullptr ? scratch[t].data() : into + off;
 
         if (!reader.read(buf, len, off, t)) {
