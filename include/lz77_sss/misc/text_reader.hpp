@@ -207,7 +207,7 @@ inline text_encoding estimate_auto_encoding(const std::string& path, uint64_t fi
 template <typename fnc_t>
 inline void with_text_from_file(const std::string& path, uint64_t file_size, text_encoding encoding,
     factorization_kind kind,
-    fasta_mode fasta, fasta_headers& headers, uint64_t excess, uint16_t p, bool log, fnc_t use,
+    fasta_mode fasta, fasta_headers& headers, uint16_t p, bool log, fnc_t use,
     char_histogram* text_histogram = nullptr)
 {
     auto time = now();
@@ -253,7 +253,7 @@ inline void with_text_from_file(const std::string& path, uint64_t file_size, tex
 
     if (scan_reads_text) {
         encoding = plain_encoding;
-        data = aligned_text_buffer(text_size, excess);
+        data = aligned_text_buffer(text_size);
         std::vector<char_histogram> partial(p, char_histogram { });
 
         read_file_parallel(path, text_size, data.data(), p,
@@ -281,7 +281,7 @@ inline void with_text_from_file(const std::string& path, uint64_t file_size, tex
 
     if (text_histogram != nullptr) *text_histogram = histogram;
     const uint64_t sigma = alphabet_size(histogram);
-    if (headers.active) headers.finish(excess);
+    if (headers.active) headers.finish();
 
     if (log) {
         record_phase_time("scan_text", time_diff_ns(time, now()));
@@ -322,7 +322,7 @@ inline void with_text_from_file(const std::string& path, uint64_t file_size, tex
     } else {
         if (!data.allocated()) {
             if (log) std::cout << "reading" << std::flush;
-            data = aligned_text_buffer(text_size, excess);
+            data = aligned_text_buffer(text_size);
 
             if (layout) {
                 read_fasta_sequence(path, file_size, *layout, p, [&](const char* block, uint64_t len, uint64_t pos, uint16_t) {

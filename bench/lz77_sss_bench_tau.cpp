@@ -73,7 +73,7 @@ int main(int argc, char** argv)
     fasta_headers headers;
 
     with_text_from_file(file_path, n, auto_encoding, aprx_factorization, fasta_off, headers,
-        4 * max_tau, omp_get_max_threads(), true, [&](auto T) {
+        omp_get_max_threads(), true, [&](auto T) {
         if (result_log::path != "") {
             result_log::out.open(result_log::path, std::ofstream::app);
             result_log::write_rows = true;

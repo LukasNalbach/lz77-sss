@@ -77,6 +77,9 @@ public:
         bool log_factor_count = true;
     };
 
+    // returns parameters { } (Clang rejects { } as a default argument of the member functions below)
+    static parameters default_parameters() { return { }; }
+
     static constexpr uint64_t       max_input_size                      = uint40_t::max;
 
     static constexpr factorize_mode default_fact_mode                   = auto_gaps;
@@ -236,7 +239,7 @@ public:
     using int_split_text = compact_texts::split_text<uint32_t>;
 
     template <typename text_t, typename output_fnc_t>
-    static void factorize_approximate(text_t text, output_fnc_t output, parameters params = { })
+    static void factorize_approximate(text_t text, output_fnc_t output, parameters params = default_parameters())
     {
         factor_sink sink(output);
         factorizer<text_t>(text, params).factorize(approximate, sink);
@@ -244,7 +247,7 @@ public:
     }
 
     template <typename text_t, typename output_fnc_t>
-    static void factorize_exact(text_t text, output_fnc_t output, parameters params = { })
+    static void factorize_exact(text_t text, output_fnc_t output, parameters params = default_parameters())
     {
         factor_sink sink(output);
         factorizer<text_t>(text, params).factorize(exact, sink);
@@ -252,7 +255,7 @@ public:
     }
 
     template <typename text_t, typename gapped_fnc_t>
-    static void factorize_gapped(text_t text, gapped_fnc_t fnc, parameters params = { })
+    static void factorize_gapped(text_t text, gapped_fnc_t fnc, parameters params = default_parameters())
     {
         params.fact_mode = skip_gaps;
         factorizer<text_t> impl(text, params);
@@ -262,13 +265,15 @@ public:
     }
 
     template <typename output_fnc_t>
-    static void factorize_approximate(char* input, uint64_t input_size, output_fnc_t output, parameters params = { })
+    static void factorize_approximate(char* input, uint64_t input_size, output_fnc_t output,
+        parameters params = default_parameters())
     {
         factorize_approximate(direct_text(input, input_size), output, params);
     }
 
     template <typename output_fnc_t>
-    static void factorize_exact(char* input, uint64_t input_size, output_fnc_t output, parameters params = { })
+    static void factorize_exact(char* input, uint64_t input_size, output_fnc_t output,
+        parameters params = default_parameters())
     {
         factorize_exact(direct_text(input, input_size), output, params);
     }
@@ -286,16 +291,15 @@ public:
     using int_text_t = compact_texts::direct_text<int_symbol_t<int_t>>;
 
     template <typename int_t, typename output_fnc_t>
-    static void factorize_approximate(int_t* input, uint64_t input_size, output_fnc_t output, parameters params = { })
-        requires(is_int_input_v<int_t>);
+    static void factorize_approximate(int_t* input, uint64_t input_size, output_fnc_t output,
+        parameters params = default_parameters()) requires(is_int_input_v<int_t>);
 
     template <typename int_t, typename output_fnc_t>
-    static void factorize_exact(int_t* input, uint64_t input_size, output_fnc_t output, parameters params = { })
-        requires(is_int_input_v<int_t>);
+    static void factorize_exact(int_t* input, uint64_t input_size, output_fnc_t output,
+        parameters params = default_parameters()) requires(is_int_input_v<int_t>);
 
     template <typename int_t>
-    static int_text_t<int_t> int_text(int_t* input, uint64_t input_size, uint16_t p = 0)
-        requires(is_int_input_v<int_t>);
+    static int_text_t<int_t> int_text(int_t* input, uint64_t input_size, uint16_t p = 0) requires(is_int_input_v<int_t>);
     
     template <std::input_iterator fact_it_t, typename out_it_t>
     static void decode(fact_it_t fact_it, out_it_t out_it, uint64_t output_size);
@@ -433,7 +437,6 @@ protected:
         std::vector<lpf_array> LPF;
         std::array<uint64_t, num_patt_lens> patt_lens;
         rh_idx_t rh_idx;
-
 
         struct lpf_cursor_t {
             uint64_t chunk;

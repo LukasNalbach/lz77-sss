@@ -249,7 +249,7 @@ int main(int argc, char** argv)
     n = std::filesystem::file_size(file_path);
     auto t0 = now();
     std::cout << "reading input (" << format_size(n) << ")" << std::flush;
-    resize_with_zero_excess(T, n, 4 * 4096);
+    resize_no_init(T, n);
     read_fully(input_file, T.data(), n);
     input_file.close();
     log_runtime(t0);

@@ -40,7 +40,7 @@ thread_local std::uniform_int_distribution<uint64_t> sample_rate_distrib(1, 1000
 template <uint8_t mers_exp>
 void test_roll()
 {
-    std::string input = random_input<std::string>(1, 30000);
+    std::string input = random_repetitive_input<std::string>(1, 30000);
     uint16_t num_threads = std::uniform_int_distribution<uint16_t>(1, omp_get_max_threads())(gen);
     uint64_t window = std::min<uint64_t>(window_distrib(gen), input.size());
     rabin_karp_substring<mers_exp> rks(input.data(), input.size(), sample_rate_distrib(gen), window, num_threads);
@@ -61,7 +61,7 @@ void test_roll()
 template <uint8_t mers_exp>
 void test_concat()
 {
-    std::string input = random_input<std::string>(1, 30000);
+    std::string input = random_repetitive_input<std::string>(1, 30000);
     uint16_t num_threads = std::uniform_int_distribution<uint16_t>(1, omp_get_max_threads())(gen);
     uint64_t window = std::min<uint64_t>(window_distrib(gen), input.size());
     rabin_karp_substring<mers_exp> rks(input.data(), input.size(), sample_rate_distrib(gen), window, num_threads);
@@ -82,7 +82,7 @@ void test_concat()
 template <uint8_t mers_exp>
 void test_substring()
 {
-    std::string input = random_input<std::string>(1, 30000);
+    std::string input = random_repetitive_input<std::string>(1, 30000);
     uint16_t num_threads = std::uniform_int_distribution<uint16_t>(1, omp_get_max_threads())(gen);
     uint64_t window = std::min<uint64_t>(window_distrib(gen), input.size());
     rabin_karp_substring<mers_exp> rks(input.data(), input.size(), sample_rate_distrib(gen), window, num_threads);
@@ -122,7 +122,7 @@ void check_substr_fps(const rks_t& rks, uint64_t n)
 template <uint8_t mers_exp>
 void test_substrings()
 {
-    std::string input = random_input<std::string>(1, 30000);
+    std::string input = random_repetitive_input<std::string>(1, 30000);
     uint16_t num_threads = std::uniform_int_distribution<uint16_t>(1, omp_get_max_threads())(gen);
     uint64_t sample_rate = random_log_uniform_size(1, 10000, gen);
 
@@ -144,7 +144,7 @@ template <typename fnc_t>
 void with_random_int_text(fnc_t fnc)
 {
     const uint32_t sigma = random_log_uniform_size(1, uint64_t { 1 } << 16, gen);
-    std::vector<uint32_t> input = random_input<std::vector<uint32_t>>(1, 10000, uint32_t(0), uint32_t(sigma - 1));
+    std::vector<uint32_t> input = random_repetitive_input<std::vector<uint32_t>>(1, 10000, uint32_t(0), uint32_t(sigma - 1));
     uint16_t num_threads = std::uniform_int_distribution<uint16_t>(1, omp_get_max_threads())(gen);
 
     switch (std::uniform_int_distribution<int>(0, 2)(gen)) {

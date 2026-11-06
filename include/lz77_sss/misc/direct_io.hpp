@@ -42,7 +42,13 @@
 
 #include <lz77_sss/misc/utils.hpp>
 
+// alignment of the buffers, offsets and lengths of unbuffered I/O; on macOS one page of Apple silicon, since F_NOCACHE
+// reads and writes smaller or unaligned ranges through the page cache
+#ifdef __APPLE__
+inline constexpr uint64_t direct_io_alignment = 16 * 1024;
+#else
 inline constexpr uint64_t direct_io_alignment = 4096;
+#endif
 inline constexpr uint64_t bulk_io_size = 16 * 1024 * 1024;
 
 #ifdef _WIN32
@@ -86,19 +92,56 @@ public:
 #include <fcntl.h>
 #include <unistd.h>
 
+// opens a file with O_DIRECT (macOS has no O_DIRECT: without the page cache, F_NOCACHE); returns -1 on failure
+inline int open_o_direct(const std::string& path, int flags, mode_t mode = 0644)
+{
+#ifdef __APPLE__
+    const int fd = ::open(path.c_str(), flags, mode);
+
+    if (fd >= 0 && fcntl(fd, F_NOCACHE, 1) != 0) {
+        ::close(fd);
+        return -1;
+    }
+
+    return fd;
+#else
+    return ::open(path.c_str(), flags | O_DIRECT, mode);
+#endif
+}
+
+// starts the writeback of a range of a file (macOS has no sync_file_range)
+inline void start_writeback(int fd, uint64_t off, uint64_t len)
+{
+#ifndef __APPLE__
+    sync_file_range(fd, off_t(off), off_t(len), SYNC_FILE_RANGE_WRITE);
+#endif
+}
+
+// drops a range of a file from the page cache (macOS has no posix_fadvise)
+inline void drop_cached(int fd, uint64_t off, uint64_t len)
+{
+#ifndef __APPLE__
+    posix_fadvise(fd, off_t(off), off_t(len), POSIX_FADV_DONTNEED);
+#endif
+}
+
 inline void drop_range_from_page_cache(int fd, uint64_t off, uint64_t len)
 {
     if (fd < 0 || len == 0) return;
+#ifndef __APPLE__
     sync_file_range(fd, off_t(off), off_t(len),
         SYNC_FILE_RANGE_WAIT_BEFORE | SYNC_FILE_RANGE_WRITE | SYNC_FILE_RANGE_WAIT_AFTER);
-    posix_fadvise(fd, off, len, POSIX_FADV_DONTNEED);
+#endif
+    drop_cached(fd, off, len);
 }
 
 inline void advise_uncached(int fd)
 {
     if (fd < 0) return;
+#ifndef __APPLE__
     posix_fadvise(fd, 0, 0, POSIX_FADV_DONTNEED);
     posix_fadvise(fd, 0, 0, POSIX_FADV_NOREUSE);
+#endif
 }
 
 class direct_filebuf_base : public std::streambuf {
@@ -132,7 +175,7 @@ protected:
 
     int open_direct(const std::string& path, int flags, mode_t mode = 0644)
     {
-        int descriptor = open(path.c_str(), flags | O_DIRECT, mode);
+        int descriptor = open_o_direct(path, flags, mode);
         direct = descriptor >= 0;
         if (!direct) descriptor = open(path.c_str(), flags, mode);
         return descriptor;
@@ -262,7 +305,7 @@ private:
         }
 
         if (written - dropped >= drop_every) {
-            sync_file_range(fd, off_t(dropped), off_t(written - dropped), SYNC_FILE_RANGE_WRITE);
+            start_writeback(fd, dropped, written - dropped);
             drop_range_from_page_cache(fd, in_flight_off, in_flight_len);
             in_flight_off = dropped;
             in_flight_len = written - dropped;
@@ -330,7 +373,7 @@ public:
     void close_file()
     {
         if (fd < 0) return;
-        if (!direct) posix_fadvise(fd, dropped, fetched_end - dropped, POSIX_FADV_DONTNEED);
+        if (!direct) drop_cached(fd, dropped, fetched_end - dropped);
         ::close(fd);
         fd = -1;
     }
@@ -429,7 +472,7 @@ private:
     void drop_consumed_pages()
     {
         if (fetched_end - dropped < drop_every) return;
-        posix_fadvise(fd, dropped, fetched_end - dropped, POSIX_FADV_DONTNEED);
+        drop_cached(fd, dropped, fetched_end - dropped);
         dropped = fetched_end;
     }
 

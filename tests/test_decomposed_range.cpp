@@ -61,10 +61,10 @@ void test(const range_ds_kind& kind)
     input_t input;
 
     if constexpr (byte_input) {
-        input = random_input<input_t>(input_size, input_size);
+        input = random_repetitive_input<input_t>(input_size, input_size);
     } else {
         const uint32_t sigma = random_log_uniform_size(1, uint64_t { 1 } << 16, gen);
-        input = random_input<input_t>(input_size, input_size, sym_t(0), sym_t(sigma - 1));
+        input = random_repetitive_input<input_t>(input_size, input_size, sym_t(0), sym_t(sigma - 1));
     }
 
     auto symbol_at = [&](uint64_t i) -> uint64_t {

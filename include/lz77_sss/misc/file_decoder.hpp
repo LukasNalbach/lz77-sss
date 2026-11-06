@@ -57,7 +57,7 @@ public:
         , mask(in_ram ? std::numeric_limits<uint64_t>::max() : ring_size - 1)
         , p(std::max<uint16_t>(1, p))
     {
-        ring = aligned_text_buffer(in_ram ? size : ring_size, 0);
+        ring = aligned_text_buffer(in_ram ? size : ring_size);
 
         #ifdef _WIN32
         out.open(file_path, std::ios::binary | std::ios::trunc);

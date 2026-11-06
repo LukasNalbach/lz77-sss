@@ -8,7 +8,8 @@ option(LZ77_SSS_BUILD_TESTS         "Build tests"                   ON)
 option(LZ77_SSS_EXTERN_TEMPLATES    "Compile the factorizer once instead of in every translation unit" ON)
 set(LZ77_SSS_LCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/lce" CACHE PATH "lce source directory")
 
-if(WIN32)
+# the benchmarks are only built on Linux
+if(WIN32 OR APPLE)
   set(LZ77_SSS_BUILD_BENCH OFF CACHE BOOL "" FORCE)
 endif()
 
